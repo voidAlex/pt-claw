@@ -99,8 +99,8 @@ python3 scripts/pt_search.py "" --site pttime --adult --actor "浅野心" --limi
 
 **接入方式**：
 - **M-Team**: **仅限 REST API**（`x-api-key` 认证，`MTEAM_API_KEY` 环境变量）。**禁止使用 Cookie 登录——会封号。** 搜索 ✅，下载 ✅（genDlToken）
-- **其他 7 站**: Cookie 直连（从 `PT_COOKIE_<SITE>` 环境变量读取）
-- **织梦 zmpt.cc**: 需走代理（直连超时）
+- **其他 7 站**: Cookie 直连或代理（从 `PT_COOKIE_<SITE>` 环境变量读取，`needs_proxy` 站点自动走 `PT_PROXY`）
+- **BTSchool/CarPT/SoulVoice/织梦**: NexusPHP 站，cookie 绑定登录 IP，必须走与浏览器相同出口的代理才能用
 
 ### qb_add.py — 添加到 qBittorrent（含站点标签 + 文件选择）
 
@@ -283,7 +283,7 @@ python3 scripts/connectivity_check.py --json        # JSON 格式输出
 
 实际发起 HTTP 请求测试每个外部服务：qBittorrent 登录、M-Team API、两个 Jellyfin 实例、javbus-api Docker、PT_PROXY 代理、8 个 PT 站 Cookie 有效性。`env_check.sh` 只检查变量是否存在，此脚本验证连接和认证是否真正可用。
 
-`--keepalive` 模式访问各站首页刷新 session，cookie 失败时自动尝试 CookieCloud 同步。
+`needs_proxy=True` 站点走代理访问；`needs_proxy=False` 站点先直连，失败自动代理重试。`--keepalive` 模式访问各站首页刷新 session，cookie 失败时自动触发 CookieCloud 同步。
 
 ### cookie_sync.py — CookieCloud Cookie 同步（可选）
 
@@ -293,7 +293,7 @@ python3 scripts/cookie_sync.py --dry-run           # 预览不同步
 python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
 ```
 
-从 CookieCloud 服务端拉取浏览器 Cookie，解密后更新 `secrets.env` 中的 `PT_COOKIE_*`。需要 `secrets.env` 中配置 `COOKIE_CLOUD_HOST`/`UUID`/`PASS`（可选，不配置则跳过）。
+从 CookieCloud 服务端拉取浏览器 Cookie，解密后更新 `secrets.env` 中的 `PT_COOKIE_*`（M-Team 除外，因 M-Team 使用 API Key 认证，不同步 cookie）。需要 `secrets.env` 中配置 `COOKIE_CLOUD_HOST`/`UUID`/`PASS`（可选，不配置则跳过）。
 
 **依赖**：`python3-cryptography`（系统包 `apt install python3-cryptography`，或 `pip install cryptography`）。
 
@@ -380,8 +380,8 @@ python3 scripts/connectivity_check.py --quick
 | PT下载进度检查 | 每 15 分钟 | 完成通知 + 死种告警，没事件时不发消息 |
 | PT自动追剧 | 每天 10:00 | 搜索+去重+展示，等用户确认后才下载 |
 | 公开磁链状态检查 | 每 30 分钟 | 自动删除已完成公开种、标记死种 |
-| PT站点Cookie保活 | 每天 06:00 | 访问各站首页刷新 session，失败时自动 CookieCloud 同步 |
-| CookieCloud定时同步 | 每 4 小时 | 从 CookieCloud 拉取最新 cookie 更新 secrets.env |
+| CookieCloud定时同步 | 每 4 小时 | 从 CookieCloud 拉取最新 cookie 更新 secrets.env（配置了 CookieCloud 时） |
+| PT站点Cookie保活 | 每天 06:00 | 访问各站首页刷新 session（未配置 CookieCloud 时才创建） |
 
 ```python
 # 下载进度检查（静默模式：没事件不通知）
@@ -437,19 +437,9 @@ cronjob(action='create',
     workdir="<skill-dir>",
 )
 
-# Cookie 保活（静默）
-cronjob(action='create',
-    name="PT站点Cookie保活",
-    schedule="0 6 * * *",
-    prompt="""加载 pt-claw skill。运行 `python3 scripts/connectivity_check.py --keepalive`，只报告失败的站点。全部成功则 [SILENT]。
-脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
-    skills=["pt-claw"],
-    deliver="origin",
-    workdir="<skill-dir>",
-)
-
 # CookieCloud 定时同步（仅当配置了 CookieCloud 时创建）
 # 如果 secrets.env 中没有 COOKIE_CLOUD_HOST 则跳过此任务
+# 配置了 CookieCloud 后不需要 keepalive——CookieCloud 定时同步已覆盖 cookie 刷新需求
 cronjob(action='create',
     name="CookieCloud定时同步",
     schedule="0 */4 * * *",
@@ -461,10 +451,24 @@ cronjob(action='create',
     deliver="origin",
     workdir="<skill-dir>",
 )
+
+# Cookie 保活（仅当未配置 CookieCloud 时创建）
+# 如果 secrets.env 中有 COOKIE_CLOUD_HOST 则跳过——CookieCloud 同步已覆盖
+cronjob(action='create',
+    name="PT站点Cookie保活",
+    schedule="0 6 * * *",
+    prompt="""加载 pt-claw skill。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
+如果有则 [SILENT] 跳过（CookieCloud 已覆盖 cookie 刷新）。
+如果没有，运行 `python3 scripts/connectivity_check.py --keepalive`，只报告失败的站点。全部成功则 [SILENT]。
+脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
+    skills=["pt-claw"],
+    deliver="origin",
+    workdir="<skill-dir>",
+)
 ```
 
-> ⚠️ 定时任务创建后告知用户：「已创建 5 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m)、Cookie保活(每天06:00)、CookieCloud同步(每4h)。随时可以说『暂停XX任务』来停止。」
-> CookieCloud 同步任务仅在配置了 `COOKIE_CLOUD_HOST` 时执行实际同步，未配置则静默跳过。
+> ⚠️ 定时任务创建后告知用户：「已创建 4 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m)、CookieCloud同步或Cookie保活(视配置而定)。随时可以说『暂停XX任务』来停止。」
+> CookieCloud 同步和 Cookie 保活互斥：配置了 `COOKIE_CLOUD_HOST` 则只创建同步任务（每4h），未配置则只创建保活任务（每天06:00）。Agent 创建时应检查 `secrets.env` 中是否有 `COOKIE_CLOUD_HOST` 来决定创建哪个。实际同时运行的定时任务始终为 4 个。
 
 ### Step 1：识别内容类型，路由搜索
 
@@ -963,11 +967,16 @@ cronjob(action='create',
 
 ## Supported PT Sites
 
-| 站点 | 接入 | 成人区 | 备注 |
-|------|------|--------|------|
-| M-Team (馒头) | REST API | `/browse/adult`（web），API 待验证 `mode` 参数 | POST，`x-api-key` header |
-| PTTime | Cookie | `adults.php?searchstr=` | `data=` attribute 变体 |
-| BTSchool, CarPT, HDFans, 1PTBar, SoulVoice, 织梦 | Cookie | 无 | Classic NexusPHP |
+| 站点 | 接入 | 成人区 | 代理 | 备注 |
+|------|------|--------|------|------|
+| M-Team (馒头) | REST API | `/browse/adult`（web），API 待验证 `mode` 参数 | ❌ | POST，`x-api-key` header，**禁 Cookie** |
+| PTTime | Cookie | `adults.php?searchstr=` | ❌ | `data=` attribute 变体 |
+| BTSchool | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
+| CarPT | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
+| HDFans | Cookie | 无 | ❌ | Classic NexusPHP |
+| 1PTBar | Cookie | 无 | ❌ | Classic NexusPHP |
+| SoulVoice | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
+| 织梦 (zmpt.cc) | Cookie | 无 | ✅ `needs_proxy` | Cloudflare + NexusPHP，cookie IP 绑定 |
 
 ### M-Team API 要点
 - **API Host**: `https://api.m-team.cc/api`
@@ -1563,7 +1572,7 @@ rm -f ~/.hermes/pt_wishlist.json ~/.hermes/pt_downloaded.json ~/.hermes/pt_compl
 
 **20. 搜老剧多关键词**：中文通用标题 + 季别名 + 英文名+季号。
 
-**21. Cookie 403 ≠ 过期**：先去代理重试，再判过期。
+**21. Cookie 403 ≠ 过期**：NexusPHP 的 `c_secure_*` cookie 绑定登录时 IP。直连 403 → 先走代理重试（代理出口 IP 需和浏览器一致），代理也 403 → 才判过期。4 站需代理：btschool/carpt/soulvoice/zmpt。
 
 **22. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
 

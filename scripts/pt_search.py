@@ -105,7 +105,7 @@ SITES = {
         "url": "https://www.pttime.org",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
-        "needs_proxy": True,
+        "needs_proxy": False,
         "categories": ["影视", "综合", "成人"],
     },
     "soulvoice": {
@@ -113,7 +113,7 @@ SITES = {
         "url": "https://pt.soulvoice.club",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
-        "needs_proxy": False,
+        "needs_proxy": True,
         "categories": ["影视", "综合", "电子书", "有声书"],
     },
     "zmpt": {

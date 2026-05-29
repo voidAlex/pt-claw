@@ -66,6 +66,7 @@ def _fetch(url, timeout=10, headers=None, data=None, proxy=None):
         handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
     opener = urllib.request.build_opener(*handlers)
     req = urllib.request.Request(url)
+    req.add_header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
     if headers:
         for k, v in headers.items():
             req.add_header(k, v)
@@ -210,29 +211,42 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy):
     if not cookie:
         _result(name, "skip", f"{cookie_var} not set")
         return
-    proxy = _env("PT_PROXY") if needs_proxy else None
-    try:
-        url = f"{base_url.rstrip('/')}/torrents.php?search=test"
-        headers = {"Cookie": cookie}
-        status, body, elapsed = _fetch(url, timeout=15, headers=headers, proxy=proxy)
-        if "登录" in body[:3000] or "login" in body[:3000].lower():
-            _result(name, "fail", f"cookie expired (login page returned)", elapsed)
-        elif "<title>" in body and "403" in body[:500]:
-            _result(name, "fail", f"403 Forbidden — proxy may be blocked", elapsed)
-        elif "torrent" in body.lower() or "search" in body.lower():
-            _result(name, "ok", f"site OK, search page loaded ({len(body)} bytes)", elapsed)
-        else:
-            _result(name, "warn", f"got {len(body)} bytes, unclear if page is valid", elapsed)
-    except urllib.error.HTTPError as e:
-        detail = f"HTTP {e.code}"
-        if e.code == 403:
-            detail += " — try without proxy or check cookie"
+    pt_proxy = _env("PT_PROXY")
+    attempts = [pt_proxy] if needs_proxy else [None, pt_proxy]
+    url = f"{base_url.rstrip('/')}/torrents.php?search=test"
+    headers = {"Cookie": cookie}
+    last_err = None
+    for use_proxy in attempts:
+        try:
+            status, body, elapsed = _fetch(url, timeout=15, headers=headers, proxy=use_proxy)
+            if "登录" in body[:3000] or "login" in body[:3000].lower():
+                _result(name, "fail", f"cookie expired (login page returned)", elapsed)
+                return
+            elif "<title>" in body and "403" in body[:500]:
+                _result(name, "fail", f"403 Forbidden", elapsed)
+                return
+            elif "torrent" in body.lower() or "search" in body.lower():
+                label = "proxy" if use_proxy else "direct"
+                _result(name, "ok", f"site OK ({label}, {len(body)} bytes)", elapsed)
+                return
+            else:
+                _result(name, "warn", f"got {len(body)} bytes, unclear if page is valid", elapsed)
+                return
+        except urllib.error.HTTPError as e:
+            last_err = f"HTTP {e.code}"
+            if len(attempts) > 1:
+                continue
+        except Exception as e:
+            last_err = str(e)[:80]
+            if len(attempts) > 1:
+                continue
+    if last_err:
+        detail = last_err
+        if "403" in detail:
+            detail += " — cookie may be expired or IP blocked"
         _result(name, "fail", detail)
-    except Exception as e:
-        estr = str(e)[:80]
-        if "timed out" in estr:
-            estr += " — needs proxy?"
-        _result(name, "fail", estr)
+    else:
+        _result(name, "fail", "all attempts failed")
 
 
 def test_pt_sites(filter_site=None):
@@ -260,37 +274,26 @@ def _keepalive_site(name, base_url, cookie_var, needs_proxy):
     if not cookie:
         print(f"  ⏭️  {name}: {cookie_var} not set, skip")
         return True
-    proxy = _env("PT_PROXY") if needs_proxy else None
-    try:
-        url = f"{base_url.rstrip('/')}/index.php"
+    pt_proxy = _env("PT_PROXY")
+    attempts = [pt_proxy] if needs_proxy else [None, pt_proxy]
+    url = f"{base_url.rstrip('/')}/index.php"
+    for use_proxy in attempts:
         try:
-            status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=proxy)
-        except urllib.error.HTTPError as e:
-            if e.code == 403 and proxy:
-                status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=None)
+            status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=use_proxy)
+            if "登录" in body[:3000] or "login" in body[:3000].lower():
+                print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
+                return False
+            elif status == 200:
+                label = "proxy" if use_proxy else "direct"
+                print(f"  ✅ {name}: keepalive OK ({label}, {elapsed:.0f}ms)")
+                return True
             else:
-                raise
-        if "登录" in body[:3000] or "login" in body[:3000].lower():
-            print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
-            return False
-        elif status == 200:
-            print(f"  ✅ {name}: keepalive OK ({elapsed:.0f}ms)")
-            return True
-        else:
-            print(f"  ❌ {name}: HTTP {status}")
-            return False
-    except urllib.error.HTTPError as e:
-        if e.code == 403:
-            print(f"  ⚠️  {name}: 403 — cookie may be expired or IP blocked")
-        else:
-            print(f"  ❌ {name}: HTTP {e.code}")
-        return False
-    except Exception as e:
-        estr = str(e)[:60]
-        if "timed out" in estr:
-            estr += " — site unreachable"
-        print(f"  ❌ {name}: {estr}")
-        return False
+                print(f"  ❌ {name}: HTTP {status}")
+                return False
+        except Exception:
+            continue
+    print(f"  ❌ {name}: all attempts failed")
+    return False
 
 
 def keepalive_sites(filter_site=None):

@@ -13,22 +13,35 @@ _skill_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 BACKUP_FILE = os.path.join(_skill_root, "pt_deleted_backup.json")
 TORRENT_DIR = os.path.join(_skill_root, "torrent_backups")
 
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
+_env_cache = None
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                _env_cache[k.strip()] = v.strip()
+
+def _env(key, default=""):
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
+
 def _qb_auth():
     """Create an authenticated qB opener."""
-    qb_url = os.environ.get("QBITTORRENT_URL", "")
-    qb_user = os.environ.get("QBITTORRENT_USER", "")
-    qb_pass = os.environ.get("QBITTORRENT_PASS", "")
-    if not all([qb_url, qb_user, qb_pass]):
-        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-        if os.path.exists(env_file):
-            with open(env_file) as f:
-                for line in f:
-                    if line.startswith("QBITTORRENT_URL="):
-                        qb_url = line.split("=", 1)[1].strip()
-                    elif line.startswith("QBITTORRENT_USER="):
-                        qb_user = line.split("=", 1)[1].strip()
-                    elif line.startswith("QBITTORRENT_PASS="):
-                        qb_pass = line.split("=", 1)[1].strip()
+    qb_url = _env("QBITTORRENT_URL")
+    qb_user = _env("QBITTORRENT_USER")
+    qb_pass = _env("QBITTORRENT_PASS")
     if not all([qb_url, qb_user, qb_pass]):
         return None, None
     cj = http.cookiejar.CookieJar()

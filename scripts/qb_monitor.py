@@ -33,17 +33,28 @@ from qb_backup import backup_from_torrents
 
 MAX_DELETE_PER_RUN = 50
 
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
+_env_cache = None
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                _env_cache[k.strip()] = v.strip()
+
 def _env(key, default=""):
-    val = os.environ.get(key, default)
-    # Override from secrets.env if not in env
-    if val == default:
-        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-        if os.path.exists(env_file):
-            with open(env_file) as f:
-                for line in f:
-                    if line.startswith(key + "="):
-                        val = line.split("=", 1)[1].strip()
-                        break
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
     return val
 
 def qb_get(endpoint: str, host: str = None) -> dict:
