@@ -1,0 +1,15 @@
+{
+  "enabled": false,
+  "sites": ["mteam"],
+  "qb_url": "<QB_HOST>",
+  "qb_user": "<QB_USER>",
+  "qb_pass": "<QB_PASS>",
+  "boost_category": "boost",
+  "boost_save_path": "<BOOST_PATH>",
+  "max_seed_days": 7,
+  "max_torrents": 20,
+  "freeleech_only": true,
+  "min_size_gb": 5,
+  "max_size_gb": 200,
+  "min_seeders": 5
+}

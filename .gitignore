@@ -16,9 +16,13 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Hermes runtime (personal)
-pt_downloaded.json
-pt_completed_last.txt
+# 本地配置（不提交）
+*.local.json
 pt_wishlist.json
+pt_downloaded.json
 pt_boost.json
 pt_boost_tracker.json
+pt_deleted_backup.json
+pt_completed_last.txt
+torrent_backups/
+config.local.env

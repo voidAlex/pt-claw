@@ -1,0 +1,12 @@
+{
+  "movies": [
+    {"title": "流浪地球3", "year": 2027, "quality": "4K", "codec": "HEVC"}
+  ],
+  "actors": [
+    {"name": "Christopher Nolan", "type": "director"},
+    {"name": "浅野こころ", "type": "adult_actress", "exclude_prefixes": ["FNS"]}
+  ],
+  "fanhao": [
+    {"code": "SSIS-448", "actress": null}
+  ]
+}
