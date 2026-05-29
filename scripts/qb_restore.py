@@ -10,14 +10,14 @@ Usage:
     python3 qb_restore.py --last                    # Restore most recently deleted
 
 Backup locations:
-    Metadata: ~/.hermes/pt_deleted_backup.json
-    .torrent: ~/.hermes/torrent_backups/<hash>.torrent
+    Metadata: <skill-dir>/pt_deleted_backup.json
+    .torrent: <skill-dir>/torrent_backups/<hash>.torrent
 """
 import json, os, sys, time, urllib.request, urllib.parse, http.cookiejar
 
-
-BACKUP_FILE = os.path.expanduser("~/.hermes/pt_deleted_backup.json")
-TORRENT_DIR = os.path.expanduser("~/.hermes/torrent_backups")
+_skill_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+BACKUP_FILE = os.path.join(_skill_root, "pt_deleted_backup.json")
+TORRENT_DIR = os.path.join(_skill_root, "torrent_backups")
 
 
 def _qb_login():

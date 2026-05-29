@@ -15,7 +15,7 @@
 ### 1. 导出 qB 种子列表
 
 ```bash
-source ~/.hermes/.env
+source secrets.env
 curl -s -c /tmp/qb_cookies.txt -X POST "$QBITTORRENT_URL/api/v2/auth/login" \
   --data-urlencode "username=$QBITTORRENT_USER" \
   --data-urlencode "password=$QBITTORRENT_PASS" > /dev/null

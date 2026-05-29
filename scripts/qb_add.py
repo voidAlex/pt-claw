@@ -64,7 +64,7 @@ def _get_opener():
         _qb_opener.open(f"{_qb_url}/api/v2/auth/login", login_data, timeout=10)
     except urllib.error.HTTPError as e:
         if e.code == 403:
-            raise RuntimeError("Login failed — check QBITTORRENT_USER/PASS in .env")
+            raise RuntimeError("Login failed — check QBITTORRENT_USER/PASS in secrets.env")
         raise
     return _qb_opener
 

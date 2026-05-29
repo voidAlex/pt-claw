@@ -3,14 +3,15 @@
 Backup torrent metadata + .torrent files before deletion.
 Called by qb_public_cleanup, qb_monitor, pt_ratio_boost.
 
-Metadata: ~/.hermes/pt_deleted_backup.json
-.torrent files: ~/.hermes/torrent_backups/<hash>.torrent
+Metadata: <skill-dir>/pt_deleted_backup.json
+.torrent files: <skill-dir>/torrent_backups/<hash>.torrent
 """
 import json, os, re, sys, urllib.request, urllib.parse, http.cookiejar, fcntl
 from datetime import datetime, timezone
 
-BACKUP_FILE = os.path.expanduser("~/.hermes/pt_deleted_backup.json")
-TORRENT_DIR = os.path.expanduser("~/.hermes/torrent_backups")
+_skill_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+BACKUP_FILE = os.path.join(_skill_root, "pt_deleted_backup.json")
+TORRENT_DIR = os.path.join(_skill_root, "torrent_backups")
 
 def _qb_auth():
     """Create an authenticated qB opener."""

@@ -35,12 +35,12 @@
 
 - Python 3.10+
 - qBittorrent Web UI 已开启
-- PT 站 Cookie（存于 `~/.hermes/.env`）
+- PT 站 Cookie（存于 `secrets.env`）
 - M-Team API Key（可选，API 搜索需要）
 
 ## 配置
 
-首次使用时，Hermes Agent 会交互式引导配置。参考 `.env.example` 了解所需环境变量。
+首次使用时，Agent 会交互式引导配置。参考 `templates/secrets.env.example` 了解所需环境变量。
 
 ## 脚本清单
 
@@ -59,7 +59,6 @@
 | `pt_ratio_boost.py` | Freeleech 自动辅种 |
 | `mteam_api.py` | M-Team API 客户端 |
 | `env_check.sh` | 环境变量完整性检查 |
-| `with_proxy.sh` | 代理包装脚本（按需使用） |
 
 ## 许可
 

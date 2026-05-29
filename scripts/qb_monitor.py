@@ -35,7 +35,7 @@ MAX_DELETE_PER_RUN = 50
 
 def _env(key, default=""):
     val = os.environ.get(key, default)
-    # Override from .env if not in env
+    # Override from secrets.env if not in env
     if val == default:
         env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
         if os.path.exists(env_file):

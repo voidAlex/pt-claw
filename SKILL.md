@@ -212,7 +212,7 @@ python3 scripts/qb_restore.py --restore-all --reason boost_aged
 python3 scripts/qb_backup.py --clear
 ```
 
-`qb_public_cleanup.py`、`qb_monitor.py --delete`、`pt_ratio_boost.py` 删除种子前自动调用 `backup_from_torrents()`，将 hash/名称/路径/标签/分类 **加上 .torrent 文件** 备份到 `~/.hermes/torrent_backups/`，元数据写入 `~/.hermes/pt_deleted_backup.json`（保留最近 500 条）。
+`qb_public_cleanup.py`、`qb_monitor.py --delete`、`pt_ratio_boost.py` 删除种子前自动调用 `backup_from_torrents()`，将 hash/名称/路径/标签/分类 **加上 .torrent 文件** 备份到 `torrent_backups/`，元数据写入 `pt_deleted_backup.json`（保留最近 500 条）。
 
 **恢复链路**：`qb_restore.py` 从备份恢复种子到 qBittorrent。支持按 hash 单个恢复、最近恢复、按原因批量恢复。恢复时重新上传 .torrent 文件并应用原始标签/分类/路径。无 .torrent 文件的条目会打印搜索关键词供手动恢复。
 
@@ -284,7 +284,7 @@ API 详细文档见 [references/mteam-api.md](references/mteam-api.md)。
 
 1. **PT 站点**：有哪些站？目前支持 8 站（M-Team、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦），不在列表中的需要新增适配。
 2. **下载器**：类型、地址、端口、用户名、密码（目前支持 qBittorrent）。
-3. **下载路径偏好**：各类内容分别下载到哪里？从 qBittorrent 的分类/路径中读取并展示让用户选。
+3. **下载路径偏好**：读取 qBittorrent 分类 API，展示所有分类和路径，让用户确认内容类型映射（电影/电视剧/成人等 → 分类 → 路径），写入 `user-preferences.md`。
 4. **清晰度偏好**：2160p / 1080p / 720p / 无偏好。
 5. **编码格式偏好**：HEVC / AVC / AV1 / 无偏好。
 6. **其他偏好**（可选）：原盘 vs 压制、字幕、音轨、制作组。
@@ -522,9 +522,9 @@ python3 scripts/pt_search.py "关键词" --limit 10
 
 **⚠️ 推送前必须查 Jellyfin 去重（如果已配置）！** 避免下已经有的资源。
 
-**前置验证 — 确保 API key 确实在 `.env` 中**：
+**前置验证 — 确保 API key 确实在 `secrets.env` 中**：
 
-Agent 跨会话后无法保留运行时状态，API key 必须落在 `.env` 文件里才能持久。每次做去重前先跑：
+Agent 跨会话后无法保留运行时状态，API key 必须落在 `secrets.env` 文件里才能持久。每次做去重前先跑：
 
 ```bash
 bash scripts/env_check.sh
@@ -574,7 +574,7 @@ echo -e "MIMK-267\nMIDA-574\nNEW-001" | python3 scripts/download_history.py filt
 **Jellyfin 去重检查**（仅当以上验证通过）：
 
 ```bash
-# 通用模板 — 地址和 key 从 .env 读取
+# 通用模板 — 地址和 key 从 secrets.env 读取
 curl -s "http://<jf_host>:8096/Items?searchTerm=<keyword>&includeItemTypes=Movie,Series&recursive=true" \
   -H "X-MediaBrowser-Token: <api_key>" | python3 -c "
 import sys,json; d=json.load(sys.stdin)
@@ -627,15 +627,18 @@ for t in json.load(sys.stdin):
 
 - **Jellyfin 未配置 → 跳过所有去重检查，直接下载**
 
-**读取 qBittorrent 分类**（首次或缓存过期时）：
-```bash
-curl -b <auth_cookie> 'http://<host>:<port>/api/v2/torrents/categories'
-```
+**qBittorrent 分类映射**：
+
+初始化时一次性读取 qB 分类 API（`GET /api/v2/torrents/categories`），展示给用户确认内容类型映射（电影/电视剧/纪录片/成人等），写入 `user-preferences.md` 的分类映射段。
+
+日常使用时直接读偏好文件，不走 API。仅在以下场景更新映射：
+- Agent 发现种子所属分类不在偏好文件中
+- 用户在 qB 中新建/修改了分类
+- 用户主动要求重新配置
 
 **路径选择逻辑**：
-- 成人/番号内容：检查偏好文件是否有默认路径 → 有则直接用，无则列出 qBittorrent 分类让用户选
-- 影视内容：根据类型匹配对应分类 → 偏好文件有默认路径则直接用
-- 其他内容：列出分类让用户选
+- 偏好文件有匹配的分类路径 → 直接用
+- 无匹配 → 询问用户选择分类并更新偏好文件
 
 **推送下载** — **必须使用两步法，禁止只用 URL 推送！**
 
@@ -726,7 +729,7 @@ subprocess.run([
 
 **分类选择指南**（先调 `GET /api/v2/torrents/categories` 读 qB 实际分类，再匹配）：
 
-> ⚠️ **skill 中不硬编码分类名和路径**。用户的分类信息存于 `user-preferences.md` 和 `.env`，Agent 运行时从 API 动态读取后匹配。
+> ⚠️ **skill 中不硬编码分类名和路径**。用户的分类信息存于 `user-preferences.md` 和 `secrets.env`，Agent 运行时从 API 动态读取后匹配。
 
 常用分类映射示例（仅作参考，实际以 API 返回为准）：
 
@@ -853,9 +856,9 @@ cronjob(action='create',
 ### 脚本
 
 - **[scripts/pt_ratio_boost.py](scripts/pt_ratio_boost.py)** — 刷流主脚本，三个子命令：
-  - `python3 pt_ratio_boost.py run` — 完整刷流一次
-  - `python3 pt_ratio_boost.py cleanup` — 仅清理过期
-  - `python3 pt_ratio_boost.py status` — 查看刷流状态
+  - `python3 scripts/pt_ratio_boost.py run` — 完整刷流一次
+  - `python3 scripts/pt_ratio_boost.py cleanup` — 仅清理过期
+  - `python3 scripts/pt_ratio_boost.py status` — 查看刷流状态
 
 
 ## Supported PT Sites
@@ -1009,7 +1012,7 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
 
 | # | 检查项 | 状态 |
 |---|--------|------|
-| 1 | Cookie / API Key 已写入 `.env` | ☐ |
+| 1 | Cookie / API Key 已写入 `secrets.env` | ☐ |
 | 2 | 平台类型已识别 | ☐ |
 | 3 | 搜索返回结果非空 | ☐ |
 | 4 | 标题/大小/做种数/下载链接解析正确 | ☐ |
@@ -1021,7 +1024,7 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
 | 10 | qBittorrent 推送成功 | ☐ |
 | 11 | `pt_search.py` SITES 字典已注册 | ☐ |
 | 12 | Skill 文档站点表格已更新 | ☐ |
-| 13 | 模板文件已更新（config.env.example + user-preferences.md） | ☐ |
+| 13 | 模板文件已更新（secrets.env.example + user-preferences.md） | ☐ |
 
 ## Jellyfin 集成 — 片库感知 & 自动追剧（可选）
 
@@ -1256,7 +1259,7 @@ curl -s "https://sukebei.nyaa.si/?page=rss&q=SNOS-151" \
 
 **⚠️ Jellyfin 未配置 → 跳过此节，不影响 PT 下载。**
 
-**认证方式**：Header `X-MediaBrowser-Token: <api_key>`（存 `.env`，从环境变量读取）
+**认证方式**：Header `X-MediaBrowser-Token: <api_key>`（存 `secrets.env`，从环境变量读取）
 
 **核心端点**：
 
@@ -1385,7 +1388,7 @@ curl -s "http://<host>:8096/Persons?searchTerm=诺兰" -H "X-MediaBrowser-Token:
 
 ### 🔴 致命级
 
-**1. 代理用 `PT_PROXY`，禁止用 `HTTP_PROXY`**：脚本从 `PT_PROXY` 读取代理并按站点 `needs_proxy` 标记自动应用。`HTTP_PROXY` 设在 `.env` 会导致 Agent 自身 API 走代理，挂了直接失联。
+**1. 代理用 `PT_PROXY`，禁止用 `HTTP_PROXY`**：脚本从 `PT_PROXY` 读取代理并按站点 `needs_proxy` 标记自动应用。`HTTP_PROXY` 设在 `secrets.env` 会导致 Agent 自身 API 走代理，挂了直接失联。
 
 **2. 公开磁链只看标签不看 tracker**（520 种误删事故）：PT 种常有公共 tracker，唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份 `.torrent` + 元数据。
 
@@ -1408,7 +1411,7 @@ curl -s "http://<host>:8096/Persons?searchTerm=诺兰" -H "X-MediaBrowser-Token:
 
 **9. JF 已有 ≠ 重复**：比 `DateCreated` vs qB `added_on` 时间戳。JF 晚于 qB = 正常入库。
 
-**10. API key 必须写 `.env`**：不依赖 memory。用 `printf >>` 追加（`write_file` 替换敏感值）。
+**10. API key 必须写 `secrets.env`**：不依赖 memory。用 `printf >>` 追加（`write_file` 替换敏感值）。
 
 **11. PT 恢复种子结构不匹配**：本地 .torrent → snatchlist 原始种 → 搜索下载。导入后验证命中已有文件。
 
@@ -1442,7 +1445,7 @@ curl -s "http://<host>:8096/Persons?searchTerm=诺兰" -H "X-MediaBrowser-Token:
 
 **24. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
 
-**25. `write_file` 替换敏感值**：写 `.env` 用 `printf >>`。
+**25. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
 
 **26. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不允许出现在 skill 文件中。发现硬编码凭据 → 立即替换为环境变量引用或占位符，并 rotate 对应 Token。审计步骤见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
 
@@ -1481,7 +1484,7 @@ curl -s "http://<host>:8096/Persons?searchTerm=诺兰" -H "X-MediaBrowser-Token:
 
 ### 网络
 
-> ⚠️ **致命警告**：不要在 `.env` 中设置 `HTTP_PROXY` / `HTTPS_PROXY`！用 `PT_PROXY` 代替。脚本按站点 `needs_proxy` 标记自动应用代理，不会影响 Agent 自身的 API 调用。
+> ⚠️ **致命警告**：不要在 `secrets.env` 中设置 `HTTP_PROXY` / `HTTPS_PROXY`！用 `PT_PROXY` 代替。脚本按站点 `needs_proxy` 标记自动应用代理，不会影响 Agent 自身的 API 调用。
 
 | 变量 | 说明 |
 |------|------|

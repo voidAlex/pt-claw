@@ -7,7 +7,7 @@
 ## 正确执行流程（cron job 用）
 
 ```
-1. grep QBITTORRENT_ ~/.hermes/.env → 读取连接信息
+1. 脚本自动从 secrets.env 读取 QBITTORRENT_* 连接信息
 2. Python 脚本用 urllib.request 登录 qB → 获取所有 torrents
 3. 读 pt_completed_last.txt → 构建 known_hashes 集合
 4. 筛选 progress==1.0 且 hash 不在 known_hashes 中的 → new_completed
@@ -33,8 +33,8 @@ import json, os, urllib.request, urllib.parse
 from datetime import datetime, timedelta, timezone
 from http.cookiejar import CookieJar
 
-# Read .env
-env_path = os.path.expanduser("~/.hermes/.env")
+# Read secrets.env
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 if os.path.exists(env_path):
     with open(env_path) as f:
         for line in f:
@@ -58,7 +58,7 @@ with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
     torrents = json.loads(r.read())
 
 # Read known hashes
-tracker = os.path.expanduser("~/.hermes/pt_completed_last.txt")
+tracker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_completed_last.txt")
 known = set()
 with open(tracker) as f:
     for line in f:

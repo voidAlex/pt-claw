@@ -3,9 +3,9 @@
 PT ratio booster — auto-download freeleech torrents, delete after aging out.
 
 Usage:
-    python3 pt_ratio_boost.py run                    # One-shot: cleanup + add new
-    python3 pt_ratio_boost.py cleanup                # Delete aged torrents only
-    python3 pt_ratio_boost.py status                 # Show current boost tasks
+    python3 scripts/pt_ratio_boost.py run                    # One-shot: cleanup + add new
+    python3 scripts/pt_ratio_boost.py cleanup                # Delete aged torrents only
+    python3 scripts/pt_ratio_boost.py status                 # Show current boost tasks
 
 Config: <skill-dir>/pt_boost.json (template: templates/pt_boost.example.json)
 """
@@ -18,7 +18,7 @@ _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 from qb_backup import backup_from_torrents
 
-CONFIG_PATH = os.path.join(_skill_dir, "pt_boost.json")
+CONFIG_PATH = os.path.join(_skill_dir, "..", "pt_boost.json")
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
@@ -223,7 +223,7 @@ def cleanup_aged(cfg: dict, qb: QBit, dry_run: bool = False) -> list[dict]:
                 "age_days": round((now - t.get("added_on", 0)) / 86400, 1),
                 "size": _fmt_size(t.get("size", 0)),
             } for t in to_delete],
-            "tip": "确认删除请运行: python3 pt_ratio_boost.py cleanup",
+            "tip": "确认删除请运行: python3 scripts/pt_ratio_boost.py cleanup",
         }
         print(json.dumps(preview, ensure_ascii=False, indent=2))
         return to_delete
