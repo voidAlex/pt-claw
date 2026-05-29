@@ -12,7 +12,8 @@ Usage:
     python3 connectivity_check.py jf2                      # test only Jellyfin movie/tv
     python3 connectivity_check.py javbus                   # test only javbus-api
     python3 connectivity_check.py proxy                    # test only PT_PROXY
-    python3 connectivity_check.py --site btschool          # test only one PT site
+    python3 connectivity_check.py --keepalive             # keepalive all PT sites
+    python3 connectivity_check.py --keepalive --site btschool  # keepalive one site
 """
 import json, os, sys, time, urllib.request, urllib.parse, urllib.error
 
@@ -252,6 +253,58 @@ def test_pt_sites(filter_site=None):
         )
 
 
+def _keepalive_site(name, base_url, cookie_var, needs_proxy):
+    cookie = _env(cookie_var)
+    proxy = _env("PT_PROXY") if needs_proxy else None
+    if not cookie:
+        print(f"  ⏭️  {name}: {cookie_var} not set, skip")
+        return True
+    try:
+        url = f"{base_url.rstrip('/')}/index.php"
+        status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=proxy)
+        if "登录" in body[:3000] or "login" in body[:3000].lower():
+            print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
+            return False
+        elif status == 200:
+            print(f"  ✅ {name}: keepalive OK ({elapsed:.0f}ms)")
+            return True
+        else:
+            print(f"  ❌ {name}: HTTP {status}")
+            return False
+    except Exception as e:
+        print(f"  ❌ {name}: {str(e)[:60]}")
+        return False
+
+
+def keepalive_sites(filter_site=None):
+    try:
+        from pt_search import SITES
+    except ImportError:
+        print("⚠️  Cannot import SITES from pt_search.py")
+        return
+    print("PT site keepalive (accessing index page to refresh session)")
+    print("-" * 50)
+    all_ok = True
+    for site_id, cfg in SITES.items():
+        if site_id == "mteam":
+            continue
+        if filter_site and site_id != filter_site:
+            continue
+        ok = _keepalive_site(
+            name=site_id,
+            base_url=cfg["url"],
+            cookie_var=f"PT_COOKIE_{site_id.upper()}",
+            needs_proxy=cfg.get("needs_proxy", False),
+        )
+        if not ok:
+            all_ok = False
+    print("-" * 50)
+    if all_ok:
+        print("All sites keepalive OK")
+    else:
+        print("⚠️  Some sites need cookie refresh — consider CookieCloud or manual update")
+
+
 SERVICE_MAP = {
     "qb": lambda: test_qbittorrent(),
     "mteam": lambda: test_mteam(),
@@ -271,12 +324,15 @@ def main():
     only_site = None
     quick = False
     only_service = None
+    keepalive = False
 
     i = 0
     while i < len(args):
         arg = args[i]
         if arg == "--quick":
             quick = True
+        elif arg == "--keepalive":
+            keepalive = True
         elif arg == "--site" and i + 1 < len(args):
             i += 1
             only_site = args[i]
@@ -292,6 +348,10 @@ def main():
 
     print("pt-claw connectivity check")
     print("=" * 50)
+
+    if keepalive:
+        keepalive_sites(filter_site=only_site)
+        return
 
     if only_service:
         if only_service in SERVICE_MAP:
