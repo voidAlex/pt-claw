@@ -327,41 +327,53 @@ test -f pt_wishlist.json || echo '{"movies":[],"actors":[],"fanhao":[]}' > pt_wi
 cronjob(action='create',
     name="PT下载进度检查",
     schedule="every 15m",
-    repeat=-1,
-    prompt="""检查 qBittorrent 下载进度。只做三件事：
-1. 有下载完成的 → 通知「✅ xxx 下载完成」，更新 pt_completed_last.txt
-2. 超7天0%死种 → 通知「💀 xxx 死种N天，建议删除」
-3. 都没有 → 整个回复只有三个字符：[SILENT]（系统自动静默不推送）""",
+    repeat="forever",
+    prompt="""加载 pt-claw skill，检查 qBittorrent 下载进度。skill 目录下已有 secrets.env（凭据）、user-preferences.md（偏好）、pt_completed_last.txt（上次检查时间戳）。
+
+只做三件事：
+1. 有下载完成的（progress=100%）→ 通知「✅ xxx 下载完成」，更新 pt_completed_last.txt
+   - 公开磁链（sukebei/javbus 标签）完成后自动调 qb_public_cleanup.py 停止做种保留文件
+2. 超7天0%死种 → 通知「💀 xxx 已死种N天，回复「删」清理」
+   - ⚠️ 不要自动删除，等用户确认
+3. 都没有 → 整个回复只有三个字符：[SILENT]
+
+脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
     skills=["pt-claw"],
-    deliver="origin"
+    deliver="origin",
+    workdir="<skill-dir>",
 )
 
 # 自动追剧（只搜索展示，不自动下载）
 cronjob(action='create',
     name="PT自动追剧",
     schedule="0 10 * * *",
-    prompt="""自动追剧检查（只搜索展示，不自动下载）：
+    prompt="""加载 pt-claw skill，自动追剧检查（只搜索展示，不自动下载）。skill 目录下已有 secrets.env、user-preferences.md、pt_wishlist.json、pt_downloaded.json。
+
 1. 读 pt_wishlist.json + pt_downloaded.json
 2. 搜资源 → 三重去重（历史>JF>时间戳）
 3. 检查 exclude_prefixes 排除封禁厂牌
 4. 展示结果：每部列出站点、大小、做种数、下载路径、元数据（日期/导演/主演/简介）
 5. **绝对不推送下载**——等用户说「下」确认
-6. 无新资源则「今日无新资源」""",
+6. 无新资源则「今日无新资源」
+
+脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
     skills=["pt-claw"],
-    deliver="origin"
+    deliver="origin",
+    workdir="<skill-dir>",
 )
 
 # 公开磁链清理（只报告不自动删）
 cronjob(action='create',
     name="公开磁链状态检查",
     schedule="every 30m",
-    repeat=-1,
-    prompt="""运行 `python3 scripts/qb_public_cleanup.py --check` 检查公开磁链（TAG ONLY：sukebei/javbus，禁止 tracker URL 匹配）。
+    repeat="forever",
+    prompt="""加载 pt-claw skill。运行 `python3 scripts/qb_public_cleanup.py --check` 检查公开磁链（TAG ONLY：sukebei/javbus，禁止 tracker URL 匹配）。
 - 无事 → [SILENT]
 - 有事 → 列出待清理清单，结尾「回复「清了」确认删除」
 ⚠️ 绝对不能自动删种，必须等用户确认""",
     skills=["pt-claw"],
-    deliver="origin"
+    deliver="origin",
+    workdir="<skill-dir>",
 )
 ```
 
@@ -1383,6 +1395,32 @@ curl -s "http://<host>:8096/Items?searchTerm=流浪地球&includeItemTypes=Movie
 # 查看演员作品
 curl -s "http://<host>:8096/Persons?searchTerm=诺兰" -H "X-MediaBrowser-Token: <key>"
 ```
+
+## 数据文件迁移（从 v2.4 → v2.5）
+
+v2.5 将数据文件从 `~/.hermes/pt_*` 迁移到 skill 目录下，同时新增 `secrets.env` 和 `user-preferences.md` 替代原来的 `.env` + memory 混合存储。
+
+**迁移检查清单**：
+
+```bash
+# 1. 确认数据文件在 skill 目录
+ls <skill-dir>/pt_wishlist.json <skill-dir>/pt_downloaded.json <skill-dir>/pt_completed_last.txt
+
+# 2. 确认 secrets.env 包含所有凭据
+grep -c '=' <skill-dir>/secrets.env  # 应 >= 15 行
+
+# 3. 确认 user-preferences.md 存在
+test -f <skill-dir>/user-preferences.md && echo "OK"
+
+# 4. 清理旧 ~/.hermes/ 残留（可选，避免混淆）
+rm -f ~/.hermes/pt_wishlist.json ~/.hermes/pt_downloaded.json ~/.hermes/pt_completed_last.txt ~/.hermes/pt_boost.json
+```
+
+**Cron 任务迁移要点**：
+- 添加 `workdir` 参数指向 skill 目录
+- 提示词中去掉 `~/.hermes/pt_*` 绝对路径，改用相对路径
+- 每个 cron 任务不需要 `source secrets.env`——脚本内部有 `_load_env_file()` 自动处理，bash source 会因 Cookie 值中的 `=` 误解析
+- `repeat=-1` 改为 `repeat="forever"`
 
 ## Common Pitfalls
 
