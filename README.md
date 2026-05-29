@@ -1,6 +1,6 @@
 # pt-claw
 
-多站 PT 种子搜索与下载技能，运行于 [Hermes Agent](https://hermes-agent.nousresearch.com)。
+多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
 
 对话式搜索 8 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
 
@@ -16,7 +16,9 @@
 
 ## 使用方式
 
-这是给 Hermes Agent 用的技能，加载后通过对话操作，不需要手动跑脚本。
+这是给 AI Agent 用的技能，加载后通过对话操作，不需要手动跑脚本。
+
+**推荐使用 DeepSeek V4 Pro 模型**，该模型在工具调用和多步骤任务编排方面表现最佳。
 
 ```
 你：搜一下流浪地球2
