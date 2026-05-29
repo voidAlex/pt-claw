@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Hermes runtime (personal)
+pt_downloaded.json
+pt_completed_last.txt
+pt_wishlist.json
+pt_boost.json
+pt_boost_tracker.json

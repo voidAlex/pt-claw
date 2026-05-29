@@ -1,0 +1,62 @@
+#!/bin/bash
+# PT Downloader — environment prerequisite check
+# Run before any PT/Jellyfin operation to verify all required env vars are present.
+# Sources ~/.hermes/.env and reports which keys are missing.
+# Exit 0 if all required keys found, 1 if any missing.
+
+ENV_FILE="$HOME/.hermes/.env"
+[[ -f "$ENV_FILE" ]] && source "$ENV_FILE" 2>/dev/null
+
+MISSING=0
+check() {
+    local name="$1" desc="$2"
+    if [[ -z "${!name}" ]]; then
+        echo "  ✗ $name — $desc"
+        MISSING=$((MISSING + 1))
+    else
+        echo "  ✓ $name (set)"
+    fi
+}
+
+echo "=== qBittorrent ==="
+check QBITTORRENT_URL  "qBittorrent base URL"
+check QBITTORRENT_USER "qBittorrent username"
+check QBITTORRENT_PASS "qBittorrent password"
+
+echo "=== M-Team ==="
+check MTEAM_API_KEY "M-Team API key (x-api-key)"
+
+echo "=== Jellyfin (adult) ==="
+check JELLYFIN1_URL  "Adult Jellyfin URL (e.g. JF adult address)"
+check JELLYFIN1_API_KEY "Adult Jellyfin API key"
+
+echo "=== Jellyfin (movie/TV) ==="
+check JELLYFIN2_URL  "Movie/TV Jellyfin URL (e.g. JF TV address)"
+check JELLYFIN2_API_KEY "Movie/TV Jellyfin API key"
+
+echo "=== Proxy ==="
+if [[ -n "${HTTP_PROXY}" ]] || [[ -n "${HTTPS_PROXY}" ]]; then
+    echo "  ✓ HTTP_PROXY/HTTPS_PROXY set"
+else
+    echo "  ⚠ HTTP_PROXY not set — sites like zmpt.cc may timeout"
+fi
+
+echo "=== PT Cookies ==="
+for site in PTTIME BTSCHOOL CARPT HDFANS 1PTBA SOULVOICE ZMPT; do
+    var="PT_COOKIE_${site}"
+    if [[ -n "${!var}" ]]; then
+        _cookie_val="${!var}"
+        echo "  ✓ PT_COOKIE_${site} (set, ${#_cookie_val} chars)"
+    else
+        echo "  ⚠ PT_COOKIE_${site} — missing"
+    fi
+done
+
+echo ""
+if [[ $MISSING -eq 0 ]]; then
+    echo "All required keys present."
+    exit 0
+else
+    echo "${MISSING} config(s) missing — run 'hermes' to add them to ~/.hermes/.env"
+    exit 1
+fi
