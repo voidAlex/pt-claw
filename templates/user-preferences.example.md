@@ -20,6 +20,27 @@
 - 下载完成通知 ✅
 - 死种告警 💀
 
+## Jellyfin 集成
+- 实例数量：<COUNT>（如 2 个：成人 + 影视）
+- JF1（成人）：http://<JF_ADULT_HOST>:8096，API key: <JF1_API_KEY>
+- JF2（影视）：http://<JF_TV_HOST>:8096，API key: <JF2_API_KEY>
+- 用途：自动去重 + 片库统计
+- 未配置也不影响 PT 下载，仅跳过 JF 去重检查
+
+## javbus-api（Docker）
+- 部署地址：http://<API_URL>（本地 Docker 容器）
+- 端口映射：`-p 8922:3000`
+- 代理：通过 Docker daemon proxy 配置（`/etc/systemd/system/docker.service.d/proxy.conf`）
+- 用途：封面预览 + 结构化磁链（含 HD/字幕/去码标记）
+- ⚠️ 不部署也可裸爬 JavBus，仅数据不如 API 结构化
+
+## 代理规则
+- 默认：直连，不加代理
+- 代理地址：<PROXY_HOST>
+- 需要代理的站：织梦（zmpt.cc）、PTTime（Cloudflare 盾）、JavBus
+- 直连即可的站：BTSchool、CarPT、HDFans、SoulVoice
+- ⚠️ 禁止无脑给所有请求加代理，代理 IP 可能被 PT 站封禁
+
 ## 代码偏好
 - 所有代码任务委托 OpenCode (GLM-5.1)
 - 禁止 /tmp 临时脚本
