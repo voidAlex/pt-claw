@@ -17,6 +17,31 @@ Details: references/mteam-api.md
 
 import sys, json, os, urllib.request
 
+ENV_FILE = os.path.expanduser("~/.hermes/.env")
+_env_cache = None
+
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
+
+
+def _env(key, default=""):
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
+
 
 API_HOST = "https://api.m-team.cc/api"
 
@@ -116,7 +141,7 @@ def main():
         sys.exit(1)
 
     cmd = sys.argv[1]
-    api_key = os.environ.get("MTEAM_API_KEY", "")
+    api_key = _env("MTEAM_API_KEY", "")
 
     if "--key" in sys.argv:
         idx = sys.argv.index("--key")

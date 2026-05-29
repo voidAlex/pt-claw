@@ -14,7 +14,7 @@ PT 站的 `download.php?id=X` 需要 PT 站的 Cookie 才能访问。如果用 `
 import urllib.request
 
 pt_cookie = "<从 .env 读取>"
-dl_url = "https://pt.btschool.club/download.php?id=240323"
+dl_url = "https://pt.example.com/download.php?id=123"
 
 req = urllib.request.Request(
     dl_url,

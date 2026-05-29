@@ -14,6 +14,31 @@ Output: JSON array with title, magnet, size, isHD, hasSubtitle, shareDate.
 
 import sys, json, os, re, urllib.request, urllib.parse, subprocess
 
+ENV_FILE = os.path.expanduser("~/.hermes/.env")
+_env_cache = None
+
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
+
+
+def _env(key, default=""):
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
+
 
 # ── Ad / spam filter ──────────────────────────────────────────
 AD_KEYWORDS = [
@@ -84,7 +109,7 @@ def search_api(code: str, api_url: str) -> dict:
 # ── Raw scraping fallback ─────────────────────────────────────
 def search_scrape(code: str) -> dict:
     """Scrape JavBus directly (no API deployment needed)."""
-    proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    proxy = _env("PT_PROXY")
 
     # Step 1: get page + gid
     html = _fetch(f"https://www.javbus.com/{code}", proxy)
@@ -196,10 +221,10 @@ def main():
 
     if "--api" in sys.argv:
         idx = sys.argv.index("--api")
-        api_url = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else os.environ.get("JAVBUS_API_URL", "http://localhost:8922")
+        api_url = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else _env("JAVBUS_API_URL", "http://localhost:8922")
         result = search_api(code, api_url)
-    elif os.environ.get("JAVBUS_API_URL"):
-        result = search_api(code, os.environ["JAVBUS_API_URL"])
+    elif _env("JAVBUS_API_URL"):
+        result = search_api(code, _env("JAVBUS_API_URL"))
     else:
         result = search_scrape(code)
 

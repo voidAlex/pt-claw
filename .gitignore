@@ -18,6 +18,7 @@ Thumbs.db
 
 # 本地配置（不提交）
 *.local.json
+user-preferences.md
 pt_wishlist.json
 pt_downloaded.json
 pt_boost.json

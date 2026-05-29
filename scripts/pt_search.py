@@ -11,7 +11,7 @@ Config:
     Environment variables:
       PT_COOKIE_<SITE>  — cookie strings (one per site, from browser)
       MTEAM_API_KEY     — M-Team API key
-      HTTP_PROXY        — proxy for blocked sites
+      PT_PROXY          — proxy for sites that need it (auto-applied per site)
     This script's SITES dict    — site search URLs & parser type
 
 Output: JSON array of results across all sites.
@@ -22,8 +22,30 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.cookiejar import CookieJar
 
 
+ENV_FILE = os.path.expanduser("~/.hermes/.env")
+_env_cache = None
+
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
+
+
 def _env(key, default=""):
-    return os.environ.get(key, default)
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
 
 
 def _fmt_size(size_bytes: int) -> str:
@@ -42,6 +64,7 @@ SITES = {
         "url": "https://1ptba.com",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": False,
         "categories": ["综合", "影视"],
     },
     "btschool": {
@@ -49,6 +72,7 @@ SITES = {
         "url": "https://pt.btschool.club",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": True,
         "categories": ["影视", "综合", "学习"],
     },
     "carpt": {
@@ -56,6 +80,7 @@ SITES = {
         "url": "https://carpt.net",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": True,
         "categories": [],
     },
     "hdfans": {
@@ -63,6 +88,7 @@ SITES = {
         "url": "https://hdfans.org",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": False,
         "categories": ["综合", "影视"],
     },
     "mteam": {
@@ -71,6 +97,7 @@ SITES = {
         "api_host": "https://api.m-team.cc/api",
         "api_token": _env("MTEAM_API_KEY", ""),
         "parser": "mteam_api",
+        "needs_proxy": False,
         "categories": ["影视", "综合", "成人"],
     },
     "pttime": {
@@ -78,6 +105,7 @@ SITES = {
         "url": "https://www.pttime.org",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": True,
         "categories": ["影视", "综合", "成人"],
     },
     "soulvoice": {
@@ -85,6 +113,7 @@ SITES = {
         "url": "https://pt.soulvoice.club",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": False,
         "categories": ["影视", "综合", "电子书", "有声书"],
     },
     "zmpt": {
@@ -92,23 +121,30 @@ SITES = {
         "url": "https://zmpt.cc",
         "search": "/torrents.php?search={query}&notnewword=1",
         "parser": "nexusphp",
+        "needs_proxy": True,
         "categories": [],
     },
 }
 
 
 def load_cookies() -> dict[str, str]:
-    """Load cookie strings from environment variables (PT_COOKIE_<SITE>)."""
+    """Load cookie strings from environment variables (PT_COOKIE_<SITE>).
+    Falls back to ~/.hermes/.env if not in process environment."""
     cookies = {}
     for key, val in os.environ.items():
         if key.startswith("PT_COOKIE_"):
+            site_id = key[len("PT_COOKIE_"):].lower()
+            cookies[site_id] = val
+    _load_env_file()
+    for key, val in _env_cache.items():
+        if key.startswith("PT_COOKIE_") and key[len("PT_COOKIE_"):].lower() not in cookies:
             site_id = key[len("PT_COOKIE_"):].lower()
             cookies[site_id] = val
     return cookies
 
 
 def search_site(site_id: str, site: dict, query: str, limit: int,
-                timeout: int = 15) -> list[dict]:
+                timeout: int = 15, adult: bool = False) -> list[dict]:
     """Search a single PT site. Returns list of result dicts."""
     # API-based sites (no cookie/HTTP needed)
     if site.get("parser") == "mteam_api":
@@ -121,7 +157,10 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
         return [{"error": f"No cookie configured for {site['name']}",
                  "site": site["name"], "site_id": site_id}]
 
-    search_path = site["search"].format(query=urllib.parse.quote(query))
+    if adult and site_id == "pttime":
+        search_path = f"/adults.php?searchstr={urllib.parse.quote(query)}"
+    else:
+        search_path = site["search"].format(query=urllib.parse.quote(query))
     full_url = f"{site['url']}{search_path}"
 
     req = urllib.request.Request(full_url)
@@ -131,8 +170,15 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
                    "AppleWebKit/537.36 (KHTML, like Gecko) "
                    "Chrome/125.0.0.0 Safari/537.36")
 
+    proxy = _env("PT_PROXY") if site.get("needs_proxy") else None
+    if proxy:
+        proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        opener = urllib.request.build_opener(proxy_handler)
+    else:
+        opener = urllib.request.build_opener()
+
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             raw = resp.read()
             # Detect encoding
             content_type = resp.headers.get("Content-Type", "")
@@ -524,6 +570,43 @@ def main():
 
     # Limit
     limit = int(flags.get("limit", 20))
+    adult = flags.get("adult", False)
+    actor = flags.get("actor", "")
+
+    if adult and actor and "pttime" in target_sites:
+        s = target_sites["pttime"]
+        search_path = f"/adults.php?actor={urllib.parse.quote(actor)}"
+        full_url = f"{s['url']}{search_path}"
+        cookies = load_cookies()
+        cookie_str = cookies.get("pttime", "")
+        if not cookie_str:
+            print(json.dumps({"error": "No cookie configured for PTTime"}))
+            sys.exit(1)
+        req = urllib.request.Request(full_url)
+        req.add_header("Cookie", cookie_str)
+        req.add_header("User-Agent",
+                       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/125.0.0.0 Safari/537.36")
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                raw = resp.read()
+                ct = resp.headers.get("Content-Type", "")
+                m = re.search(r'charset=([\w-]+)', ct)
+                enc = m.group(1) if m else "utf-8"
+                try:
+                    html = raw.decode(enc)
+                except (UnicodeDecodeError, LookupError):
+                    html = raw.decode("utf-8", errors="replace")
+        except Exception as e:
+            print(json.dumps({"error": str(e), "site": "PTTime"}))
+            sys.exit(1)
+        results = _parse_nexusphp(html, s, "pttime", limit)
+        if not results or ("error" in (results[0] if results else {})):
+            results = _parse_nexusphp_classic(html, s, "pttime", limit)
+        print(json.dumps({"query": f"actor:{actor}", "total": len(results),
+                          "results": results}, ensure_ascii=False, indent=2))
+        return
 
     # Search all sites
     all_results = []
@@ -532,7 +615,7 @@ def main():
     if len(target_sites) == 1:
         # Single site — no thread pool overhead
         sid, site = next(iter(target_sites.items()))
-        for item in search_site(sid, site, query, limit):
+        for item in search_site(sid, site, query, limit, adult=adult):
             if "error" in item:
                 errors.append(item)
             else:
@@ -541,7 +624,7 @@ def main():
         # Multi-site parallel
         with ThreadPoolExecutor(max_workers=min(len(target_sites), 5)) as executor:
             futures = {
-                executor.submit(search_site, sid, site, query, limit): sid
+                executor.submit(search_site, sid, site, query, limit, adult=adult): sid
                 for sid, site in target_sites.items()
             }
             for future in as_completed(futures):

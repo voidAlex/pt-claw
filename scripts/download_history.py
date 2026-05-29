@@ -9,7 +9,7 @@ Usage:
     python3 download_history.py list                            # list all entries
 """
 
-import json, os, sys, argparse, tempfile
+import json, os, sys, argparse
 from datetime import datetime
 
 HISTORY_PATH = os.path.expanduser("~/.hermes/pt_downloaded.json")

@@ -1,5 +1,7 @@
 # 用户偏好配置
 
+> **说明**：这是配置模板（`.example.md`）。首次使用 pt-claw 时，Agent 会读取此模板逐项确认，用真实值替换占位符后保存为 `user-preferences.md`（不入 Git）。敏感值（API key、密码、IP）写入 `~/.hermes/.env`。**不写入 memory**（容量有限，偏好配置全部走文件）。
+
 ## 下载偏好
 - 编码优先：HEVC/H.265
 - 清晰度优先：4K (2160p)

@@ -12,8 +12,6 @@ Output: JSON with existing (in JF or history) and missing films, sorted by date.
 
 import json, os, sys, re, urllib.request, urllib.parse
 
-JAVBUS_API = "http://localhost:8922"
-
 def _env(key):
     env_file = os.path.expanduser("~/.hermes/.env")
     val = os.environ.get(key, "")
@@ -24,6 +22,8 @@ def _env(key):
                     val = line.split("=", 1)[1].strip()
                     break
     return val
+
+JAVBUS_API = _env("JAVBUS_API_URL") or "http://localhost:8922"
 
 def javbus_get(path):
     req = urllib.request.Request(f"{JAVBUS_API}{path}")

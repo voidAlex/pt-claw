@@ -1,23 +1,45 @@
 #!/usr/bin/env python3
 """
-Add torrents to qBittorrent via Web API with site tag and video-only support.
+Add torrents to qBittorrent via Web API with file selection support.
 
 Usage:
-    python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --video-only
-    python3 qb_add.py "https://example.com/file.torrent" --tags mteam
+    python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei
+    python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-video
     python3 qb_add.py --stdin                              # read from stdin (JSON)
     python3 qb_add.py --from-search "query" --index 0      # search then add by index
 
-The --stdin mode expects JSON with "download_url"/"magnet" and optional "tags",
-"video_only", "save_path", "category" fields.
+Public magnet file selection (two-step):
+    python3 qb_add.py "magnet:?..." --tags sukebei --list-files
+    python3 qb_add.py --select-files <hash> --keep 0,3,5
 """
 
 import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
 from http.cookiejar import CookieJar
 
+ENV_FILE = os.path.expanduser("~/.hermes/.env")
+_env_cache = None
+
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
+
 
 def _env(key, default=""):
-    return os.environ.get(key, default)
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
 
 
 # ── QBittorrent session (reusable) ────────────────────────────
@@ -198,12 +220,98 @@ def _select_main_video(info_hash: str, code: str = "", timeout: int = 30) -> dic
     }
 
 
+def list_files(info_hash: str, timeout: int = 60) -> dict:
+    """List all files in a paused torrent. Used with --list-files for public magnets.
+
+    Returns JSON with file list: index, name, size, extension, is_video, is_subtitle.
+    Torrent stays paused after listing — caller must use --select-files or --resume.
+    """
+    VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".wmv", ".mov", ".ts", ".m2ts", ".webm", ".flv"}
+    SUB_EXTS = {".srt", ".ass", ".ssa", ".sub", ".idx"}
+
+    deadline = time.time() + timeout
+    files = []
+    while time.time() < deadline:
+        files = qb_request(f"/api/v2/torrents/files?hash={info_hash}")
+        if isinstance(files, list) and len(files) > 0 and files[0].get("size", 0) > 0:
+            break
+        if isinstance(files, dict) and "error" in files:
+            return files
+        time.sleep(2)
+
+    if not isinstance(files, list) or len(files) == 0:
+        return {"error": "metadata timeout — torrent may have no peers"}
+
+    result = []
+    for i, f in enumerate(files):
+        name = f.get("name", "")
+        _, ext = os.path.splitext(name.lower())
+        size_bytes = f.get("size", 0)
+        result.append({
+            "index": i,
+            "name": name,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_bytes / 1048576, 1),
+            "ext": ext,
+            "is_video": ext in VIDEO_EXTS,
+            "is_subtitle": ext in SUB_EXTS,
+        })
+
+    torrent_info = qb_request(f"/api/v2/torrents/info?hashes={info_hash}")
+    torrent_name = ""
+    if isinstance(torrent_info, list) and torrent_info:
+        torrent_name = torrent_info[0].get("name", "")
+
+    return {
+        "info_hash": info_hash,
+        "torrent_name": torrent_name,
+        "total_files": len(result),
+        "files": result,
+        "next_step": f"Select files to keep, then: python3 qb_add.py --select-files {info_hash} --keep 0,3,5",
+    }
+
+
+def select_files(info_hash: str, keep_indices: list[int]) -> dict:
+    """Skip all files NOT in keep_indices, then resume the torrent.
+
+    Used after --list-files: user confirms which files to download.
+    """
+    files = qb_request(f"/api/v2/torrents/files?hash={info_hash}")
+    if not isinstance(files, list) or len(files) == 0:
+        return {"error": f"No files found for hash {info_hash}"}
+
+    total = len(files)
+    keep_set = set(keep_indices)
+    skip_indices = [i for i in range(total) if i not in keep_set]
+
+    kept_names = []
+    for i in keep_indices:
+        if 0 <= i < total:
+            kept_names.append(files[i].get("name", f"file_{i}"))
+
+    if skip_indices:
+        qb_request("/api/v2/torrents/filePrio", method="POST",
+                   data={"hash": info_hash,
+                         "id": "|".join(str(i) for i in skip_indices),
+                         "priority": "0"})
+
+    qb_request("/api/v2/torrents/resume", method="POST", data={"hashes": info_hash})
+
+    return {
+        "info_hash": info_hash,
+        "kept_files": len(keep_indices),
+        "skipped_files": len(skip_indices),
+        "kept_names": kept_names,
+        "status": "resumed",
+    }
+
+
 def add_torrent(url_or_magnet: str, save_path: str = None,
                 category: str = None, tags: list[str] = None,
-                video_only: bool = False, code: str = "") -> dict:
+                max_video: bool = False, code: str = "") -> dict:
     """Add a torrent by magnet link or URL, then apply tags.
 
-    If video_only=True, torrent is added paused, non-video files are skipped,
+    If max_video=True, torrent is added paused, non-video files are skipped,
     then resumed.
     """
     data = {"urls": url_or_magnet}
@@ -211,7 +319,7 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         data["savepath"] = save_path
     if category:
         data["category"] = category
-    if video_only:
+    if max_video:
         data["paused"] = "true"
 
     result = qb_request("/api/v2/torrents/add", method="POST", data=data)
@@ -235,11 +343,11 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         result["info_hash"] = info_hash
 
     # ── Video-only filtering ──────────────────────────────
-    if video_only and info_hash:
+    if max_video and info_hash:
         try:
             filt = _select_main_video(info_hash, code=code)
             if filt.get("video_file"):
-                result["video_only"] = filt
+                result["max_video"] = filt
             elif filt.get("warning"):
                 result["video_warning"] = filt["warning"]
         except Exception as e:
@@ -269,7 +377,7 @@ def main():
     save_path = None
     category = None
     tags = []
-    video_only = "--video-only" in sys.argv
+    max_video = "--max-video" in sys.argv
 
     for i, a in enumerate(sys.argv[1:]):
         if a == "--path" and i + 1 < len(sys.argv) - 1:
@@ -278,6 +386,59 @@ def main():
             category = sys.argv[i + 2]
         elif a == "--tags" and i + 1 < len(sys.argv) - 1:
             tags = [t.strip() for t in sys.argv[i + 2].split(",") if t.strip()]
+
+    # ── --select-files mode (step 2: apply selection + resume) ──
+    if "--select-files" in sys.argv:
+        sf_idx = sys.argv.index("--select-files")
+        info_hash = sys.argv[sf_idx + 1] if sf_idx + 1 < len(sys.argv) else ""
+        keep_str = ""
+        for a in sys.argv:
+            if a.startswith("--keep="):
+                keep_str = a.split("=", 1)[1]
+        if not info_hash:
+            print(json.dumps({"error": "--select-files requires <hash> and --keep=0,3,5"}))
+            sys.exit(1)
+        keep_indices = [int(x.strip()) for x in keep_str.split(",") if x.strip().isdigit()]
+        if not keep_indices:
+            print(json.dumps({"error": "--keep= required (e.g. --keep=0,3,5)"}))
+            sys.exit(1)
+        result = select_files(info_hash, keep_indices)
+        print(json.dumps(result, ensure_ascii=False))
+        return
+
+    # ── --list-files mode (step 1: add paused + list files) ─────
+    if "--list-files" in sys.argv:
+        if not args:
+            print(json.dumps({"error": "--list-files requires a magnet/URL argument"}))
+            sys.exit(1)
+        url = args[0]
+        data = {"urls": url, "paused": "true"}
+        if save_path:
+            data["savepath"] = save_path
+        if category:
+            data["category"] = category
+        add_result = qb_request("/api/v2/torrents/add", method="POST", data=data)
+        if "error" in add_result:
+            print(json.dumps(add_result))
+            sys.exit(1)
+
+        info_hash = _extract_hash_from_magnet(url)
+        if not info_hash:
+            url_basename = url.rsplit("/", 1)[-1].rsplit("?", 1)[0]
+            pattern = url_basename.rsplit(".", 1)[0] if "." in url_basename else url_basename
+            if len(pattern) > 3:
+                found = _find_recent_hashes(pattern, retries=15, delay=2)
+                info_hash = found[0] if found else None
+        if not info_hash:
+            print(json.dumps({"error": "Could not determine info hash after adding"}))
+            sys.exit(1)
+
+        if tags:
+            add_tags(info_hash, tags)
+
+        result = list_files(info_hash)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
 
     # ── stdin mode ───────────────────────────────────────────
     if "--stdin" in sys.argv:
@@ -295,12 +456,12 @@ def main():
         path = data.get("save_path", save_path)
         cat = data.get("category", category)
         tgs = data.get("tags", tags)
-        vo = data.get("video_only", video_only)
+        vo = data.get("max_video") or data.get("video_only", max_video)
         code = data.get("code", "")
         if isinstance(tgs, str):
             tgs = [t.strip() for t in tgs.split(",") if t.strip()]
 
-        result = add_torrent(url, save_path=path, category=cat, tags=tgs, video_only=vo, code=code)
+        result = add_torrent(url, save_path=path, category=cat, tags=tgs, max_video=vo, code=code)
         print(json.dumps(result, ensure_ascii=False))
         return
 
@@ -323,7 +484,7 @@ def main():
             sys.exit(1)
         url = results[idx]["download_url"]
         result = add_torrent(url, save_path=save_path, category=category,
-                           tags=tags, video_only=video_only)
+                           tags=tags, max_video=max_video)
         result["added_title"] = results[idx]["title"]
         print(json.dumps(result, ensure_ascii=False))
         return
@@ -335,7 +496,7 @@ def main():
 
     url = args[0]
     result = add_torrent(url, save_path=save_path, category=category,
-                       tags=tags, video_only=video_only)
+                       tags=tags, max_video=max_video)
     print(json.dumps(result, ensure_ascii=False))
 
 

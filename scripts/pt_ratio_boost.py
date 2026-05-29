@@ -27,6 +27,8 @@ Config: ~/.hermes/pt_boost.json
 
 import json, os, re, sys, time, urllib.request, urllib.parse, http.cookiejar, subprocess
 
+MAX_DELETE_PER_RUN = 50
+
 # Import backup module
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
@@ -348,7 +350,7 @@ def main():
                     "stalled_dead": [{
                         "hash": t["hash"][:12],
                         "name": t["name"][:80],
-                        "age_days": round(age / 86400, 1),
+                        "age_days": round((now_check - t.get("added_on", 0)) / 86400, 1),
                     } for t in stalled_dead],
                     "tip": "These stalled dead torrents would be deleted (with files).",
                 }, ensure_ascii=False, indent=2))
