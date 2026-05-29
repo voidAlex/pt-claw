@@ -46,7 +46,11 @@ def _env(key, default=""):
 
 
 def _decrypt_cookiecloud(uuid, encrypted, password):
-    """Decrypt CookieCloud data. AES-CBC with EVP_BytesToKey key derivation (MD5)."""
+    """Decrypt CookieCloud data. AES-CBC with EVP_BytesToKey (MD5).
+
+    CookieCloud uses: key = MD5(uuid-password).hex()[:16] as passphrase,
+    then CryptoJS.AES.encrypt which does EVP_BytesToKey on that passphrase.
+    """
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from cryptography.hazmat.backends import default_backend
 
@@ -56,7 +60,8 @@ def _decrypt_cookiecloud(uuid, encrypted, password):
     salt = raw[8:16]
     ciphertext = raw[16:]
 
-    key_material = (uuid + "-" + password).encode()
+    the_key = hashlib.md5((uuid + "-" + password).encode()).hexdigest()[:16]
+    key_material = the_key.encode()
     dk = b""
     last = b""
     while len(dk) < 48:
