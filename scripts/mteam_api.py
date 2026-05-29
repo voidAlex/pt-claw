@@ -17,7 +17,7 @@ Details: references/mteam-api.md
 
 import sys, json, os, urllib.request
 
-ENV_FILE = os.path.expanduser("~/.hermes/.env")
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
 

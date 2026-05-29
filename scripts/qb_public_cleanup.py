@@ -22,19 +22,43 @@ sys.path.insert(0, _skill_dir)
 from qb_backup import backup_from_torrents
 
 PUBLIC_TAGS = {"sukebei", "javbus"}
-MAX_DELETE_PER_RUN = 50       # 单次最多删除数
-MAX_PUBLIC_RATIO = 0.20       # 公开种占比超过此值中止（异常信号）
+MAX_DELETE_PER_RUN = 50
+MAX_PUBLIC_RATIO = 0.20
 DRY_RUN = os.environ.get("QB_CLEANUP_DRY_RUN", "") == "1"
-CHECK_MODE = "--check" in sys.argv  # query only, no delete
+CHECK_MODE = "--check" in sys.argv
+
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
+_env_cache = None
+
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
+
+
+def _env(key, default=""):
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
 
 
 def main():
-    # --check overrides env DRY_RUN
     _check = CHECK_MODE or DRY_RUN
 
-    qb_url = os.environ.get("QBITTORRENT_URL")
-    qb_user = os.environ.get("QBITTORRENT_USER")
-    qb_pass = os.environ.get("QBITTORRENT_PASS")
+    qb_url = _env("QBITTORRENT_URL")
+    qb_user = _env("QBITTORRENT_USER")
+    qb_pass = _env("QBITTORRENT_PASS")
 
     if not all([qb_url, qb_user, qb_pass]):
         print(json.dumps({"error": "Missing QBITTORRENT_* env vars"}))

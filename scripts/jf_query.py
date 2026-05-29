@@ -8,7 +8,7 @@ Usage:
     python3 jf_query.py --search "浅野"                        # search movies
     python3 jf_query.py --check "ROYD-318"                     # check if code exists
 
-Env: reads JELLYFIN1_URL / JELLYFIN1_API_KEY from ~/.hermes/.env
+Env: reads JELLYFIN1_URL / JELLYFIN1_API_KEY from secrets.env
      Pass --server 1|2 to select JF1/JF2 (default: 1)
 """
 
@@ -16,7 +16,7 @@ import json, os, sys, urllib.request, urllib.parse
 from collections import Counter
 
 def get_env(key):
-    env_file = os.path.expanduser("~/.hermes/.env")
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
     val = os.environ.get(key, "")
     if not val and os.path.exists(env_file):
         with open(env_file) as f:

@@ -13,7 +13,7 @@ Output: JSON with existing (in JF or history) and missing films, sorted by date.
 import json, os, sys, re, urllib.request, urllib.parse
 
 def _env(key):
-    env_file = os.path.expanduser("~/.hermes/.env")
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
     val = os.environ.get(key, "")
     if not val and os.path.exists(env_file):
         with open(env_file) as f:
@@ -45,7 +45,7 @@ def jf_check(code, server=1):
         return False
 
 def load_history():
-    f = os.path.expanduser("~/.hermes/pt_downloaded.json")
+    f = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
     if not os.path.exists(f):
         return set()
     with open(f) as fh:

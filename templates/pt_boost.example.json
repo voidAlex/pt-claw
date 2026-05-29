@@ -1,15 +1,26 @@
 {
   "enabled": false,
-  "sites": ["mteam"],
-  "qb_url": "<QB_HOST>",
-  "qb_user": "<QB_USER>",
-  "qb_pass": "<QB_PASS>",
-  "boost_category": "boost",
-  "boost_save_path": "<BOOST_PATH>",
-  "max_seed_days": 7,
-  "max_torrents": 20,
-  "freeleech_only": true,
-  "min_size_gb": 5,
-  "max_size_gb": 200,
-  "min_seeders": 5
+  "global": {
+    "boost_category": "boost",
+    "boost_save_path": "<BOOST_PATH>",
+    "max_seed_days": 7,
+    "max_torrents": 20,
+    "dead_seed_hours": 48,
+    "delete_files": true
+  },
+  "sites": {
+    "mteam": {
+      "search_keyword": "",
+      "freeleech_only": true,
+      "exclude_hr": true,
+      "sort_by": "seeders",
+      "sort_order": "desc",
+      "min_size_gb": 5,
+      "max_size_gb": 200,
+      "min_seeders": 5,
+      "max_results": 50
+    }
+  },
+  "schedule": "0 8 * * *",
+  "per_run_add_limit": 5
 }

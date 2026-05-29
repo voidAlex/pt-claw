@@ -26,7 +26,7 @@ def _qb_login():
     qb_user = os.environ.get("QBITTORRENT_USER", "")
     qb_pass = os.environ.get("QBITTORRENT_PASS", "")
     if not all([qb_url, qb_user, qb_pass]):
-        env_file = os.path.expanduser("~/.hermes/.env")
+        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
         if os.path.exists(env_file):
             with open(env_file) as f:
                 for line in f:

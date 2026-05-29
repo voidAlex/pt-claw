@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.cookiejar import CookieJar
 
 
-ENV_FILE = os.path.expanduser("~/.hermes/.env")
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
 
@@ -129,7 +129,7 @@ SITES = {
 
 def load_cookies() -> dict[str, str]:
     """Load cookie strings from environment variables (PT_COOKIE_<SITE>).
-    Falls back to ~/.hermes/.env if not in process environment."""
+    Falls back to secrets.env if not in process environment."""
     cookies = {}
     for key, val in os.environ.items():
         if key.startswith("PT_COOKIE_"):

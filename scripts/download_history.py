@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Download history tracker — add, check, list entries in ~/.hermes/pt_downloaded.json.
+Download history tracker — add, check, list entries in pt_downloaded.json.
 
 Usage:
     python3 download_history.py add --code MIMK-267 --title "xxx" --source sukebei
@@ -12,7 +12,7 @@ Usage:
 import json, os, sys, argparse
 from datetime import datetime
 
-HISTORY_PATH = os.path.expanduser("~/.hermes/pt_downloaded.json")
+HISTORY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
 
 DEFAULT_HISTORY = {
     "description": "记录所有已推送下载的内容，防止用户手动删除后被定时任务重复下载",

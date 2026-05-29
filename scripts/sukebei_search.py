@@ -12,7 +12,7 @@ Output: JSON array with seeders, leechers, size, magnet link, title.
 import sys, json, os, re, urllib.request, urllib.parse
 from xml.etree import ElementTree as ET
 
-ENV_FILE = os.path.expanduser("~/.hermes/.env")
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
 

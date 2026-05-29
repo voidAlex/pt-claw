@@ -10,7 +10,7 @@ Usage:
     python3 qb_monitor.py --states downloading,stalledDL # filter by state
     python3 qb_monitor.py --hours 6                     # time window
     python3 qb_monitor.py --since "2026-05-28T00:00:00"
-    python3 qb_monitor.py --tracker ~/.hermes/pt_completed_last.txt
+    python3 qb_monitor.py --tracker pt_completed_last.txt
     python3 qb_monitor.py --list states                  # list all states
     python3 qb_monitor.py --list tags                    # list all tags
     python3 qb_monitor.py --list categories              # list all categories
@@ -37,7 +37,7 @@ def _env(key, default=""):
     val = os.environ.get(key, default)
     # Override from .env if not in env
     if val == default:
-        env_file = os.path.expanduser("~/.hermes/.env")
+        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
         if os.path.exists(env_file):
             with open(env_file) as f:
                 for line in f:

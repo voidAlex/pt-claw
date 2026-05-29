@@ -1,10 +1,10 @@
 #!/bin/bash
 # PT Downloader — environment prerequisite check
 # Run before any PT/Jellyfin operation to verify all required env vars are present.
-# Sources ~/.hermes/.env and reports which keys are missing.
+# Sources secrets.env and reports which keys are missing.
 # Exit 0 if all required keys found, 1 if any missing.
 
-ENV_FILE="$HOME/.hermes/.env"
+ENV_FILE="$(dirname "$(dirname "$(readlink -f "$0")")")/secrets.env"
 [[ -f "$ENV_FILE" ]] && source "$ENV_FILE" 2>/dev/null
 
 MISSING=0
@@ -35,10 +35,10 @@ check JELLYFIN2_URL  "Movie/TV Jellyfin URL (e.g. JF TV address)"
 check JELLYFIN2_API_KEY "Movie/TV Jellyfin API key"
 
 echo "=== Proxy ==="
-if [[ -n "${HTTP_PROXY}" ]] || [[ -n "${HTTPS_PROXY}" ]]; then
-    echo "  ✓ HTTP_PROXY/HTTPS_PROXY set"
+if [[ -n "${PT_PROXY}" ]]; then
+    echo "  ✓ PT_PROXY set"
 else
-    echo "  ⚠ HTTP_PROXY not set — sites like zmpt.cc may timeout"
+    echo "  ⚠ PT_PROXY not set — sites like zmpt.cc may timeout"
 fi
 
 echo "=== PT Cookies ==="
@@ -57,6 +57,6 @@ if [[ $MISSING -eq 0 ]]; then
     echo "All required keys present."
     exit 0
 else
-    echo "${MISSING} config(s) missing — run 'hermes' to add them to ~/.hermes/.env"
+    echo "${MISSING} config(s) missing — add them to secrets.env"
     exit 1
 fi
