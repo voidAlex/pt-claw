@@ -332,6 +332,7 @@ test -f pt_wishlist.json || echo '{"movies":[],"actors":[],"fanhao":[]}' > pt_wi
 | PT下载进度检查 | 每 15 分钟 | 完成通知 + 死种告警，没事件时不发消息 |
 | PT自动追剧 | 每天 10:00 | 搜索+去重+展示，等用户确认后才下载 |
 | 公开磁链状态检查 | 每 30 分钟 | 自动删除已完成公开种、标记死种 |
+| PT站点Cookie保活 | 每天 06:00 | 访问各站首页刷新 session，防止 cookie 过期 |
 
 ```python
 # 下载进度检查（静默模式：没事件不通知）
@@ -386,9 +387,20 @@ cronjob(action='create',
     deliver="origin",
     workdir="<skill-dir>",
 )
+
+# Cookie 保活（静默）
+cronjob(action='create',
+    name="PT站点Cookie保活",
+    schedule="0 6 * * *",
+    prompt="""加载 pt-claw skill。运行 `python3 scripts/connectivity_check.py --keepalive`，只报告失败的站点。全部成功则 [SILENT]。
+脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
+    skills=["pt-claw"],
+    deliver="origin",
+    workdir="<skill-dir>",
+)
 ```
 
-> ⚠️ 定时任务创建后告知用户：「已创建 3 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m，只报告等确认后删)。随时可以说『暂停XX任务』来停止。」
+> ⚠️ 定时任务创建后告知用户：「已创建 4 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m)、Cookie保活(每天06:00)。随时可以说『暂停XX任务』来停止。」
 
 ### Step 1：识别内容类型，路由搜索
 
