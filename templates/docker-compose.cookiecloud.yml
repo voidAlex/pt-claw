@@ -1,0 +1,22 @@
+# CookieCloud — 浏览器 Cookie 同步服务
+# 部署: docker compose up -d
+# 文档: https://github.com/easychen/CookieCloud
+#
+# 浏览器安装 CookieCloud 扩展后，配置以下地址和你的 UUID/密码
+# 扩展会自动将浏览器 Cookie 加密同步到此服务器
+# pt-claw 的 cookie_sync.py 从此服务器拉取并更新 secrets.env
+#
+# 部署后在 secrets.env 中设置:
+#   COOKIE_CLOUD_HOST=http://localhost:8088
+#   COOKIE_CLOUD_UUID=<your-uuid>
+#   COOKIE_CLOUD_PASS=<your-password>
+
+services:
+  cookiecloud:
+    image: easychen/cookiecloud:latest
+    container_name: cookiecloud
+    restart: unless-stopped
+    volumes:
+      - ./data:/data/api/data
+    ports:
+      - "8088:8088"

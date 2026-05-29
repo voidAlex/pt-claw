@@ -255,13 +255,19 @@ def test_pt_sites(filter_site=None):
 
 def _keepalive_site(name, base_url, cookie_var, needs_proxy):
     cookie = _env(cookie_var)
-    proxy = _env("PT_PROXY") if needs_proxy else None
     if not cookie:
         print(f"  ⏭️  {name}: {cookie_var} not set, skip")
         return True
+    proxy = _env("PT_PROXY") if needs_proxy else None
     try:
         url = f"{base_url.rstrip('/')}/index.php"
-        status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=proxy)
+        try:
+            status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=proxy)
+        except urllib.error.HTTPError as e:
+            if e.code == 403 and proxy:
+                status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=None)
+            else:
+                raise
         if "登录" in body[:3000] or "login" in body[:3000].lower():
             print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
             return False
@@ -271,8 +277,17 @@ def _keepalive_site(name, base_url, cookie_var, needs_proxy):
         else:
             print(f"  ❌ {name}: HTTP {status}")
             return False
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            print(f"  ⚠️  {name}: 403 — cookie may be expired or IP blocked")
+        else:
+            print(f"  ❌ {name}: HTTP {e.code}")
+        return False
     except Exception as e:
-        print(f"  ❌ {name}: {str(e)[:60]}")
+        estr = str(e)[:60]
+        if "timed out" in estr:
+            estr += " — site unreachable"
+        print(f"  ❌ {name}: {estr}")
         return False
 
 
@@ -284,7 +299,7 @@ def keepalive_sites(filter_site=None):
         return
     print("PT site keepalive (accessing index page to refresh session)")
     print("-" * 50)
-    all_ok = True
+    failed = []
     for site_id, cfg in SITES.items():
         if site_id == "mteam":
             continue
@@ -297,12 +312,39 @@ def keepalive_sites(filter_site=None):
             needs_proxy=cfg.get("needs_proxy", False),
         )
         if not ok:
-            all_ok = False
+            failed.append(site_id)
     print("-" * 50)
-    if all_ok:
+    if not failed:
         print("All sites keepalive OK")
     else:
-        print("⚠️  Some sites need cookie refresh — consider CookieCloud or manual update")
+        print(f"⚠️  {len(failed)} site(s) failed: {', '.join(failed)}")
+        cc_host = _env("COOKIE_CLOUD_HOST", "")
+        if cc_host:
+            print("Attempting CookieCloud sync...")
+            sync_script = os.path.join(_skill_dir, "cookie_sync.py")
+            if os.path.exists(sync_script):
+                for site in failed:
+                    os.system(f"python3 {sync_script} --site {site}")
+                print("Re-checking failed sites...")
+                still_failed = []
+                for site_id in failed:
+                    cfg = SITES[site_id]
+                    ok = _keepalive_site(
+                        name=site_id,
+                        base_url=cfg["url"],
+                        cookie_var=f"PT_COOKIE_{site_id.upper()}",
+                        needs_proxy=cfg.get("needs_proxy", False),
+                    )
+                    if not ok:
+                        still_failed.append(site_id)
+                if still_failed:
+                    print(f"❌ Still failing after sync: {', '.join(still_failed)} — manual login needed")
+                else:
+                    print("✅ CookieCloud sync resolved all failures")
+            else:
+                print("⚠️  cookie_sync.py not found")
+        else:
+            print("💡 Tip: Configure CookieCloud for automatic cookie sync (see templates/docker-compose.cookiecloud.yml)")
 
 
 SERVICE_MAP = {

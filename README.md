@@ -61,7 +61,8 @@
 | `pt_ratio_boost.py` | Freeleech 自动辅种 |
 | `mteam_api.py` | M-Team API 客户端 |
 | `env_check.sh` | 环境变量完整性检查 |
-| `connectivity_check.py` | 全服务连接测试（实际登录/API调用/站点可达性） |
+| `connectivity_check.py` | 全服务连接测试（实际登录/API调用/站点可达性/Cookie保活） |
+| `cookie_sync.py` | CookieCloud Cookie 同步（浏览器→secrets.env 自动更新） |
 
 ## 许可
 

@@ -283,6 +283,26 @@ python3 scripts/connectivity_check.py --json        # JSON 格式输出
 
 实际发起 HTTP 请求测试每个外部服务：qBittorrent 登录、M-Team API、两个 Jellyfin 实例、javbus-api Docker、PT_PROXY 代理、8 个 PT 站 Cookie 有效性。`env_check.sh` 只检查变量是否存在，此脚本验证连接和认证是否真正可用。
 
+`--keepalive` 模式访问各站首页刷新 session，cookie 失败时自动尝试 CookieCloud 同步。
+
+### cookie_sync.py — CookieCloud Cookie 同步（可选）
+
+```bash
+python3 scripts/cookie_sync.py                    # 同步所有 PT 站
+python3 scripts/cookie_sync.py --dry-run           # 预览不同步
+python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
+```
+
+从 CookieCloud 服务端拉取浏览器 Cookie，解密后更新 `secrets.env` 中的 `PT_COOKIE_*`。需要 `secrets.env` 中配置 `COOKIE_CLOUD_HOST`/`UUID`/`PASS`（可选，不配置则跳过）。
+
+**CookieCloud 部署**（可选）：
+```bash
+# Docker 部署模板在 templates/docker-compose.cookiecloud.yml
+cp templates/docker-compose.cookiecloud.yml ~/cookiecloud/docker-compose.yml
+docker compose -f ~/cookiecloud/docker-compose.yml up -d
+```
+浏览器安装 [CookieCloud 扩展](https://github.com/easychen/CookieCloud)，配置服务器地址 + UUID + 密码，扩展会自动加密同步浏览器 Cookie。
+
 ## Agent Workflow
 
 ### Step 0：初次使用 — 主动询问用户配置
