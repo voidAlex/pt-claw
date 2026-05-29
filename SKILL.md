@@ -98,7 +98,7 @@ python3 scripts/pt_search.py "" --site pttime --adult --actor "浅野心" --limi
 ```
 
 **接入方式**：
-- **M-Team**: REST API（POST，`x-api-key` 认证，从 `MTEAM_API_KEY` 环境变量读取）— 搜索 ✅，下载 ✅（genDlToken）
+- **M-Team**: **仅限 REST API**（`x-api-key` 认证，`MTEAM_API_KEY` 环境变量）。**禁止使用 Cookie 登录——会封号。** 搜索 ✅，下载 ✅（genDlToken）
 - **其他 7 站**: Cookie 直连（从 `PT_COOKIE_<SITE>` 环境变量读取）
 - **织梦 zmpt.cc**: 需走代理（直连超时）
 
@@ -1527,6 +1527,8 @@ rm -f ~/.hermes/pt_wishlist.json ~/.hermes/pt_downloaded.json ~/.hermes/pt_compl
 - 删种：禁止直接调 qB delete API。三个删种脚本必须先用 `--check` 查询+展示待删清单，等用户说「清了」「删」后才执行实际删除。删除前自动备份 `.torrent` + 元数据。`pt_ratio_boost.py run` 模式下 `--check` 仅预览不删除。
 - 恢复：`qb_restore.py` 从备份数据+`.torrent` 文件恢复种子到 qBittorrent，支持单个/批量/最近恢复。
 
+**6. M-Team 禁止 Cookie 登录**：馒头严禁使用 Cookie 方式访问，会被封号。只能通过 `MTEAM_API_KEY` 使用 REST API。脚本中 mteam 不走 Cookie 通道，`cookie_sync.py` 不为 mteam 同步 cookie，`connectivity_check.py` 不测试 mteam 的 Cookie 连通性。
+
 ### 🟠 严重级
 
 **6. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302。②③跳过馒头。`code` 是字符串 `"0"`。`genDlToken` 限频返空 bytes。
@@ -1591,7 +1593,7 @@ rm -f ~/.hermes/pt_wishlist.json ~/.hermes/pt_downloaded.json ~/.hermes/pt_compl
 | `PT_COOKIE_1PTBA` | 1PTBar Cookie |
 | `PT_COOKIE_SOULVOICE` | SoulVoice Cookie |
 | `PT_COOKIE_ZMPT` | 织梦 (zmpt.cc) Cookie |
-| `MTEAM_API_KEY` | M-Team API Key（`x-api-key` header） |
+| `MTEAM_API_KEY` | M-Team API Key（`x-api-key` header）。**禁止使用 Cookie——会封号** |
 
 ### 下载器
 

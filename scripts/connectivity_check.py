@@ -243,6 +243,8 @@ def test_pt_sites(filter_site=None):
         return
 
     for site_id, cfg in SITES.items():
+        if site_id == "mteam":
+            continue
         if filter_site and site_id != filter_site:
             continue
         _test_pt_site(

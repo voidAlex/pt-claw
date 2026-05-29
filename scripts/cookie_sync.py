@@ -89,7 +89,6 @@ SITE_DOMAINS = {
     "1ptba": "1ptba.com",
     "soulvoice": "pt.soulvoice.club",
     "zmpt": "zmpt.cc",
-    "mteam": "m-team.cc",
 }
 
 
