@@ -272,6 +272,17 @@ python3 scripts/mteam_api.py download <torrent_id> --key $MTEAM_API_KEY
 
 API 详细文档见 [references/mteam-api.md](references/mteam-api.md)。
 
+### connectivity_check.py — 全服务连接测试
+
+```bash
+python3 scripts/connectivity_check.py              # 测试所有服务
+python3 scripts/connectivity_check.py --quick       # 跳过 PT 站（仅测 qB/JF/M-Team/代理）
+python3 scripts/connectivity_check.py --site btschool  # 只测某个站
+python3 scripts/connectivity_check.py --json        # JSON 格式输出
+```
+
+实际发起 HTTP 请求测试每个外部服务：qBittorrent 登录、M-Team API、两个 Jellyfin 实例、javbus-api Docker、PT_PROXY 代理、8 个 PT 站 Cookie 有效性。`env_check.sh` 只检查变量是否存在，此脚本验证连接和认证是否真正可用。
+
 ## Agent Workflow
 
 ### Step 0：初次使用 — 主动询问用户配置
@@ -539,7 +550,8 @@ python3 scripts/pt_search.py "关键词" --limit 10
 Agent 跨会话后无法保留运行时状态，API key 必须落在 `secrets.env` 文件里才能持久。每次做去重前先跑：
 
 ```bash
-bash scripts/env_check.sh
+bash scripts/env_check.sh          # 检查环境变量是否齐全
+python3 scripts/connectivity_check.py  # 实际连接测试（登录/API/站点可达性）
 ```
 
 如果 Jellyfin key 缺失，**直接用 `clarify()` 向用户索要**（不要猜测、不要跳过、不要尝试其他来源），拿到后写入 `secrets.env` 再继续。
@@ -1479,13 +1491,15 @@ rm -f ~/.hermes/pt_wishlist.json ~/.hermes/pt_downloaded.json ~/.hermes/pt_compl
 
 ### 🔧 脚本纪律
 
-**23. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化到永久脚本。
+**23. 禁止 `source secrets.env`**：Cookie 值含 `=`（如 `sl-session=...==`），bash source 会把 `=` 后的等号部分当命令执行导致错误。脚本内部通过 `_load_env_file()` 逐行读取 `secrets.env`，安全处理含等号的值。Cron 提示词中不要写 `source secrets.env &&`，直接让脚本自行加载。
 
-**24. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
+**24. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化到永久脚本。
 
-**25. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
+**25. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
 
-**26. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不允许出现在 skill 文件中。发现硬编码凭据 → 立即替换为环境变量引用或占位符，并 rotate 对应 Token。审计步骤见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
+**26. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
+
+**27. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不允许出现在 skill 文件中。发现硬编码凭据 → 立即替换为环境变量引用或占位符，并 rotate 对应 Token。审计步骤见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
 
 ## 环境变量清单（`secrets.env`）
 > 所有敏感配置集中管理，skill 脚本从环境变量读取。

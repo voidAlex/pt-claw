@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""
+Connectivity check — test all external service connections.
+
+Usage:
+    python3 connectivity_check.py              # test all
+    python3 connectivity_check.py --quick      # skip slow PT site tests
+    python3 connectivity_check.py --site mteam  # test only mteam
+"""
+import json, os, sys, time, urllib.request, urllib.parse, urllib.error
+
+_skill_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _skill_dir)
+
+ENV_FILE = os.path.join(_skill_dir, "..", "secrets.env")
+_env_cache = None
+
+
+def _load_env_file():
+    global _env_cache
+    if _env_cache is not None:
+        return
+    _env_cache = {}
+    if os.path.exists(ENV_FILE):
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
+
+
+def _env(key, default=""):
+    val = os.environ.get(key, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(key, default)
+    return val
+
+
+results = []
+
+
+def _result(name, status, detail="", latency_ms=0):
+    r = {"service": name, "status": status, "detail": detail}
+    if latency_ms:
+        r["latency_ms"] = round(latency_ms)
+    results.append(r)
+    icon = {"ok": "✅", "warn": "⚠️", "fail": "❌", "skip": "⏭️"}[status]
+    extra = f" ({latency_ms:.0f}ms)" if latency_ms else ""
+    print(f"  {icon} {name}: {detail}{extra}")
+
+
+def _fetch(url, timeout=10, headers=None, data=None, proxy=None):
+    """Return (status_code, body_text, elapsed_ms) or raise."""
+    handlers = []
+    if proxy:
+        handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    opener = urllib.request.build_opener(*handlers)
+    req = urllib.request.Request(url)
+    if headers:
+        for k, v in headers.items():
+            req.add_header(k, v)
+    t0 = time.time()
+    if data:
+        if isinstance(data, dict):
+            data = urllib.parse.urlencode(data).encode()
+        req.data = data
+    with opener.open(req, timeout=timeout) as resp:
+        body = resp.read().decode("utf-8", errors="replace")
+    elapsed = (time.time() - t0) * 1000
+    return resp.status, body, elapsed
+
+
+def test_qbittorrent():
+    print("\n=== qBittorrent ===")
+    url = _env("QBITTORRENT_URL")
+    user = _env("QBITTORRENT_USER")
+    passwd = _env("QBITTORRENT_PASS")
+    if not all([url, user, passwd]):
+        _result("qBittorrent", "fail", "QBITTORRENT_URL/USER/PASS not set")
+        return
+    try:
+        data = urllib.parse.urlencode({"username": user, "password": passwd}).encode()
+        t0 = time.time()
+        req = urllib.request.Request(f"{url.rstrip('/')}/api/v2/auth/login", data=data)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            elapsed = (time.time() - t0) * 1000
+            cookies = resp.headers.get_all("Set-Cookie", [])
+            sid = any("SID=" in c for c in cookies)
+        if sid:
+            _result("qBittorrent", "ok", f"login OK, {url}", elapsed)
+        else:
+            _result("qBittorrent", "warn", f"login returned 200 but no SID cookie", elapsed)
+    except urllib.error.HTTPError as e:
+        _result("qBittorrent", "fail", f"HTTP {e.code}")
+    except Exception as e:
+        _result("qBittorrent", "fail", str(e)[:80])
+
+
+def test_mteam():
+    print("\n=== M-Team API ===")
+    key = _env("MTEAM_API_KEY")
+    if not key:
+        _result("M-Team", "fail", "MTEAM_API_KEY not set")
+        return
+    try:
+        body = json.dumps({"keyword": "test", "pageNumber": 1, "pageSize": 1}).encode()
+        req = urllib.request.Request(
+            "https://api.m-team.cc/api/torrent/search",
+            data=body,
+            headers={"x-api-key": key, "Content-Type": "application/json"},
+        )
+        t0 = time.time()
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            elapsed = (time.time() - t0) * 1000
+            data = json.loads(resp.read())
+        code = str(data.get("code", ""))
+        if code == "0":
+            total = data.get("data", {}).get("total", "?")
+            _result("M-Team", "ok", f"API OK, search returned {total} results", elapsed)
+        else:
+            _result("M-Team", "fail", f"API returned code={code}, message={data.get('message', '')[:60]}", elapsed)
+    except urllib.error.HTTPError as e:
+        detail = f"HTTP {e.code}"
+        if e.code == 403:
+            detail += " (rate limited or invalid key)"
+        elif e.code == 405:
+            detail += " (API endpoint down)"
+        _result("M-Team", "fail", detail)
+    except Exception as e:
+        _result("M-Team", "fail", str(e)[:80])
+
+
+def test_jellyfin(instance, url_key, token_key):
+    label = f"Jellyfin {instance}"
+    print(f"\n=== {label} ===")
+    url = _env(url_key)
+    token = _env(token_key)
+    if not all([url, token]):
+        _result(label, "skip", f"{url_key} or {token_key} not set")
+        return
+    try:
+        req = urllib.request.Request(
+            f"{url.rstrip('/')}/System/Info",
+            headers={"X-MediaBrowser-Token": token},
+        )
+        t0 = time.time()
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            elapsed = (time.time() - t0) * 1000
+            info = json.loads(resp.read())
+        version = info.get("Version", "?")
+        product = info.get("ProductName", "?")
+        _result(label, "ok", f"{product} {version} @ {url}", elapsed)
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            _result(label, "fail", f"401 Unauthorized — bad API key")
+        else:
+            _result(label, "fail", f"HTTP {e.code}")
+    except Exception as e:
+        _result(label, "fail", str(e)[:80])
+
+
+def test_javbus_api():
+    print("\n=== javbus-api ===")
+    url = _env("JAVBUS_API_URL")
+    if not url:
+        _result("javbus-api", "skip", "JAVBUS_API_URL not set")
+        return
+    try:
+        status, body, elapsed = _fetch(f"{url.rstrip('/')}/api/movies/ABP-001", timeout=10)
+        if status == 200:
+            data = json.loads(body)
+            if data.get("id"):
+                _result("javbus-api", "ok", f"Docker API OK @ {url}", elapsed)
+            else:
+                _result("javbus-api", "warn", f"API responded but no data for test code", elapsed)
+        else:
+            _result("javbus-api", "fail", f"HTTP {status}")
+    except urllib.error.URLError:
+        _result("javbus-api", "fail", "connection refused — container down?")
+    except Exception as e:
+        _result("javbus-api", "fail", str(e)[:80])
+
+
+def test_proxy():
+    print("\n=== PT_PROXY ===")
+    proxy = _env("PT_PROXY")
+    if not proxy:
+        _result("PT_PROXY", "warn", "not set (sites needing proxy will fail)")
+        return
+    try:
+        status, body, elapsed = _fetch("https://www.google.com", timeout=10, proxy=proxy)
+        _result("PT_PROXY", "ok", f"proxy OK ({proxy}), {elapsed:.0f}ms", elapsed)
+    except Exception as e:
+        _result("PT_PROXY", "fail", f"proxy unreachable: {str(e)[:60]}")
+
+
+def _test_pt_site(name, base_url, cookie_var, needs_proxy):
+    print(f"\n=== {name} ===")
+    cookie = _env(cookie_var)
+    if not cookie:
+        _result(name, "skip", f"{cookie_var} not set")
+        return
+    proxy = _env("PT_PROXY") if needs_proxy else None
+    try:
+        url = f"{base_url.rstrip('/')}/torrents.php?search=test"
+        headers = {"Cookie": cookie}
+        status, body, elapsed = _fetch(url, timeout=15, headers=headers, proxy=proxy)
+        if "登录" in body[:3000] or "login" in body[:3000].lower():
+            _result(name, "fail", f"cookie expired (login page returned)", elapsed)
+        elif "<title>" in body and "403" in body[:500]:
+            _result(name, "fail", f"403 Forbidden — proxy may be blocked", elapsed)
+        elif "torrent" in body.lower() or "search" in body.lower():
+            _result(name, "ok", f"site OK, search page loaded ({len(body)} bytes)", elapsed)
+        else:
+            _result(name, "warn", f"got {len(body)} bytes, unclear if page is valid", elapsed)
+    except urllib.error.HTTPError as e:
+        detail = f"HTTP {e.code}"
+        if e.code == 403:
+            detail += " — try without proxy or check cookie"
+        _result(name, "fail", detail)
+    except Exception as e:
+        estr = str(e)[:80]
+        if "timed out" in estr:
+            estr += " — needs proxy?"
+        _result(name, "fail", estr)
+
+
+def test_pt_sites(filter_site=None):
+    try:
+        from pt_search import SITES
+    except ImportError:
+        print("\n⚠️  Cannot import SITES from pt_search.py")
+        return
+
+    for site_id, cfg in SITES.items():
+        if filter_site and site_id != filter_site:
+            continue
+        _test_pt_site(
+            name=site_id,
+            base_url=cfg["url"],
+            cookie_var=f"PT_COOKIE_{site_id.upper()}",
+            needs_proxy=cfg.get("needs_proxy", False),
+        )
+
+
+def main():
+    _load_env_file()
+
+    only_site = None
+    quick = False
+    for arg in sys.argv[1:]:
+        if arg == "--quick":
+            quick = True
+        elif arg == "--site" and len(sys.argv) > sys.argv.index(arg) + 1:
+            only_site = sys.argv[sys.argv.index(arg) + 1]
+
+    print("pt-claw connectivity check")
+    print("=" * 50)
+
+    test_qbittorrent()
+    test_mteam()
+    test_jellyfin("adult", "JELLYFIN1_URL", "JELLYFIN1_API_KEY")
+    test_jellyfin("movie/tv", "JELLYFIN2_URL", "JELLYFIN2_API_KEY")
+    test_javbus_api()
+    test_proxy()
+
+    if not quick:
+        test_pt_sites(filter_site=only_site)
+    else:
+        print("\n⏭️  PT sites skipped (--quick)")
+
+    print("\n" + "=" * 50)
+    ok = sum(1 for r in results if r["status"] == "ok")
+    warn = sum(1 for r in results if r["status"] == "warn")
+    fail = sum(1 for r in results if r["status"] == "fail")
+    skip = sum(1 for r in results if r["status"] == "skip")
+    total = len(results)
+    print(f"Results: {ok}/{total} OK, {warn} warn, {fail} fail, {skip} skip")
+
+    if "--json" in sys.argv:
+        print(json.dumps(results, ensure_ascii=False, indent=2))
+
+    sys.exit(1 if fail > 0 else 0)
+
+
+if __name__ == "__main__":
+    main()
