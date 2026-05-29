@@ -295,13 +295,24 @@ python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
 
 从 CookieCloud 服务端拉取浏览器 Cookie，解密后更新 `secrets.env` 中的 `PT_COOKIE_*`。需要 `secrets.env` 中配置 `COOKIE_CLOUD_HOST`/`UUID`/`PASS`（可选，不配置则跳过）。
 
+**依赖**：`python3-cryptography`（系统包 `apt install python3-cryptography`，或 `pip install cryptography`）。
+
 **CookieCloud 部署**（可选）：
-```bash
-# Docker 部署模板在 templates/docker-compose.cookiecloud.yml
-cp templates/docker-compose.cookiecloud.yml ~/cookiecloud/docker-compose.yml
-docker compose -f ~/cookiecloud/docker-compose.yml up -d
-```
-浏览器安装 [CookieCloud 扩展](https://github.com/easychen/CookieCloud)，配置服务器地址 + UUID + 密码，扩展会自动加密同步浏览器 Cookie。
+
+1. Docker 部署服务端：
+   ```bash
+   mkdir -p ~/cookiecloud
+   cp templates/docker-compose.cookiecloud.yml ~/cookiecloud/docker-compose.yml
+   docker compose -f ~/cookiecloud/docker-compose.yml up -d
+   ```
+
+2. 浏览器安装 [CookieCloud 扩展](https://github.com/easychen/CookieCloud)（[Chrome](https://chrome.google.com/webstore/detail/cookiecloud/ffjiejobkoibkjlhjnlgmcnnigeelbdl) / [Edge](https://microsoftedge.microsoft.com/addons/detail/cookiecloud/bffenpfpjikaeocaihdonmgnjjdpjkeo)）
+
+3. 扩展中填入服务器地址（`http://<IP>:8088`）、UUID 和密码，点击测试连接
+
+4. 开启自动同步（建议间隔 5-30 分钟），之后每次浏览器登录 PT 站，Cookie 自动加密上传
+
+5. skill 的 `cookie_sync.py` 拉取解密后写入 `secrets.env`，keepalive 检测 cookie 失效时自动触发同步
 
 ## Agent Workflow
 
@@ -325,6 +336,7 @@ docker compose -f ~/cookiecloud/docker-compose.yml up -d
 10. **javbus-api（可选）**：是否已部署 javbus-api（`docker compose` 模板在 `templates/docker-compose.javbus-api.yml`）？→ 已部署则在 `secrets.env` 设置 `JAVBUS_API_URL=http://localhost:8922`。未部署也能裸爬 JavBus，只是磁链无结构化数据、无封面预览。
 11. **PT 刷流（可选）**：是否需要自动刷流保号？→ 需要指定：站点、搜索条件（关键词/免费/HR排除）、大小范围、做种人数、qB 专用目录、做种天数上限、死种清理阈值、每次新增上限。配置写入 `<skill-dir>/pt_boost.json`。
 12. **成人内容下载偏好（可选）**：PT 做种阈值（低于N则走公开源）、版本优选顺序（做种数/去码/字幕/画质）、清晰度范围（4K/1080p/720p）。
+13. **CookieCloud（可选）**：是否已部署 CookieCloud？→ 已部署则提供服务器地址、UUID、密码，写入 `secrets.env`（`COOKIE_CLOUD_HOST/UUID/PASS`）。未部署则提供 Docker Compose 模板（`templates/docker-compose.cookiecloud.yml`）引导部署，并提示安装浏览器扩展。CookieCloud 可自动同步浏览器 Cookie 到 skill，免去手动抓 cookie 的麻烦。需要系统安装 `python3-cryptography`。
 
 所有回答写入 `user-preferences.md`（本地文件，不入 Git）。敏感值同时写入 `secrets.env`。不使用 memory 存储偏好（容量有限）。
 
@@ -332,7 +344,14 @@ docker compose -f ~/cookiecloud/docker-compose.yml up -d
 
 用户回答完以上问题后，**不要等用户说，直接自动执行以下初始化**：
 
-**1. 创建数据文件：**
+**1. 安装依赖（如果缺失）：**
+
+```bash
+# cookie_sync.py 解密依赖
+dpkg -l python3-cryptography >/dev/null 2>&1 || sudo apt-get install -y python3-cryptography
+```
+
+**2. 创建数据文件：**
 
 ```bash
 # 下载历史（不存在则创建空文件）
@@ -345,14 +364,24 @@ test -f pt_completed_last.txt || touch pt_completed_last.txt
 test -f pt_wishlist.json || echo '{"movies":[],"actors":[],"fanhao":[]}' > pt_wishlist.json
 ```
 
-**2. 创建定时任务（必须，不等用户追问）：**
+**3. 首次 Cookie 同步（如果配置了 CookieCloud）：**
+
+```bash
+python3 scripts/cookie_sync.py
+python3 scripts/connectivity_check.py --quick
+```
+
+如果用户未配置 CookieCloud，跳过此步。`secrets.env` 中的 `PT_COOKIE_*` 需要用户手动从浏览器抓取填入。
+
+**4. 创建定时任务（必须，不等用户追问）：**
 
 | 任务 | 频率 | 作用 |
 |------|------|------|
 | PT下载进度检查 | 每 15 分钟 | 完成通知 + 死种告警，没事件时不发消息 |
 | PT自动追剧 | 每天 10:00 | 搜索+去重+展示，等用户确认后才下载 |
 | 公开磁链状态检查 | 每 30 分钟 | 自动删除已完成公开种、标记死种 |
-| PT站点Cookie保活 | 每天 06:00 | 访问各站首页刷新 session，防止 cookie 过期 |
+| PT站点Cookie保活 | 每天 06:00 | 访问各站首页刷新 session，失败时自动 CookieCloud 同步 |
+| CookieCloud定时同步 | 每 4 小时 | 从 CookieCloud 拉取最新 cookie 更新 secrets.env |
 
 ```python
 # 下载进度检查（静默模式：没事件不通知）
@@ -418,9 +447,24 @@ cronjob(action='create',
     deliver="origin",
     workdir="<skill-dir>",
 )
+
+# CookieCloud 定时同步（仅当配置了 CookieCloud 时创建）
+# 如果 secrets.env 中没有 COOKIE_CLOUD_HOST 则跳过此任务
+cronjob(action='create',
+    name="CookieCloud定时同步",
+    schedule="0 */4 * * *",
+    prompt="""加载 pt-claw skill。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
+如果有，运行 `python3 scripts/cookie_sync.py` 同步 cookie，然后 `python3 scripts/connectivity_check.py --quick` 验证。
+如果 CookieCloud 未配置则 [SILENT] 跳过。
+同步失败或连接异常时报告用户。""",
+    skills=["pt-claw"],
+    deliver="origin",
+    workdir="<skill-dir>",
+)
 ```
 
-> ⚠️ 定时任务创建后告知用户：「已创建 4 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m)、Cookie保活(每天06:00)。随时可以说『暂停XX任务』来停止。」
+> ⚠️ 定时任务创建后告知用户：「已创建 5 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m)、Cookie保活(每天06:00)、CookieCloud同步(每4h)。随时可以说『暂停XX任务』来停止。」
+> CookieCloud 同步任务仅在配置了 `COOKIE_CLOUD_HOST` 时执行实际同步，未配置则静默跳过。
 
 ### Step 1：识别内容类型，路由搜索
 
@@ -1579,6 +1623,16 @@ rm -f ~/.hermes/pt_wishlist.json ~/.hermes/pt_downloaded.json ~/.hermes/pt_compl
 | 变量 | 说明 |
 |------|------|
 | `JAVBUS_API_URL` | javbus-api 地址（如 `http://localhost:8922`），Docker 自部署 |
+
+### CookieCloud（可选，未配置则手动管理 Cookie）
+
+| 变量 | 说明 |
+|------|------|
+| `COOKIE_CLOUD_HOST` | CookieCloud 服务器地址（如 `http://localhost:8088`） |
+| `COOKIE_CLOUD_UUID` | 用户 UUID |
+| `COOKIE_CLOUD_PASS` | 加密密码 |
+
+> CookieCloud 部署模板：`templates/docker-compose.cookiecloud.yml`。浏览器安装扩展后自动同步 Cookie，`cookie_sync.py` 定时拉取更新 `PT_COOKIE_*`。
 
 ### 用户偏好（存入 `user-preferences.md`，不硬编码）
 
