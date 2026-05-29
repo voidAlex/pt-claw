@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """
-Connectivity check — test all external service connections.
+Connectivity check — test external service connections.
 
 Usage:
-    python3 connectivity_check.py              # test all
-    python3 connectivity_check.py --quick      # skip slow PT site tests
-    python3 connectivity_check.py --site mteam  # test only mteam
+    python3 connectivity_check.py                          # test all
+    python3 connectivity_check.py --quick                  # skip slow PT site tests
+    python3 connectivity_check.py qb                       # test only qBittorrent
+    python3 connectivity_check.py mteam                    # test only M-Team API
+    python3 connectivity_check.py jf                       # test only Jellyfin
+    python3 connectivity_check.py jf1                      # test only Jellyfin adult
+    python3 connectivity_check.py jf2                      # test only Jellyfin movie/tv
+    python3 connectivity_check.py javbus                   # test only javbus-api
+    python3 connectivity_check.py proxy                    # test only PT_PROXY
+    python3 connectivity_check.py --site btschool          # test only one PT site
 """
 import json, os, sys, time, urllib.request, urllib.parse, urllib.error
 
@@ -245,31 +252,69 @@ def test_pt_sites(filter_site=None):
         )
 
 
+SERVICE_MAP = {
+    "qb": lambda: test_qbittorrent(),
+    "mteam": lambda: test_mteam(),
+    "jf": lambda: (test_jellyfin("adult", "JELLYFIN1_URL", "JELLYFIN1_API_KEY"),
+                    test_jellyfin("movie/tv", "JELLYFIN2_URL", "JELLYFIN2_API_KEY")),
+    "jf1": lambda: test_jellyfin("adult", "JELLYFIN1_URL", "JELLYFIN1_API_KEY"),
+    "jf2": lambda: test_jellyfin("movie/tv", "JELLYFIN2_URL", "JELLYFIN2_API_KEY"),
+    "javbus": lambda: test_javbus_api(),
+    "proxy": lambda: test_proxy(),
+}
+
+
 def main():
     _load_env_file()
 
+    args = sys.argv[1:]
     only_site = None
     quick = False
-    for arg in sys.argv[1:]:
+    only_service = None
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--quick":
             quick = True
-        elif arg == "--site" and len(sys.argv) > sys.argv.index(arg) + 1:
-            only_site = sys.argv[sys.argv.index(arg) + 1]
+        elif arg == "--site" and i + 1 < len(args):
+            i += 1
+            only_site = args[i]
+        elif arg == "--json":
+            pass
+        elif arg in SERVICE_MAP or arg in ("pt", "sites"):
+            only_service = arg
+        elif arg.startswith("-"):
+            pass
+        else:
+            only_service = arg
+        i += 1
 
     print("pt-claw connectivity check")
     print("=" * 50)
 
-    test_qbittorrent()
-    test_mteam()
-    test_jellyfin("adult", "JELLYFIN1_URL", "JELLYFIN1_API_KEY")
-    test_jellyfin("movie/tv", "JELLYFIN2_URL", "JELLYFIN2_API_KEY")
-    test_javbus_api()
-    test_proxy()
-
-    if not quick:
+    if only_service:
+        if only_service in SERVICE_MAP:
+            SERVICE_MAP[only_service]()
+        elif only_service in ("pt", "sites"):
+            test_pt_sites(filter_site=only_site)
+        else:
+            print(f"Unknown service: {only_service}")
+            print(f"Available: {', '.join(list(SERVICE_MAP.keys()) + ['pt', 'sites'])}")
+            sys.exit(1)
+    elif only_site:
         test_pt_sites(filter_site=only_site)
     else:
-        print("\n⏭️  PT sites skipped (--quick)")
+        test_qbittorrent()
+        test_mteam()
+        test_jellyfin("adult", "JELLYFIN1_URL", "JELLYFIN1_API_KEY")
+        test_jellyfin("movie/tv", "JELLYFIN2_URL", "JELLYFIN2_API_KEY")
+        test_javbus_api()
+        test_proxy()
+        if not quick:
+            test_pt_sites()
+        else:
+            print("\n⏭️  PT sites skipped (--quick)")
 
     print("\n" + "=" * 50)
     ok = sum(1 for r in results if r["status"] == "ok")
