@@ -3,7 +3,7 @@
 # 文档: https://github.com/ovnrain/javbus-api
 #
 # 注意: 美国 IP 会触发 JavBus 登录页面，请使用其他地区代理
-# 部署后配置环境变量 JAVBUS_API_URL=http://<host>:8922
+# 部署后在 secrets.env 中设置 JAVBUS_API_URL=http://localhost:8922
 
 services:
   javbus-api:
@@ -13,10 +13,5 @@ services:
     ports:
       - "8922:3000"
     environment:
-      # 代理（必须，否则无法访问 JavBus）
-      - HTTP_PROXY=<your-proxy>
-      - HTTPS_PROXY=<your-proxy>
-    #   - SSL_CERT=/certs/ssl.crt
-    #   - SSL_KEY=/certs/ssl.key
-    # volumes:
-    #   - /path/to/certs:/certs
+      - HTTP_PROXY=<PT_PROXY>
+      - HTTPS_PROXY=<PT_PROXY>
