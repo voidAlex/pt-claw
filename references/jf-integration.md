@@ -111,6 +111,7 @@ docker compose -f ~/javbus-api/docker-compose.yml up -d
   "shareDate": "2021-03-14",
   "hasSubtitle": true
 }]
+```
 
 **磁链排序参数**：`sortBy`（`size`|`date`）+ `sortOrder`（`desc`|`asc`），如 `/api/magnets/<番号>?gid=X&uc=Y&sortBy=size&sortOrder=desc`
 
@@ -230,7 +231,7 @@ cronjob(action='create',
 ```bash
 # 搜索 Sukebei Nyaa
 curl -s "https://sukebei.nyaa.si/?page=rss&q=SNOS-151" \
-  -x $HTTP_PROXY
+  -x $PT_PROXY
 
 # 从 RSS 提取 magnet
 # magnet:?xt=urn:btih:<infoHash>&dn=<title>
