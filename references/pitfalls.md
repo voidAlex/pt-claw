@@ -32,7 +32,7 @@
 
 ## 注意级
 
-**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime `adults.php?searchstr=`、M-Team 成人区、做种不足→javbus-api + Sukebei。
+**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime 用 `torrents.php`（**注意：adults.php 的 searchstr 参数已被站方忽略，返回无过滤全量列表**）、M-Team 成人区、做种不足→javbus-api + Sukebei。
 
 **15. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
 
@@ -60,6 +60,14 @@
 **24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
 
 **25. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
+
+**25a. PTTime 成人搜索用 torrents.php 不用 adults.php**：PTTime 的 `adults.php` 已忽略 `searchstr` 参数，搜索时返回全量无过滤种子列表。已改用 `torrents.php?search=...&notnewword=1`（常规搜索覆盖成人内容）。不要改回 `adults.php`。
+
+**25b. Cookie 过期检测只看 `<title>` 标签**：之前检测 `'登录' in html[:2000]` 会把导航栏的「快捷登录」文字误判为过期。已改为提取 `<title>` 标签内容再检测（`_common._is_login_page()`）。涉及文件：`pt_search.py`、`site_profile.py`、`connectivity_check.py`。不要改回 `html[:N]` 方式。
+
+**25c. TTG 列索引从表头动态解析**：TTG 页面列顺序可能变化，硬编码索引（6/7/8）不可靠。已改为解析 `<th>` 表头行建立 名称→索引 映射（匹配 大小/Size、完成/Completed、做种-下载/S-L），仅在表头未找到时回退到硬编码默认值。
+
+**25d. JavBus 爬取健壮性**：`javbus_magnet.py` 的 `search_scrape` 已加固：① gid/uc 正则支持 `var/let/const` + 灵活空白 ② bigImage 匹配多值 class 属性 ③ 样例图匹配任意 CDN 域名（不限 pics.dmm.co.jp）④ 磁链支持 base32 hash ⑤ 爬取前检测 CAPTCHA/Cloudflare/重定向。遇到「Movie not found」时先检查是否被 CAPTCHA 拦截。
 
 ## 脚本纪律
 

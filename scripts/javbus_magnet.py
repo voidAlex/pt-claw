@@ -60,9 +60,18 @@ def search_scrape(code: str) -> dict:
     proxy = _env("PT_PROXY")
 
     # Step 1: get page + gid
+
     html = _fetch(f"https://www.javbus.com/{code}", proxy)
-    gid_match = re.search(r'var gid = (\d+)', html)
-    uc_match = re.search(r'var uc = (\d+)', html)
+
+    # Detect CAPTCHA or redirect before parsing
+    if not html:
+        return {"error": f"Empty response for {code} — site may be down", "source": "javbus-scrape"}
+    if re.search(r'captcha|验证码|cloudflare', html, re.IGNORECASE):
+        return {"error": f"CAPTCHA/Cloudflare challenge for {code}", "source": "javbus-scrape"}
+    if re.search(r'<title[^>]*>.*?(?:302|301|redirect).*?</title>', html, re.IGNORECASE | re.DOTALL):
+        return {"error": f"Redirected for {code} — movie may not exist", "source": "javbus-scrape"}
+    gid_match = re.search(r'(?:var|let|const)\s+gid\s*=\s*(\d+)', html)
+    uc_match = re.search(r'(?:var|let|const)\s+uc\s*=\s*(\d+)', html)
     if not gid_match:
         return {"error": f"Movie not found: {code}", "source": "javbus-scrape"}
 
@@ -70,11 +79,12 @@ def search_scrape(code: str) -> dict:
     uc = uc_match.group(1) if uc_match else "0"
 
     # Cover
-    cover_match = re.search(r'class="bigImage"[^>]*href="([^"]+)"', html)
+    cover_match = re.search(r'class="[^"]*bigImage[^"]*"[^>]*href="([^"]+)"', html)
     cover = cover_match.group(1) if cover_match else ""
 
     # Samples (preview images)
-    samples = re.findall(r'https://pics\.dmm\.co\.jp[^"]+\.jpg', html)
+    # Match sample images from any CDN domain (not just pics.dmm.co.jp)
+    samples = re.findall(r'https?://[^"\'\s]+/(?:pics|samples|digital)/[^"\'\s]+\.jpg', html, re.IGNORECASE)
 
     # Step 2: Ajax magnets
     ajax_url = (
@@ -87,7 +97,7 @@ def search_scrape(code: str) -> dict:
     seen = set()
     magnets = []
     for m in re.finditer(
-        r'magnet:\?xt=urn:btih:([a-f0-9A-F]{40})(?:&dn=([^&\'\"\]]+))?', html
+        r'magnet:\?xt=urn:btih:([a-fA-F0-9]{40}|[A-Z2-7]{32,})(?:&dn=([^&\'\"\s\]]+))?', html
     ):
         ih = m.group(1).upper()
         if ih in seen:

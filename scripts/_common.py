@@ -118,3 +118,17 @@ def _magnet_score(title):
         if tag.lower() in title.lower():
             s += 1
     return s
+
+
+def _is_login_page(html: str) -> bool:
+    """Check if an HTML page is a login page by examining the <title> tag.
+
+    This avoids false positives from nav text like '快捷登录' appearing in
+    normal page headers. A login page has a title like '登录 - PTTime' while
+    a normal torrent listing will have a different title.
+    """
+    title_match = re.search(r'<title[^>]*>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+    if not title_match:
+        return False
+    title_text = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
+    return '登录' in title_text or 'login' in title_text.lower()

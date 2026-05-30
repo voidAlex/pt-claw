@@ -10,7 +10,7 @@ Usage:
 
 import json, os, re, sys, time, urllib.request, urllib.error
 
-from _common import _env, _fmt_size, _env_matching, _load_env_file, _parse_size
+from _common import _env, _fmt_size, _env_matching, _load_env_file, _parse_size, _is_login_page
 from _proxy import using_proxy
 from mteam_api import _api_post
 from pt_search import SITES, load_cookies
@@ -100,7 +100,7 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
         return {"status": "error", "error": str(e)[:120]}
 
     # Detect login page
-    if "<title>" in html[:3000] and ("登录" in html[:3000] or "login" in html[:3000].lower()):
+    if _is_login_page(html):
         return {"status": "error", "error": "Cookie expired"}
 
     # Try to find user info block — usually in a sidebar or top bar area
@@ -356,7 +356,7 @@ def _parse_ttg_profile(site_id, site_cfg, cookie):
     except Exception as e:
         return {"status": "error", "error": str(e)[:120]}
 
-    if "<title>" in html[:3000] and ("登录" in html[:3000] or "login" in html[:3000].lower()):
+    if _is_login_page(html):
         return {"status": "error", "error": "Cookie expired"}
 
     username = _extract_text_field(html, ["用户名", "Username"])

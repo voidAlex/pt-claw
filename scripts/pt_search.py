@@ -22,7 +22,7 @@ import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.cookiejar import CookieJar
 
-from _common import _load_env_file, _env, _fmt_size, _env_matching
+from _common import _load_env_file, _env, _fmt_size, _env_matching, _is_login_page
 from _proxy import using_proxy
 from _search_cache import cache_get, cache_put
 
@@ -208,7 +208,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
                  "site": site["name"], "site_id": site_id}]
 
     if adult and site_id == "pttime":
-        search_path = f"/adults.php?searchstr={urllib.parse.quote(query)}"
+        # PTTime adults.php ignores searchstr parameter — use regular search which covers adult content
+        search_path = f"/torrents.php?search={urllib.parse.quote(query)}&notnewword=1"
     elif adult and "adult_search" in site:
         search_path = site["adult_search"].format(query=urllib.parse.quote(query))
     else:
@@ -241,8 +242,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
     except Exception as e:
         return [{"error": str(e), "site": site["name"], "site_id": site_id}]
 
-    # Detect if we got a login page instead of results
-    if "<title>" in html and "登录" in html[:2000]:
+    # Detect if we got a login page instead of results (check <title> only to avoid nav false positives)
+    if _is_login_page(html):
         return [{"error": "Cookie expired — re-login needed",
                  "site": site["name"], "site_id": site_id}]
 
@@ -591,28 +592,44 @@ def _parse_ttg(html, site, site_id, limit):
         # Extract all <td> cells
         tds = re.findall(r'<td[^>]*>(.*?)</td>', row_html, re.DOTALL | re.IGNORECASE)
 
-        # Size: 7th <td> (index 6)
+        # Build column index mapping from <th> headers (fallback to hardcoded indices)
+        col_size, col_completed, col_sl = 6, 7, 8
+        header_block = re.search(
+            r'<tr[^>]*>\s*(?:<th[^>]*>.*?</th>\s*)+</tr>',
+            html, re.DOTALL | re.IGNORECASE)
+        if header_block:
+            ths = re.findall(r'<th[^>]*>(.*?)</th>', header_block.group(0), re.DOTALL | re.IGNORECASE)
+            for i, th in enumerate(ths):
+                th_text = re.sub(r'<[^>]+>', '', th).strip()
+                if re.match(r'(大小|Size)', th_text, re.IGNORECASE):
+                    col_size = i
+                elif re.match(r'(完成|Completed)', th_text, re.IGNORECASE):
+                    col_completed = i
+                elif re.match(r'(做种.*下载|Seed.*Leech|S-L|S\/L)', th_text, re.IGNORECASE):
+                    col_sl = i
+
+        # Size
         size_str = ""
-        if len(tds) > 6:
-            size_inner = re.sub(r'<[^>]+>', '', tds[6]).strip()
+        if len(tds) > col_size:
+            size_inner = re.sub(r'<[^>]+>', '', tds[col_size]).strip()
             sm = re.search(r'([\d.,]+)\s*(GB|MB|TB|KB)', size_inner, re.IGNORECASE)
             if sm:
                 size_str = f"{sm.group(1)} {sm.group(2).upper()}"
 
-        # Completed: 8th <td> (index 7)
+        # Completed
         completed = 0
-        if len(tds) > 7:
-            completed_str = re.sub(r'<[^>]+>', '', tds[7]).strip()
+        if len(tds) > col_completed:
+            completed_str = re.sub(r'<[^>]+>', '', tds[col_completed]).strip()
             try:
                 completed = int(re.sub(r'[^\d]', '', completed_str))
             except ValueError:
                 pass
 
-        # Seeders/Leechers: 9th <td> (index 8) in format "N/N"
+        # Seeders/Leechers in format "N/N"
         seeders = 0
         leechers = 0
-        if len(tds) > 8:
-            sl_inner = re.sub(r'<[^>]+>', '', tds[8]).strip()
+        if len(tds) > col_sl:
+            sl_inner = re.sub(r'<[^>]+>', '', tds[col_sl]).strip()
             sl_match = re.search(r'(\d+)\s*/\s*(\d+)', sl_inner)
             if sl_match:
                 seeders = int(sl_match.group(1))
@@ -706,7 +723,8 @@ def main():
 
     if adult and actor and "pttime" in target_sites:
         s = target_sites["pttime"]
-        search_path = f"/adults.php?actor={urllib.parse.quote(actor)}"
+        # PTTime adults.php ignores searchstr — use regular search for adult actor lookup
+        search_path = f"/torrents.php?search={urllib.parse.quote(actor)}&notnewword=1"
         full_url = f"{s['url']}{search_path}"
         cookies = load_cookies()
         cookie_str = cookies.get("pttime", "")

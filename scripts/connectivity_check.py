@@ -20,7 +20,7 @@ import json, os, sys, time, urllib.request, urllib.parse, urllib.error
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 
-from _common import _env, _load_env_file
+from _common import _env, _load_env_file, _is_login_page
 from _proxy import using_proxy
 
 
@@ -211,7 +211,7 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy, search_path=None):
     for use_proxy in attempts:
         try:
             status, body, elapsed = _fetch(url, timeout=15, headers=headers, proxy=use_proxy)
-            if "登录" in body[:3000] or "login" in body[:3000].lower():
+            if _is_login_page(body):
                 _result(name, "fail", f"cookie expired (login page returned)", elapsed)
                 return
             elif "<title>" in body and "403" in body[:500]:
@@ -277,7 +277,7 @@ def _keepalive_site(name, base_url, cookie_var, needs_proxy):
     for use_proxy in attempts:
         try:
             status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=use_proxy)
-            if "登录" in body[:3000] or "login" in body[:3000].lower():
+            if _is_login_page(body):
                 print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
                 return False
             elif status == 200:
