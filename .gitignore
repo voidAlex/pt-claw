@@ -24,6 +24,7 @@ Thumbs.db
 
 # State files (not committed)
 *.local.json
+*.lock
 pt_notify_state.json
 user-preferences.md
 pt_wishlist.json

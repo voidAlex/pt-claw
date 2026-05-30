@@ -40,13 +40,20 @@ else
     echo "  ℹ MTEAM_API_KEY — not set (M-Team API search disabled)"
 fi
 
-echo "=== Jellyfin (adult) ==="
-check JELLYFIN1_URL  "Adult Jellyfin URL (e.g. JF adult address)"
-check JELLYFIN1_API_KEY "Adult Jellyfin API key"
+echo "=== Jellyfin (optional) ==="
+if [[ -n "${JELLYFIN1_URL}" ]]; then
+    check JELLYFIN1_API_KEY "Adult Jellyfin API key"
+    echo "  ✓ JELLYFIN1_URL ($JELLYFIN1_URL)"
+else
+    echo "  ℹ JELLYFIN1 — not configured (adult JF de-dup disabled)"
+fi
 
-echo "=== Jellyfin (movie/TV) ==="
-check JELLYFIN2_URL  "Movie/TV Jellyfin URL (e.g. JF TV address)"
-check JELLYFIN2_API_KEY "Movie/TV Jellyfin API key"
+if [[ -n "${JELLYFIN2_URL}" ]]; then
+    check JELLYFIN2_API_KEY "Movie/TV Jellyfin API key"
+    echo "  ✓ JELLYFIN2_URL ($JELLYFIN2_URL)"
+else
+    echo "  ℹ JELLYFIN2 — not configured (movie/TV JF de-dup disabled)"
+fi
 
 echo "=== Proxy ==="
 if [[ -n "${PT_PROXY}" ]]; then
