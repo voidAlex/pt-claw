@@ -14,6 +14,9 @@ Output: JSON array with title, magnet, size, isHD, hasSubtitle, shareDate.
 
 import sys, json, os, re, urllib.request, urllib.parse, subprocess
 
+# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _proxy import using_proxy
+
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
@@ -200,16 +203,13 @@ def _fetch(url: str, proxy: str = "", referer: str = "") -> str:
     if referer:
         headers["Referer"] = referer
     req = urllib.request.Request(url, headers=headers)
-    if proxy:
-        proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
-        opener = urllib.request.build_opener(proxy_handler)
-    else:
+    with using_proxy(proxy or None):
         opener = urllib.request.build_opener()
-    try:
-        with opener.open(req, timeout=15) as resp:
-            return resp.read().decode("utf-8", errors="replace")
-    except Exception as e:
-        return ""
+        try:
+            with opener.open(req, timeout=15) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except Exception as e:
+            return ""
 
 
 def main():

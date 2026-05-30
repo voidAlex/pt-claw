@@ -12,6 +12,9 @@ Output: JSON with existing (in JF or history) and missing films, sorted by date.
 
 import json, os, sys, re, urllib.request, urllib.parse
 
+# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _proxy import using_proxy
+
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
@@ -41,9 +44,8 @@ JAVBUS_API = (_env("JAVBUS_API_URL") or "http://localhost:8922").rstrip("/")
 def _make_opener():
     proxy = _env("PT_PROXY")
     if proxy:
-        return urllib.request.build_opener(
-            urllib.request.ProxyHandler({"http": proxy, "https": proxy})
-        )
+        os.environ['http_proxy'] = proxy
+        os.environ['https_proxy'] = proxy
     return urllib.request.build_opener()
 
 def javbus_get(path):

@@ -12,6 +12,9 @@ Output: JSON array with seeders, leechers, size, magnet link, title.
 import sys, json, os, re, urllib.request, urllib.parse
 from xml.etree import ElementTree as ET
 
+# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _proxy import using_proxy
+
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
@@ -76,17 +79,13 @@ def search(code: str, limit: int = 20) -> list[dict]:
     req = urllib.request.Request(url, headers={"User-Agent": "Hermes/1.0"})
     proxy = _env("PT_PROXY")
 
-    if proxy:
-        proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
-        opener = urllib.request.build_opener(proxy_handler)
-    else:
+    with using_proxy(proxy):
         opener = urllib.request.build_opener()
-
-    try:
-        with opener.open(req, timeout=15) as resp:
-            root = ET.fromstring(resp.read())
-    except Exception as e:
-        return [{"error": str(e), "source": "sukebei"}]
+        try:
+            with opener.open(req, timeout=15) as resp:
+                root = ET.fromstring(resp.read())
+        except Exception as e:
+            return [{"error": str(e), "source": "sukebei"}]
 
     results = []
     seen_hashes = set()

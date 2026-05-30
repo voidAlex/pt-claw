@@ -20,6 +20,9 @@ import json, os, sys, time, urllib.request, urllib.parse, urllib.error
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 
+# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _proxy import using_proxy
+
 ENV_FILE = os.path.join(_skill_dir, "..", "secrets.env")
 _env_cache = None
 
@@ -61,24 +64,23 @@ def _result(name, status, detail="", latency_ms=0):
 
 def _fetch(url, timeout=10, headers=None, data=None, proxy=None):
     """Return (status_code, body_text, elapsed_ms) or raise."""
-    handlers = []
-    if proxy:
-        handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
-    opener = urllib.request.build_opener(*handlers)
-    req = urllib.request.Request(url)
-    req.add_header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
-    if headers:
-        for k, v in headers.items():
-            req.add_header(k, v)
-    t0 = time.time()
-    if data:
-        if isinstance(data, dict):
-            data = urllib.parse.urlencode(data).encode()
-        req.data = data
-    with opener.open(req, timeout=timeout) as resp:
-        body = resp.read().decode("utf-8", errors="replace")
+    with using_proxy(proxy):
+        opener = urllib.request.build_opener()
+        req = urllib.request.Request(url)
+        req.add_header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
+        if headers:
+            for k, v in headers.items():
+                req.add_header(k, v)
+        t0 = time.time()
+        if data:
+            if isinstance(data, dict):
+                data = urllib.parse.urlencode(data).encode()
+            req.data = data
+        with opener.open(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            status = resp.status
     elapsed = (time.time() - t0) * 1000
-    return resp.status, body, elapsed
+    return status, body, elapsed
 
 
 def test_qbittorrent():
@@ -123,14 +125,12 @@ def test_mteam():
             headers={"x-api-key": key, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
         )
         proxy = _env("PT_PROXY")
-        handlers = []
-        if proxy:
-            handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
-        opener = urllib.request.build_opener(*handlers)
         t0 = time.time()
-        with opener.open(req, timeout=15) as resp:
-            elapsed = (time.time() - t0) * 1000
-            data = json.loads(resp.read())
+        with using_proxy(proxy):
+            opener = urllib.request.build_opener()
+            with opener.open(req, timeout=15) as resp:
+                elapsed = (time.time() - t0) * 1000
+                data = json.loads(resp.read())
         code = str(data.get("code", ""))
         if code == "0":
             total = data.get("data", {}).get("total", "?")

@@ -113,7 +113,7 @@ metadata:
 
 | 关键词特征 | 内容类型 | 搜索路由 |
 |-----------|---------|---------|
-| 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → PTTime `adults.php` + M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
+| 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → **先检查 `user-preferences.md` 成人 `enabled`**；未启用则拒绝并提示；已启用 → PTTime `adults.php` + M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
 | 演员/导演名 | 影视/成人 | → **先查元数据源获取完整作品列表**，再逐部搜 PT |
 | 电影/剧集名 | 影视 | → 全 8 站常规搜索 |
 | 片库统计/演员排行 | JF查询 | → JF `fields=People` 分页计数 |
@@ -239,6 +239,8 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 详见 [references/new-site-adaptation.md](references/new-site-adaptation.md)：5 步适配流程（信息收集→平台识别→解析器→验证→文档更新）+ 适配检查清单。
 
+**手写解析器必须委托编程 agent**：NexusPHP 系站点只需注册 SITES 字典（零代码），Agent 可直接完成。但遇到非标框架需要手写解析器时（Case 3），Agent **禁止自己写代码**——先完成 Step A/B 的信息收集和 HTML 分析，然后将完整的解析规格（DOM 结构、字段映射、示例 HTML 片段）委托给 Claude Code / OpenCode 等专业编程 agent 实现和调试。
+
 ## Common Pitfalls
 
 ### 🔴 致命级
@@ -273,7 +275,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ### 🟡 注意级
 
-**14. 成人搜索链路**：PTTime 用 `adults.php?searchstr=`；M-Team 成人区。成人番号 PT 少收录 → 优先 javbus-api + Sukebei。
+**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime `adults.php?searchstr=`、M-Team 成人区、做种不足→javbus-api + Sukebei。
 
 **15. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
 
@@ -315,13 +317,13 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **28. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
 
-**27. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
+**29. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
 
-**28. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
+**30. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
 
-**29. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
+**31. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
 
-**30. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
+**32. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
 
 ## 环境变量清单（`secrets.env`）
 

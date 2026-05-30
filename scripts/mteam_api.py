@@ -17,6 +17,9 @@ Details: references/mteam-api.md
 
 import sys, json, os, urllib.request, urllib.error
 
+# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _proxy import using_proxy
+
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
@@ -60,16 +63,16 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
     proxy = _env("PT_PROXY")
     if not proxy:
         return {"code": "-1", "message": "PT_PROXY not set — M-Team API requires proxy (domestic IPs get 403)"}
-    handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})]
-    opener = urllib.request.build_opener(*handlers)
 
-    try:
-        with opener.open(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        return {"code": str(e.code), "message": f"HTTP {e.code}: {e.reason}"}
-    except Exception as e:
-        return {"code": "-1", "message": str(e)}
+    with using_proxy(proxy):
+        opener = urllib.request.build_opener()
+        try:
+            with opener.open(req, timeout=timeout) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            return {"code": str(e.code), "message": f"HTTP {e.code}: {e.reason}"}
+        except Exception as e:
+            return {"code": "-1", "message": str(e)}
 
 
 def search(keyword: str, api_key: str, limit: int = 25) -> list[dict]:

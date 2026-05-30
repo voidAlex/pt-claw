@@ -21,6 +21,9 @@ import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.cookiejar import CookieJar
 
+# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _proxy import using_proxy
+
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
@@ -171,23 +174,18 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
                    "Chrome/125.0.0.0 Safari/537.36")
 
     proxy = _env("PT_PROXY") if site.get("needs_proxy") else None
-    if proxy:
-        proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
-        opener = urllib.request.build_opener(proxy_handler)
-    else:
-        opener = urllib.request.build_opener()
-
     try:
-        with opener.open(req, timeout=timeout) as resp:
-            raw = resp.read()
-            # Detect encoding
-            content_type = resp.headers.get("Content-Type", "")
-            match = re.search(r'charset=([\w-]+)', content_type)
-            encoding = match.group(1) if match else "utf-8"
-            try:
-                html = raw.decode(encoding)
-            except (UnicodeDecodeError, LookupError):
-                html = raw.decode("utf-8", errors="replace")
+        with using_proxy(proxy):
+            opener = urllib.request.build_opener()
+            with opener.open(req, timeout=timeout) as resp:
+                raw = resp.read()
+                content_type = resp.headers.get("Content-Type", "")
+                match = re.search(r'charset=([\w-]+)', content_type)
+                encoding = match.group(1) if match else "utf-8"
+                try:
+                    html = raw.decode(encoding)
+                except (UnicodeDecodeError, LookupError):
+                    html = raw.decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         return [{"error": f"HTTP {e.code}", "site": site["name"],
                  "site_id": site_id}]
@@ -345,14 +343,15 @@ def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
     if not proxy:
         return [{"error": "PT_PROXY not set — M-Team API requires proxy (domestic IPs get 403)",
                  "site": site["name"], "site_id": "mteam"}]
-    _handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})]
-    _opener = urllib.request.build_opener(*_handlers)
 
-    try:
-        resp = _opener.open(req, timeout=15)
-        data = json.loads(resp.read())
-    except Exception as e:
-        return [{"error": str(e), "site": site["name"], "site_id": "mteam"}]
+    with using_proxy(proxy):
+        _opener = urllib.request.build_opener()
+
+        try:
+            resp = _opener.open(req, timeout=15)
+            data = json.loads(resp.read())
+        except Exception as e:
+            return [{"error": str(e), "site": site["name"], "site_id": "mteam"}]
 
     if str(data.get("code")) != "0":
         return [{"error": data.get("message", "API error"),
@@ -362,15 +361,12 @@ def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
     results = []
     for item in items:
         status = item.get("status", {})
-        # Seeders/leechers in status sub-object
         seeders = int(status.get("seeders", 0))
         leechers = int(status.get("leechers", 0))
         
-        # Size in bytes
         size_bytes = int(item.get("size", 0))
         size_str = _fmt_size(size_bytes)
         
-        # Discount
         discount = status.get("discount", "")
         promo = ""
         if "PERCENT_50" in discount:
@@ -382,24 +378,24 @@ def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
         elif "TWOUP" in discount:
             promo = "2xUp"
 
-        # Category
         cat_id = item.get("category", "")
         
-        # Download URL: generate signed URL via API
         torrent_id = item.get("id", "")
         dl_url = ""
         if torrent_id and api_token:
             try:
-                token_url = f"{api_host}/torrent/genDlToken?id={torrent_id}"
-                token_req = urllib.request.Request(token_url, data=b'', method="POST")
-                token_req.add_header("x-api-key", api_token)
-                token_req.add_header("User-Agent", "Mozilla/5.0")
-                token_resp = _opener.open(token_req, timeout=8)
-                token_data = json.loads(token_resp.read())
-                if str(token_data.get("code")) == "0":
-                    dl_url = token_data.get("data", "")
+                with using_proxy(proxy):
+                    _dl_opener = urllib.request.build_opener()
+                    token_url = f"{api_host}/torrent/genDlToken?id={torrent_id}"
+                    token_req = urllib.request.Request(token_url, data=b'', method="POST")
+                    token_req.add_header("x-api-key", api_token)
+                    token_req.add_header("User-Agent", "Mozilla/5.0")
+                    token_resp = _dl_opener.open(token_req, timeout=8)
+                    token_data = json.loads(token_resp.read())
+                    if str(token_data.get("code")) == "0":
+                        dl_url = token_data.get("data", "")
             except Exception:
-                pass  # fall back to basic URL
+                pass
 
         results.append({
             "title": item.get("name", "").strip(),
@@ -597,24 +593,21 @@ def main():
                        "AppleWebKit/537.36 (KHTML, like Gecko) "
                        "Chrome/125.0.0.0 Safari/537.36")
         proxy = _env("PT_PROXY") if s.get("needs_proxy") else None
-        if proxy:
-            proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
-            opener = urllib.request.build_opener(proxy_handler)
-        else:
+        with using_proxy(proxy):
             opener = urllib.request.build_opener()
-        try:
-            with opener.open(req, timeout=15) as resp:
-                raw = resp.read()
-                ct = resp.headers.get("Content-Type", "")
-                m = re.search(r'charset=([\w-]+)', ct)
-                enc = m.group(1) if m else "utf-8"
-                try:
-                    html = raw.decode(enc)
-                except (UnicodeDecodeError, LookupError):
-                    html = raw.decode("utf-8", errors="replace")
-        except Exception as e:
-            print(json.dumps({"error": str(e), "site": "PTTime"}))
-            sys.exit(1)
+            try:
+                with opener.open(req, timeout=15) as resp:
+                    raw = resp.read()
+                    ct = resp.headers.get("Content-Type", "")
+                    m = re.search(r'charset=([\w-]+)', ct)
+                    enc = m.group(1) if m else "utf-8"
+                    try:
+                        html = raw.decode(enc)
+                    except (UnicodeDecodeError, LookupError):
+                        html = raw.decode("utf-8", errors="replace")
+            except Exception as e:
+                print(json.dumps({"error": str(e), "site": "PTTime"}))
+                sys.exit(1)
         results = _parse_nexusphp(html, s, "pttime", limit)
         if not results or ("error" in (results[0] if results else {})):
             results = _parse_nexusphp_classic(html, s, "pttime", limit)
