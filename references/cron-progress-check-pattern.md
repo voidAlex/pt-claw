@@ -32,62 +32,26 @@
 
 ## 参考实现
 
+完整实现见 `scripts/_cron_check.py`，核心逻辑：
+
 ```python
-#!/usr/bin/env python3
-"""Check qB for newly completed torrents, cross-referencing hash tracker."""
-import json, os, urllib.request, urllib.parse
-from datetime import datetime, timedelta, timezone
-from http.cookiejar import CookieJar
+# 标准环境加载（与其他脚本一致）
+_skill_dir = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE = os.path.join(_skill_dir, "..", "secrets.env")
+_env_cache = None
+def _load_env_file(): ...
+def _env(name, default=""): ...
 
-# Read secrets.env
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-if os.path.exists(env_path):
-    with open(env_path) as f:
-        for line in f:
-            if "=" in line and not line.startswith("#"):
-                k, v = line.strip().split("=", 1)
-                os.environ[k] = v.strip('"\'')
-
-qb_url = os.environ["QBITTORRENT_URL"]
-qb_user = os.environ["QBITTORRENT_USER"]
-qb_pass = os.environ["QBITTORRENT_PASS"]
-
-# Login
-cj = CookieJar()
-opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-opener.open(f"{qb_url}/api/v2/auth/login",
-    urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode(),
-    timeout=10)
-
-# Get torrents
-with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
-    torrents = json.loads(r.read())
-
-# Read known hashes
-tracker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_completed_last.txt")
-known = set()
-with open(tracker) as f:
-    for line in f:
-        if line.strip() and not line.startswith("#"):
-            known.add(line.strip())
-
-# Classify
-cutoff = datetime.now(timezone.utc) - timedelta(hours=168)
-new_completed = []
-dead = []
-for t in torrents:
-    h = t["hash"]
-    if t["progress"] == 1.0 and h not in known:
-        ct = datetime.fromtimestamp(t.get("completion_on", 0), tz=timezone.utc)
-        if ct >= cutoff:
-            new_completed.append({"hash": h, "name": t["name"], "completed_at": ct.isoformat()})
-    if t["progress"] == 0.0:
-        days = (datetime.now(timezone.utc) - datetime.fromtimestamp(t["added_on"], tz=timezone.utc)).days
-        if days >= 7:
-            dead.append({"hash": h, "name": t["name"], "days": days})
+# 登录 qB → 获取全部种子
+# 读 pt_completed_last.txt → known_hashes 集合
+# progress >= 1.0 且 hash 不在 known → new_completions
+# progress == 0 + stalledDL + 7天+ → dead_torrents
+# 去重：strip [prefix] 后取前40字符比较
+# 写回：append 新 hash 到 pt_completed_last.txt
+# 输出 JSON: {known_count, total_torrents, new_completions, dead_torrents}
 ```
 
-## 去重报告逻辑
+去重报告逻辑（cron prompt 层使用）：
 
 同一内容在 qB 中可能出现多次（不同编码版本、不同 tracker），报告时去重：
 
