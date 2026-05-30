@@ -26,6 +26,31 @@ from _proxy import using_proxy
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 
+# NexusPHP promo CSS classes — aligned with PT-depiler NexusPHP.ts spstate enum
+_PROMO_PATTERNS = [
+    (r'class="[^"]*pro_free2up[^"]*"', "2xFree"),
+    (r'class="[^"]*pro_2up[^"]*"', "2xUp"),
+    (r'class="[^"]*pro_free[^"]*"', "Free"),
+    (r'class="[^"]*pro_halfdown[^"]*"', "50%"),
+    (r'class="[^"]*pro_30percent[^"]*"', "30%"),
+    (r'class="[^"]*pro_custom[^"]*"', "Custom"),
+    (r'class="[^"]*free[^"]*".*class="[^"]*twoup[^"]*"', "2xFree"),
+    (r'class="[^"]*twoup[^"]*"', "2xUp"),
+    (r'class="[^"]*(?:^|\s)(?:free|_free)(?:\s|")[^"]*"', "Free"),
+    (r'>\s*Free\s*<', "Free"),
+    (r'>\s*2\s*x\s*Free\s*<', "2xFree"),
+    (r'>\s*50\s*%\s*<', "50%"),
+    (r'>\s*30\s*%\s*<', "30%"),
+]
+
+
+def _detect_promo(html_block: str) -> str:
+    for pattern, label in _PROMO_PATTERNS:
+        if re.search(pattern, html_block, re.IGNORECASE):
+            return label
+    return ""
+
+
 # ── Site Registry ───────────────────────────────────────────
 SITES = {
     "1ptba": {
@@ -250,14 +275,7 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
             seeds = int(bolds[0]) if bolds else 0
             leech = int(bolds[1]) if len(bolds) > 1 else 0
 
-        # Promo
-        promo = ""
-        if "50%" in title_html or "halfdown" in title_html:
-            promo = "50%"
-        elif "pro_free2up" in title_html or "2xfree" in title_html.lower():
-            promo = "2xFree"
-        elif "pro_free" in title_html or "_free" in title_html:
-            promo = "Free"
+        promo = _detect_promo(title_html + stats_html)
 
         results.append({
             "title": title.strip(),
@@ -400,20 +418,11 @@ def _parse_nexusphp(html: str, site: dict, site_id: str,
         seeders = int(bolds[0]) if bolds else 0
         leechers = int(bolds[1]) if len(bolds) > 1 else 0
 
-        # Promo
-        promo = ""
-        if "50%" in title_html or "halfdown" in title_html:
-            promo = "50%"
-        elif "pro_free2up" in title_html or "2xfree" in title_html.lower():
-            promo = "2xFree"
-        elif "pro_free" in title_html:
-            promo = "Free"
+        promo = _detect_promo(title_html + stats_html)
 
-        # Category
         cat = re.search(r'<span[^>]*title="([^"]*)"', title_html)
         category = cat.group(1) if cat else ""
 
-        # Download link
         dl = re.search(r'download\.php\?id=' + torrent_id + r'[^"\'\s]*', html)
         dl_url = (site["url"] + "/" + dl.group(0)) if dl else ""
 

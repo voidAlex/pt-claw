@@ -54,7 +54,7 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
 
 def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> list[dict]:
     """Search M-Team torrents. Returns list of results."""
-    req_body = {"keyword": keyword, "page": 1, "size": min(limit, 25)}
+    req_body = {"keyword": keyword, "pageNumber": 1, "pageSize": min(limit, 25)}
     if adult:
         req_body["mode"] = "adult"
     resp = _api_post("/torrent/search", api_key, req_body)
@@ -74,16 +74,20 @@ def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> 
         torrent_id = item.get("id", "")
         discount = status.get("discount", "")
 
-        # Promo
+        # Promo — aligned with PT-depiler mteam discount enum
         promo = ""
-        if "PERCENT_50" in discount:
-            promo = "50%"
-        elif "PERCENT_30" in discount:
+        if "_2X_FREE" in discount:
+            promo = "2xFree"
+        elif "_2X_PERCENT_50" in discount:
+            promo = "2x50%"
+        elif "_2X" in discount:
+            promo = "2xUp"
+        elif "PERCENT_70" in discount:
             promo = "30%"
+        elif "PERCENT_50" in discount:
+            promo = "50%"
         elif "FREE" in discount:
             promo = "Free"
-        elif "TWOUP" in discount:
-            promo = "2xUp"
 
         results.append({
             "id": torrent_id,
