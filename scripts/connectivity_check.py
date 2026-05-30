@@ -110,7 +110,13 @@ def test_mteam():
         code = str(data.get("code", ""))
         if code == "0":
             total = data.get("data", {}).get("total", "?")
-            _result("M-Team", "ok", f"API OK, search returned {total} results", elapsed)
+            quota_info = ""
+            rl = data.get("data", {}).get("rateLimit", {})
+            if rl:
+                remaining = rl.get("remaining", "?")
+                limit = rl.get("limit", "?")
+                quota_info = f", quota {remaining}/{limit}"
+            _result("M-Team", "ok", f"API OK, search returned {total} results{quota_info}", elapsed)
         else:
             _result("M-Team", "fail", f"API returned code={code}, message={data.get('message', '')[:60]}", elapsed)
     except urllib.error.HTTPError as e:
@@ -189,7 +195,7 @@ def test_proxy():
         _result("PT_PROXY", "fail", f"proxy unreachable: {str(e)[:60]}")
 
 
-def _test_pt_site(name, base_url, cookie_var, needs_proxy):
+def _test_pt_site(name, base_url, cookie_var, needs_proxy, search_path=None):
     print(f"\n=== {name} ===")
     cookie = _env(cookie_var)
     if not cookie:
@@ -197,7 +203,10 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy):
         return
     pt_proxy = _env("PT_PROXY")
     attempts = [pt_proxy] if needs_proxy else [None, pt_proxy]
-    url = f"{base_url.rstrip('/')}/torrents.php?search=test"
+    if search_path:
+        url = f"{base_url.rstrip('/')}/{search_path.lstrip('/')}"
+    else:
+        url = f"{base_url.rstrip('/')}/torrents.php?search=test"
     headers = {"Cookie": cookie}
     last_err = None
     for use_proxy in attempts:
@@ -240,16 +249,21 @@ def test_pt_sites(filter_site=None):
         print("\n⚠️  Cannot import SITES from pt_search.py")
         return
 
+    # TTG uses /browse.php not /torrents.php
+    ttg_search = "browse.php?search_field=test&c=M"
+
     for site_id, cfg in SITES.items():
         if site_id == "mteam":
             continue
         if filter_site and site_id != filter_site:
             continue
+        sp = ttg_search if site_id == "ttg" else None
         _test_pt_site(
             name=site_id,
             base_url=cfg["url"],
             cookie_var=f"PT_COOKIE_{site_id.upper()}",
             needs_proxy=cfg.get("needs_proxy", False),
+            search_path=sp,
         )
 
 
