@@ -58,9 +58,9 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
     req.add_header("User-Agent", "Mozilla/5.0")
 
     proxy = _env("PT_PROXY")
-    handlers = []
-    if proxy:
-        handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    if not proxy:
+        return {"code": "-1", "message": "PT_PROXY not set — M-Team API requires proxy (domestic IPs get 403)"}
+    handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})]
     opener = urllib.request.build_opener(*handlers)
 
     try:

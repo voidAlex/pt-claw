@@ -97,7 +97,7 @@ SITES = {
         "api_host": "https://api.m-team.cc/api",
         "api_token": _env("MTEAM_API_KEY", ""),
         "parser": "mteam_api",
-        "needs_proxy": False,
+        "needs_proxy": True,
         "categories": ["影视", "综合", "成人"],
     },
     "pttime": {
@@ -340,11 +340,12 @@ def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
     req.add_header("Accept", "application/json")
     req.add_header("User-Agent", "Mozilla/5.0")
 
-    # M-Team API needs proxy for domestic IPs (403 otherwise)
+    # M-Team API REQUIRES proxy — domestic IPs get 403
     proxy = _env("PT_PROXY")
-    _handlers = []
-    if proxy:
-        _handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    if not proxy:
+        return [{"error": "PT_PROXY not set — M-Team API requires proxy (domestic IPs get 403)",
+                 "site": site["name"], "site_id": "mteam"}]
+    _handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})]
     _opener = urllib.request.build_opener(*_handlers)
 
     try:
