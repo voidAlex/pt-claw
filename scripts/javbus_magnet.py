@@ -183,7 +183,6 @@ def search_scrape(code: str) -> dict:
 # ── Helpers ───────────────────────────────────────────────────
 def _get_json(url: str) -> dict | list | None:
     """Fetch JSON via curl subprocess (more reliable than urllib on this host)."""
-    import subprocess
     try:
         r = subprocess.run(
             ["curl", "-s", "--connect-timeout", "10", "--max-time", "15", url],
