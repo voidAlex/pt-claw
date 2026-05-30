@@ -94,11 +94,11 @@ def test_mteam():
         _result("M-Team", "fail", "MTEAM_API_KEY not set")
         return
     try:
-        body = json.dumps({"keyword": "test", "page": 1, "size": 1}).encode()
+        body = json.dumps({"keyword": "test", "pageNumber": 1, "pageSize": 1}).encode()
         req = urllib.request.Request(
             "https://api.m-team.cc/api/torrent/search",
             data=body,
-            headers={"x-api-key": key, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            headers={"x-api-key": key, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0", "Origin": "https://www.m-team.cc"},
         )
         proxy = _env("PT_PROXY")
         t0 = time.time()

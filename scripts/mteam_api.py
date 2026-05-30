@@ -32,6 +32,7 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
     req.add_header("x-api-key", api_key)
     req.add_header("Accept", "application/json")
     req.add_header("User-Agent", "Mozilla/5.0")
+    req.add_header("Origin", "https://www.m-team.cc")
 
     if body:
         req.data = json.dumps(body).encode()
@@ -88,6 +89,32 @@ def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> 
             promo = "50%"
         elif "FREE" in discount:
             promo = "Free"
+
+        # Site-wide promotion override (MoviePilot: promotionRule takes precedence)
+        promotion_rule = status.get("promotionRule")
+        if promotion_rule:
+            rule_discount = promotion_rule.get("discount", "")
+            if rule_discount and rule_discount != "NORMAL":
+                rule_promo = ""
+                if "_2X_FREE" in rule_discount:
+                    rule_promo = "2xFree"
+                elif "_2X_PERCENT_50" in rule_discount:
+                    rule_promo = "2x50%"
+                elif "_2X" in rule_discount:
+                    rule_promo = "2xUp"
+                elif "PERCENT_70" in rule_discount:
+                    rule_promo = "30%"
+                elif "PERCENT_50" in rule_discount:
+                    rule_promo = "50%"
+                elif "FREE" in rule_discount:
+                    rule_promo = "Free"
+                if rule_promo:
+                    promo = f"{promo}+全站{rule_promo}" if promo else f"全站{rule_promo}"
+
+        # Mall single free (adult zone timed free)
+        mall_single_free = status.get("mallSingleFree")
+        if mall_single_free and mall_single_free.get("status") == "ONGOING":
+            promo = f"{promo}+限时Free" if promo else "限时Free"
 
         results.append({
             "id": torrent_id,

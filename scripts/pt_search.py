@@ -29,8 +29,11 @@ ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secre
 # NexusPHP promo CSS classes — aligned with PT-depiler NexusPHP.ts spstate enum
 _PROMO_PATTERNS = [
     (r'class="[^"]*pro_free2up[^"]*"', "2xFree"),
+    (r'class="[^"]*pro_50pctdown2up[^"]*"', "2x50%"),
     (r'class="[^"]*pro_2up[^"]*"', "2xUp"),
     (r'class="[^"]*pro_free[^"]*"', "Free"),
+    (r'class="[^"]*pro_50pctdown[^"]*"', "50%"),
+    (r'class="[^"]*pro_30pctdown[^"]*"', "30%"),
     (r'class="[^"]*pro_halfdown[^"]*"', "50%"),
     (r'class="[^"]*pro_30percent[^"]*"', "30%"),
     (r'class="[^"]*pro_custom[^"]*"', "Custom"),
