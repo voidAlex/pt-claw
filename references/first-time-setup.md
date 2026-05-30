@@ -10,7 +10,7 @@
 
 询问清单：
 
-1. **PT 站点**：有哪些站？目前支持 8 站（M-Team、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦），不在列表中的需要新增适配。
+1. **PT 站点**：有哪些站？目前支持 15 站（M-Team、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦、PTSkit、PTHome、HDSky、HDHome、Audiences、KeepFriends、ToTheGlory），不在列表中的需要新增适配。
 2. **下载器**：类型、地址、端口、用户名、密码（目前支持 qBittorrent）。
 3. **下载路径偏好**：读取 qBittorrent 分类 API，展示所有分类和路径，让用户确认内容类型映射（电影/电视剧等 → 分类 → 路径），写入 `user-preferences.md`。
 4. **清晰度偏好**：2160p / 1080p / 720p / 无偏好。

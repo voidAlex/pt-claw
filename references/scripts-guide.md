@@ -4,7 +4,7 @@
 
 所有脚本位于 `scripts/` 目录，配置文件路径见脚注¹。
 
-### pt_search.py — 多站搜索（8 站，含馒头 API）
+### pt_search.py — 多站搜索（15 站，含馒头 API）
 
 ```bash
 # 单站
@@ -22,7 +22,7 @@ python3 scripts/pt_search.py "" --site pttime --adult --actor "浅野心" --limi
 
 **接入方式**：
 - **M-Team**: **仅限 REST API**（`x-api-key` 认证，`MTEAM_API_KEY` 环境变量）。**禁止使用 Cookie 登录——会封号。** 搜索 ✅，下载 ✅（genDlToken）
-- **其他 7 站**: Cookie 直连或代理（从 `PT_COOKIE_<SITE>` 环境变量读取，`needs_proxy` 站点自动走 `PT_PROXY`）
+- **其他 14 站**: Cookie 直连或代理（从 `PT_COOKIE_<SITE>` 环境变量读取，`needs_proxy` 站点自动走 `PT_PROXY`）
 - **BTSchool/CarPT/SoulVoice/织梦**: NexusPHP 站，cookie 绑定登录 IP，必须走与浏览器相同出口的代理才能用
 
 ### qb_add.py — 添加到 qBittorrent（含站点标签 + 文件选择）
@@ -234,7 +234,7 @@ python3 scripts/connectivity_check.py --site btschool  # 只测某个站
 python3 scripts/connectivity_check.py --json        # JSON 格式输出
 ```
 
-实际发起 HTTP 请求测试每个外部服务：qBittorrent 登录、M-Team API、两个 Jellyfin 实例、javbus-api Docker、PT_PROXY 代理、8 个 PT 站 Cookie 有效性。`env_check.sh` 只检查变量是否存在，此脚本验证连接和认证是否真正可用。
+实际发起 HTTP 请求测试每个外部服务：qBittorrent 登录、M-Team API、两个 Jellyfin 实例、javbus-api Docker、PT_PROXY 代理、14 个 PT 站 Cookie 有效性（M-Team 使用 API Key 不测 cookie）。`env_check.sh` 只检查变量是否存在，此脚本验证连接和认证是否真正可用。
 
 `needs_proxy=True` 站点走代理访问；`needs_proxy=False` 站点先直连，失败自动代理重试。`--keepalive` 模式访问各站首页刷新 session，cookie 失败时自动触发 CookieCloud 同步。
 
@@ -274,3 +274,61 @@ python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
 4. 开启自动同步（建议间隔 5-30 分钟），之后每次浏览器登录 PT 站，Cookie 自动加密上传
 
 5. skill 的 `cookie_sync.py` 拉取解密后写入 `secrets.env`，keepalive 检测 cookie 失效时自动触发同步
+
+### site_profile.py — 多站用户信息查询
+
+```bash
+# 查询单站
+python3 scripts/site_profile.py --site mteam
+
+# 查询所有已配置站点
+python3 scripts/site_profile.py --all
+
+# 只显示上传/下载/分享率
+python3 scripts/site_profile.py --site pttime --fields upload,download,ratio
+```
+
+查询各 PT 站用户个人信息：上传量、下载量、分享率、魔力值、做种数、做种体积。M-Team 通过 4 个 API 端点采集（profile/myPeerStatistics/mybonus/notify），NexusPHP 站通过 3 阶段 HTML 抓取（首页→详情页→做种页）。输出结构化 JSON。
+
+### cross_seed.py — 多站辅种验证与推送
+
+```bash
+# 检查 qB 中所有做种资源能在哪些站辅种
+python3 scripts/cross_seed.py --check
+
+# 只检查特定站点
+python3 scripts/cross_seed.py --check --site mteam,pttime
+
+# 批量辅种（从 stdin 传入 info_hash 列表）
+echo -e "hash1\nhash2" | python3 scripts/cross_seed.py --stdin
+
+# 搜索某个资源的辅种来源
+python3 scripts/cross_seed.py "流浪地球2"
+```
+
+辅种流程遵循 PT-depiler 的三阶匹配策略：
+1. **Tier 1**：infoHash 精确匹配（同一种子跨站）
+2. **Tier 2**：种子名+总体积匹配（不同发布但内容相同）
+3. **Tier 3**：文件列表匹配（最宽松）
+
+匹配成功的种子以暂停状态添加到 qBittorrent，打上 `cross-seed` + 来源站点标签。`_SITE_MAP` 从 `pt_search.SITES` 动态构建（单一来源）。
+
+### pt_ratio_boost.py — Freeleech 自动辅种（刷流保号）
+
+```bash
+# 执行一轮刷流（搜索免费种子→添加→记录）
+python3 scripts/pt_ratio_boost.py boost
+
+# 只搜索不添加（预览）
+python3 scripts/pt_ratio_boost.py boost --dry-run
+
+# 清理过期刷流种子
+python3 scripts/pt_ratio_boost.py cleanup
+
+# 预览过期种子（不删）
+python3 scripts/pt_ratio_boost.py cleanup --check
+```
+
+从 `pt_boost.json` 读取配置，按站点搜索 Freeleech / 2x上传 等促销种子，自动添加到 qBittorrent 做种。支持促销标签识别（参考 MoviePilot 的 6 种促销类型）、大小/做种数过滤、做种天数上限。过期种子自动备份后移除（通过 `qb_snapshot.py`）。
+
+配置 schema 和详细用法见 [references/pt-boost.md](pt-boost.md)。

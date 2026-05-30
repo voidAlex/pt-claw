@@ -108,7 +108,7 @@ Cron 自动追剧处理成人演员关注时的优化链路。适用于定时任
 
 实测发现：
 - PTTime/M-Team 成人区搜索 SONE/SNOS/FNS 等新番号系列 **全部返回 0 结果**
-- 每部单独调 `pt_search.py --adult` 浪费 8 站 × 20 次 API 调用，耗时且无产出
+- 每部单独调 `pt_search.py --adult` 浪费多站 × 20 次 API 调用，耗时且无产出
 - Sukebei Nyaa 对番号覆盖率高，做种数可直接判断活性
 
 ### 推荐链路（Cron 模式）

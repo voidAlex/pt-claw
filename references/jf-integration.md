@@ -1,5 +1,11 @@
 # Jellyfin Integration + javbus-api — 片库感知与追剧
 
+## 目录
+
+- [Jellyfin 集成 — 片库感知 & 自动追剧](#jellyfin-集成--片库感知--自动追剧可选)
+- [javbus-api — 影片元数据 API](#javbus-api--影片元数据-api可选)
+- [Jellyfin 集成 — 连接配置 & 自动追剧](#jellyfin-集成--连接配置--自动追剧)
+
 ## Jellyfin 集成 — 片库感知 & 自动追剧（可选）
 
 > ⚠️ **非必选项**。未配置 Jellyfin 时，跳过去重检查，PT 下载功能完全不受影响。用户在 Step 0 被询问是否配置。

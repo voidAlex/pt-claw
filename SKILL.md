@@ -1,12 +1,12 @@
 ---
 name: pt-claw
-description: "Use when the user wants to search/download torrents from PT sites, manage qBittorrent, or set up a media download stack. 15 sites supported: PTTime, M-Team (API), BTSchool, CarPT, HDFans, 1PTBar, SoulVoice, 织梦, PTSkit, PTHome, HDSky, HDHome, Audiences, KeepFriends, ToTheGlory. Search via cookie or REST API, push to qBittorrent, monitor completion."
-version: 3.0.1
+description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。15站支持，纯脚本无外部依赖。"
+version: 3.0.2
 author: Hermes Agent
 license: MIT
 metadata:
   hermes:
-    tags: [pt, torrent, qbittorrent, download, media, nas, mteam, adult, jav]
+    tags: [pt, torrent, qbittorrent, download, media, nas, mteam, adult, jav, 辅种, 刷流]
     related_skills: []
 ---
 
@@ -61,6 +61,31 @@ metadata:
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
 | 「辅种」「哪些站能辅」「cross seed」 | → `cross_seed.py` — 多站辅种验证与推送 |
 
+## 脚本清单
+
+所有脚本用法、参数说明和命令示例见 [references/scripts-guide.md](references/scripts-guide.md)。
+
+| 脚本 | 用途 |
+|------|------|
+| `pt_search.py` | 多站搜索（15 站 NexusPHP + M-Team API） |
+| `qb_add.py` | 添加种子到 qBittorrent |
+| `qb_monitor.py` | qB 状态/过滤/删除/死种诊断 |
+| `cross_seed.py` | 多站辅种验证与推送 |
+| `site_profile.py` | 多站用户信息查询 |
+| `pt_ratio_boost.py` | Freeleech 刷流保号 |
+| `qb_snapshot.py` | 删种备份与恢复 |
+| `qb_public_cleanup.py` | 公开磁链清理 |
+| `_cron_check.py` | Cron 综合检查（完成/死种/清理） |
+| `connectivity_check.py` | 全服务连接测试 |
+| `cookie_sync.py` | CookieCloud 同步 |
+| `download_history.py` | 下载历史防重复 |
+| `mteam_api.py` | M-Team API 客户端 |
+| `sukebei_search.py` | Sukebei RSS 搜索 |
+| `javbus_magnet.py` | JavBus 磁链爬取 |
+| `javbus_star.py` | 演员片单交叉对比 |
+| `jf_query.py` | Jellyfin 查询 |
+| `env_check.sh` | 环境变量检查 |
+
 ## 参考文档
 
 脚本用法、配置流程、集成细节全部在 reference 文件中，按需读取：
@@ -79,6 +104,8 @@ metadata:
 | [references/adult-section-search.md](references/adult-section-search.md) | PTTime/M-Team 成人区搜索参数 | 成人内容搜索 |
 | [references/media-maintenance.md](references/media-maintenance.md) | 媒体库重复检测 + 磁盘孤儿扫描 | 清理重复下载或手动恢复 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
+| [references/pitfalls.md](references/pitfalls.md) | 32 条常见陷阱（致命/严重/注意/脚本纪律） | 执行下载/删种前回顾 |
+| [references/env-reference.md](references/env-reference.md) | 完整环境变量清单 + 配置模板 | 配置或排查环境问题 |
 
 ## Supported PT Sites
 
@@ -259,154 +286,15 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ## Common Pitfalls
 
-### 🔴 致命级
+致命级 6 条（代理/公开种/去重/静默/确认闸门/M-Team禁Cookie）+ 严重级 7 条 + 注意级 12 条 + 脚本纪律 7 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
-**1. 代理用 `PT_PROXY`，禁止用 `HTTP_PROXY`**：`HTTP_PROXY` 会让 Agent 自身 API 走代理，挂了直接失联。脚本按站点 `needs_proxy` 标记自动应用 `PT_PROXY`。
+Agent 每次执行下载/删种前必须回顾致命级 1-6 条。
 
-**2. 公开磁链只看标签不看 tracker**：唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 有四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份。
+## 环境变量
 
-**3. 下载历史防重复**：推送成功立即写 `pt_downloaded.json`。去重第一优先——历史中有 = 无条件跳过。
+完整清单见 [references/env-reference.md](references/env-reference.md)。模板见 `templates/secrets.env.example`。
 
-**4. `[SILENT]` 不能和内容混用**：含 `[SILENT]` 整条静默。有事件发摘要，互斥。
-
-**5. 确认闸门——下载和删种都经用户确认**：搜到资源禁止直接推送；三个删种脚本必须 `--check` 先查后删；cron 只搜索不下载。
-
-**6. M-Team 禁止 Cookie 登录**：馒头严禁 Cookie 方式访问，会封号。只能 `MTEAM_API_KEY` REST API。`cookie_sync.py` 不为 mteam 同步，`connectivity_check.py` 不测 mteam cookie。
-
-### 🟠 严重级
-
-**7. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302 ④**国内 IP 直连 403，必须走 PT_PROXY**。`mteam_api.py` 和 `pt_search.py` 在 `PT_PROXY` 未设置时直接报错，不会静默直连。
-
-**8. qB URL 推送静默失败**：PT 站 download.php 需 Cookie，qB 没有。两步法见 [references/qb-operations.md](references/qb-operations.md)。
-
-**9. JF 已有 ≠ 重复**：比 `DateCreated` vs qB `added_on` 时间戳。JF 晚于 qB = 正常入库。
-
-**10. API key 必须写 `secrets.env`**：不依赖 memory。用 `printf >>` 追加。
-
-**11. PT 恢复种子结构不匹配**：本地 .torrent → snatchlist → 搜索下载。导入后验证命中已有文件。
-
-**12. wishlist 厂牌排除同步**：用户说「XXX 厂牌不要」→ 立即更新 `exclude_prefixes`。
-
-**13. 同名多版本分组展示**：电影/动画/剧集分别列出，让用户选。
-
-### 🟡 注意级
-
-**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime `adults.php?searchstr=`、M-Team 成人区、做种不足→javbus-api + Sukebei。
-
-**15. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
-
-**16. 日本演员用日文汉字**：「七緒」能搜，「七绪」0 结果。先用番号反查获取原名。
-
-**17. JF/javbus-api 中文 URL 编码**：`--data-urlencode` 或 `urllib.parse.quote()`。
-
-**18. 公开磁链**：JavBus > Sukebei（磁链多/去码/AI）、`--list-files`→用户确认→`--select-files`、`--max-video` 兜底、下完删种保文件、卡死换不同 hash。
-
-**18b. JavBus 磁链获取需两步**：`javbus_magnet.py --api` 返回的是电影详情（封面/演员/gid/uc），不是磁链列表。获取磁链的正确流程：
-1. `GET /api/movies/{code}` → 提取 `gid` 和 `uc`
-2. `GET /api/magnets/{code}?gid=X&uc=Y` → 获取结构化磁链列表（含大小/HD/字幕标记）
-不要只调 `javbus_magnet.py` 就以为拿到了磁链——需要手动走第二步。
-
-**19. 三重去重**：下载历史 → JF 搜索 → JF `DateCreated` vs qB `added_on`。
-
-**20. 搜老剧多关键词**：中文通用标题 + 季别名 + 英文名+季号。
-
-**21. Cookie 403 ≠ 过期**：NexusPHP `c_secure_*` cookie 绑定登录 IP。直连 403 → 走代理重试（代理出口 IP 需和浏览器一致），代理也 403 → 才判过期。详见 [references/diagnostic-network.md](references/diagnostic-network.md)。
-
-**22. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
-
-**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。完整步骤见 [references/diagnostic-network.md](references/diagnostic-network.md)。
-
-**24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
-
-**25. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
-
-### 🔧 脚本纪律
-
-**26. javbus-api 磁链获取需两步**：`javbus_magnet.py --api` 返回的是影片详情（含 gid/uc），不是磁链。正确流程：① `GET /api/movies/{番号}` 获取 gid 和 uc；② `GET /api/magnets/{番号}?gid=X&uc=Y` 获取结构化磁链。一步到位命令：
-```bash
-gid=$(curl -s "http://localhost:8922/api/movies/$CODE" | python3 -c "import sys,json; print(json.load(sys.stdin)['gid'])")
-uc=$(curl -s "http://localhost:8922/api/movies/$CODE" | python3 -c "import sys,json; print(json.load(sys.stdin)['uc'])")
-curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
-```
-
-**27. qb_add.py 磁链推送超时回退**：`qb_add.py --stdin` 的 `max_video` 模式会等待元数据取回，对慢磁链可能超时。超时时回退到直接 qB API 推送：`curl -b <cookie> -X POST '<qb_url>/api/v2/torrents/add' --data-urlencode 'urls=<magnet>'`，然后补 `setCategory` + `setLocation` + `addTags`。
-
-**28. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
-
-**29. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
-
-**30. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
-
-**31. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
-
-**32. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
-
-## 环境变量清单（`secrets.env`）
-
-### PT 站点
-
-| 变量 | 说明 |
-|------|------|
-| `PT_COOKIE_PTTIME` | PTTime Cookie |
-| `PT_COOKIE_BTSCHOOL` | BTSchool Cookie |
-| `PT_COOKIE_CARPT` | CarPT Cookie |
-| `PT_COOKIE_HDFANS` | HDFans Cookie |
-| `PT_COOKIE_1PTBA` | 1PTBar Cookie |
-| `PT_COOKIE_SOULVOICE` | SoulVoice Cookie |
-| `PT_COOKIE_ZMPT` | 织梦 (zmpt.cc) Cookie |
-| `PT_COOKIE_PTSKIT` | PTSkit (拾刻) Cookie |
-| `PT_COOKIE_PTHOME` | PTHome (铂金家) Cookie |
-| `PT_COOKIE_HDSKY` | HDSky (天雪) Cookie |
-| `PT_COOKIE_HDHOME` | HDHome (家园) Cookie |
-| `PT_COOKIE_AUDIENCES` | Audiences (观众) Cookie |
-| `PT_COOKIE_KEEPFRDS` | KeepFriends (朋友) Cookie |
-| `PT_COOKIE_TTG` | ToTheGlory (TTG) Cookie |
-| `MTEAM_API_KEY` | M-Team API Key。**禁止 Cookie——会封号**。**必须同时配置 `PT_PROXY`** |
-
-### 下载器
-
-| 变量 | 说明 |
-|------|------|
-| `QBITTORRENT_URL` | qBittorrent 地址（含端口） |
-| `QBITTORRENT_USER` | qBittorrent 用户名 |
-| `QBITTORRENT_PASS` | qBittorrent 密码 |
-| `QB_CLEANUP_DRY_RUN` | 设为 `1` 时公开种清理仅报告不删除（安全开关，可选） |
-
-### Jellyfin（可选，未配置不影响下载）
-
-| 变量 | 说明 |
-|------|------|
-| `JELLYFIN1_URL` | JF1 地址 |
-| `JELLYFIN1_API_KEY` | JF1 API Key |
-| `JELLYFIN2_URL` | JF2 地址 |
-| `JELLYFIN2_API_KEY` | JF2 API Key |
-
-### 网络
-
-> ⚠️ **致命警告**：不要设 `HTTP_PROXY` / `HTTPS_PROXY`！用 `PT_PROXY` 代替。
-
-| 变量 | 说明 |
-|------|------|
-| `PT_PROXY` | PT 搜索代理地址，脚本按站点 `needs_proxy` 标记自动应用 |
-
-### javbus-api（可选）
-
-| 变量 | 说明 |
-|------|------|
-| `JAVBUS_API_URL` | javbus-api 地址（如 `http://localhost:8922`） |
-
-### CookieCloud（可选，未配置则手动管理 Cookie）
-
-| 变量 | 说明 |
-|------|------|
-| `COOKIE_CLOUD_HOST` | CookieCloud 服务器地址 |
-| `COOKIE_CLOUD_UUID` | 用户 UUID |
-| `COOKIE_CLOUD_PASS` | 加密密码 |
-
-### 用户偏好（存入 `user-preferences.md`）
-
-- 清晰度偏好（4K/1080p/720p）
-- 编码偏好（HEVC/AVC/AV1）
-- 下载路径分类映射
-- 成人内容 PT 做种阈值 & 版本优选顺序
-- 关注列表 (`pt_wishlist.json`)
+关键规则：
+- **禁止设 `HTTP_PROXY`** — 用 `PT_PROXY`
+- 脚本通过 `_load_env_file()` 安全读取，禁止 `source secrets.env`
+- API Key 写 `secrets.env`，不依赖 memory
