@@ -31,6 +31,7 @@ def _env(name, default=""):
 
 cj = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+opener.addheaders = [("User-Agent", "Hermes/1.0")]
 qb = _env("QBITTORRENT_URL")
 login_data = f'username={urllib.parse.quote(_env("QBITTORRENT_USER"))}&password={urllib.parse.quote(_env("QBITTORRENT_PASS"))}'.encode()
 opener.open(f'{qb}/api/v2/auth/login', data=login_data)

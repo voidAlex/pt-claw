@@ -330,6 +330,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 | `QBITTORRENT_URL` | qBittorrent 地址（含端口） |
 | `QBITTORRENT_USER` | qBittorrent 用户名 |
 | `QBITTORRENT_PASS` | qBittorrent 密码 |
+| `QB_CLEANUP_DRY_RUN` | 设为 `1` 时公开种清理仅报告不删除（安全开关，可选） |
 
 ### Jellyfin（可选，未配置不影响下载）
 

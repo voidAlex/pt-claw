@@ -1,7 +1,7 @@
 {
   "description": "通知状态追踪 — 控制死种提醒频率，防止重复通知刷屏",
   "dead_torrents": {
-    "<hash>": {
+    "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2": {
       "name": "Dead.Torrent.2024",
       "tags": "pttime",
       "size_gb": 5.2,

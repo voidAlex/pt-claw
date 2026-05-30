@@ -59,6 +59,7 @@ def _get_opener():
 
     cj = CookieJar()
     _qb_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    _qb_opener.addheaders = [("User-Agent", "Hermes/1.0")]
     login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
     try:
         _qb_opener.open(f"{_qb_url}/api/v2/auth/login", login_data, timeout=10)
@@ -478,14 +479,15 @@ def main():
         query = " ".join(args)
         r = subprocess.run(["python3", search_script, query],
                            capture_output=True, text=True, timeout=60)
-        results = json.loads(r.stdout)
-        if idx >= len(results):
-            print(json.dumps({"error": f"Index {idx} out of range ({len(results)} results)"}))
+        data = json.loads(r.stdout)
+        items = data.get("results", [])
+        if idx >= len(items):
+            print(json.dumps({"error": f"Index {idx} out of range ({len(items)} results)"}))
             sys.exit(1)
-        url = results[idx]["download_url"]
+        url = items[idx]["download_url"]
         result = add_torrent(url, save_path=save_path, category=category,
                            tags=tags, max_video=max_video)
-        result["added_title"] = results[idx]["title"]
+        result["added_title"] = items[idx]["title"]
         print(json.dumps(result, ensure_ascii=False))
         return
 

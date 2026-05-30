@@ -82,7 +82,7 @@ def _save_state(state): ... # fcntl 锁写入
 # 公开磁链(sukebei/javbus)已完成 → 自动备份+移除（占比>20%跳过）
 # 去重：strip [prefix] 后取前40字符比较
 # 写回：append 新 hash 到 pt_completed_last.txt，更新 pt_notify_state.json
-# 输出 JSON: {"notifications": [...], "silent": false} 或 {"silent": true}
+# 输出 JSON: {"notifications": [...], "silenced": {"dead": N}, "stats": {...}} 或 {"silent": true}
 ```
 
 去重报告逻辑（cron prompt 层使用）：

@@ -62,7 +62,7 @@ def jf_check(code, server=1):
         req = urllib.request.Request(f"{url}/Items?searchTerm={q}&recursive=true",
                                      headers={"X-MediaBrowser-Token": key,
                                                "User-Agent": "Hermes/1.0"})
-        with _make_opener().open(req, timeout=5) as r:
+        with urllib.request.build_opener().open(req, timeout=5) as r:
             return json.loads(r.read()).get("TotalRecordCount", 0) > 0
     except Exception:
         return False

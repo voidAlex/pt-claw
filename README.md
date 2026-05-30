@@ -11,7 +11,7 @@
 - **智能去重**：下载历史记录 + Jellyfin 片库感知，删了的内容不会重复下载
 - **自动回退**：PT 做种不足时自动回退到公开磁链
 - **站点标签**：每次下载自动打上来源标签（mteam/pttime/sukebei 等）
-- **定时任务**：进度监控(15m)、每日追剧(10:00)、公开种清理(30m)
+- **定时任务**：进度监控+公开种清理(15m)、每日追剧(10:00)、Cookie同步/保活(视配置)
 - **刷流保号**：可选 Freeleech 自动辅种
 
 ## 使用方式
@@ -52,7 +52,7 @@
 | `pt_search.py` | 多站搜索（NexusPHP + M-Team API） |
 | `qb_add.py` | 添加种子到 qBittorrent（含站点标签+正片提取） |
 | `qb_monitor.py` | qB 全功能查询（状态/过滤/删除） |
-| `qb_public_cleanup.py` | 公开磁链自动清理 |
+| `qb_public_cleanup.py` | 公开磁链清理（手动使用，cron 已合并到 `_cron_check.py`） |
 | `qb_restore.py` | 删种恢复（从备份还原到 qB） |
 | `qb_backup.py` | 删种前自动备份元数据 |
 | `sukebei_search.py` | Sukebei 公开磁链搜索 |
@@ -65,6 +65,8 @@
 | `env_check.sh` | 环境变量完整性检查 |
 | `connectivity_check.py` | 全服务连接测试（实际登录/API调用/站点可达性/Cookie保活） |
 | `cookie_sync.py` | CookieCloud Cookie 同步（浏览器→secrets.env 自动更新） |
+| `_cron_check.py` | Cron 进度检查（完成通知 + 死种告警 + 公开种自动清理） |
+| `_check_stalled.py` | 死种诊断（检查停滞种子时长/进度） |
 
 ## 许可
 

@@ -39,8 +39,8 @@
 ## 代理规则
 - 默认：直连，不加代理
 - 代理地址：见 `secrets.env` → `PT_PROXY`
-- 需要代理的站：织梦（zmpt.cc）、PTTime（Cloudflare 盾）、BTSchool、CarPT、JavBus
-- 直连即可的站：HDFans、SoulVoice、1PTBA
+- 需要代理的站：织梦（zmpt.cc）、BTSchool、CarPT、SoulVoice、JavBus
+- 直连即可的站：PTTime、HDFans、1PTBA
 - ⚠️ 禁止无脑给所有请求加代理，代理 IP 可能被 PT 站封禁
 
 ## 代码偏好

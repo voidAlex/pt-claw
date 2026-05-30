@@ -62,6 +62,22 @@ for site in PTTIME BTSCHOOL CARPT HDFANS 1PTBA SOULVOICE ZMPT; do
     fi
 done
 
+echo "=== CookieCloud (optional) ==="
+if [[ -n "${COOKIE_CLOUD_HOST}" ]]; then
+    echo "  ✓ COOKIE_CLOUD_HOST (set)"
+    check COOKIE_CLOUD_UUID "CookieCloud UUID"
+    check COOKIE_CLOUD_PASS "CookieCloud password"
+else
+    echo "  ℹ Not configured (manual cookie management)"
+fi
+
+echo "=== javbus-api (optional) ==="
+if [[ -n "${JAVBUS_API_URL}" ]]; then
+    echo "  ✓ JAVBUS_API_URL ($JAVBUS_API_URL)"
+else
+    echo "  ℹ Not configured (raw JavBus scraping)"
+fi
+
 echo ""
 if [[ $MISSING -eq 0 ]]; then
     echo "All required keys present."

@@ -54,6 +54,7 @@ def _qb_login():
 
     cj = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    opener.addheaders = [("User-Agent", "Hermes/1.0")]
     login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
     try:
         opener.open(f"{qb_url}/api/v2/auth/login", login_data, timeout=10)

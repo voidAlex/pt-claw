@@ -160,13 +160,13 @@ for t in torrents:
 
             if h in state["dead_torrents"]:
                 rec = state["dead_torrents"][h]
-                last_notified = datetime.fromisoformat(rec["last_notified"])
+                last_notified = datetime.fromisoformat(rec["last_notified"]).replace(tzinfo=timezone.utc)
                 interval = timedelta(hours=state["notify_config"]["dead_interval_hours"])
                 max_reminders = state["notify_config"].get("dead_max_reminders", 20)
 
                 if rec["notify_count"] < max_reminders and now >= last_notified + interval:
                     dead_to_notify.append({**dead_entry, "remind_count": rec["notify_count"] + 1})
-                    rec["last_notified"] = now.isoformat()
+                    rec["last_notified"] = now.strftime("%Y-%m-%dT%H:%M:%S")
                     rec["notify_count"] += 1
                     rec["days_stalled"] = days
                     rec["name"] = t["name"]
@@ -178,8 +178,8 @@ for t in torrents:
                     "tags": tags_str,
                     "size_gb": size_gb,
                     "days_stalled": days,
-                    "first_seen": now.isoformat(),
-                    "last_notified": now.isoformat(),
+                    "first_seen": now.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "last_notified": now.strftime("%Y-%m-%dT%H:%M:%S"),
                     "notify_count": 1,
                 }
                 dead_to_notify.append({**dead_entry, "remind_count": 1})

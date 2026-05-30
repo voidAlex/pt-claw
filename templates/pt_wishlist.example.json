@@ -1,4 +1,5 @@
 {
+  "description": "关注列表 — 用户关注的影视、演员、番号，定时追剧用",
   "movies": [
     {"title": "流浪地球3", "year": 2027, "quality": "4K", "codec": "HEVC", "note": "导演郭帆"}
   ],

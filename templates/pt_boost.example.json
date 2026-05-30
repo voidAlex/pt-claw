@@ -1,4 +1,5 @@
 {
+  "description": "刷流配置 — Freeleech 自动辅种、定时清理、保号策略",
   "enabled": false,
   "global": {
     "boost_category": "boost",

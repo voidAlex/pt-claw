@@ -64,6 +64,7 @@ def qb_get(endpoint: str, host: str = None) -> dict:
 
     cj = CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    opener.addheaders = [("User-Agent", "Hermes/1.0")]
     login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
     try:
         opener.open(f"{qb_url}/api/v2/auth/login", login_data, timeout=10)
@@ -210,7 +211,7 @@ def main():
         # Delete without removing files (POST only, GET not supported)
         cj = CookieJar()
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-        qb_url = _env("QBITTORRENT_URL")
+        opener.addheaders = [("User-Agent", "Hermes/1.0")]
         qb_user = _env("QBITTORRENT_USER")
         qb_pass = _env("QBITTORRENT_PASS")
         login_d = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()

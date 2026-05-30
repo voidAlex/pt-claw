@@ -24,7 +24,7 @@ from qb_backup import backup_from_torrents
 PUBLIC_TAGS = {"sukebei", "javbus"}
 MAX_DELETE_PER_RUN = 50
 MAX_PUBLIC_RATIO = 0.20
-DRY_RUN = os.environ.get("QB_CLEANUP_DRY_RUN", "") == "1"
+DRY_RUN = _env("QB_CLEANUP_DRY_RUN") == "1"
 CHECK_MODE = "--check" in sys.argv
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
@@ -66,6 +66,7 @@ def main():
 
     cj = CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    opener.addheaders = [("User-Agent", "Hermes/1.0")]
     try:
         opener.open(f"{qb_url}/api/v2/auth/login",
             data=urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode(),

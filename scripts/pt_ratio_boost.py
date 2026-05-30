@@ -118,14 +118,6 @@ class QBit:
         if "SID" in self.jar:
             req.add_header("Cookie", f"SID={self.jar['SID']}")
         with self._opener.open(req, timeout=15) as resp:
-            return json.loads(resp.read())
-
-    def _post(self, endpoint: str, data: dict) -> str:
-        body = urllib.parse.urlencode(data).encode()
-        req = urllib.request.Request(f"{self.url}/api/v2/{endpoint}", data=body)
-        if "SID" in self.jar:
-            req.add_header("Cookie", f"SID={self.jar['SID']}")
-        with urllib.request.urlopen(req, timeout=15) as resp:
             return resp.read().decode()
 
     def list_torrents(self, category: str = "") -> list[dict]:
