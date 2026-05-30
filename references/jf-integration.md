@@ -115,6 +115,27 @@ docker compose -f ~/javbus-api/docker-compose.yml up -d
 
 **磁链排序参数**：`sortBy`（`size`|`date`）+ `sortOrder`（`desc`|`asc`），如 `/api/magnets/<番号>?gid=X&uc=Y&sortBy=size&sortOrder=desc`
 
+**⚠️ 磁链获取是两步操作**：`/api/movies/{番号}` 返回详情（含 gid/uc），`/api/magnets/{番号}?gid=X&uc=Y` 才返回磁链。`javbus_magnet.py --api` 模式返回的是前者（影片详情），不是磁链列表。正确流程：
+
+```bash
+# Step 1: 获取 gid + uc
+MOVIE=$(curl -s "http://localhost:8922/api/movies/$CODE")
+gid=$(echo "$MOVIE" | python3 -c "import sys,json; print(json.load(sys.stdin)['gid'])")
+uc=$(echo "$MOVIE" | python3 -c "import sys,json; print(json.load(sys.stdin)['uc'])")
+
+# Step 2: 用 gid+uc 获取磁链列表
+curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc" | python3 -c "
+import sys,json
+for m in json.load(sys.stdin):
+    tags = []
+    if m.get('isHD'): tags.append('HD')
+    if m.get('hasSubtitle'): tags.append('字幕')
+    print(f'{m[\"size\"]:>8s}  {\" \".join(tags):10s}  {m[\"title\"][:60]}')
+"
+```
+
+**磁链版本选择优先级**（成人内容）：`-C`（字幕）> `-U`（破解/去码）> `uncensored` > `-AI` > 标准版 > `4K`（文件过大通常做种少）
+
 **演员详情端点**：`GET /api/stars/<starId>` — `starId` 从影片详情 `stars[].id` 获取，返回演员信息 + 作品列表
 
 **最新影片端点**：

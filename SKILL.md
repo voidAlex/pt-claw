@@ -1,7 +1,7 @@
 ---
 name: pt-claw
 description: "Use when the user wants to search/download torrents from PT sites, manage qBittorrent, or set up a media download stack. 8 sites supported: PTTime, M-Team (API), BTSchool, CarPT, HDFans, 1PTBar, SoulVoice, 织梦. Search via cookie or REST API, push to qBittorrent, monitor completion."
-version: 3.0.0
+version: 3.0.1
 author: Hermes Agent
 license: MIT
 metadata:
@@ -76,6 +76,7 @@ metadata:
 | [references/diagnostic-proxy-cookie.md](references/diagnostic-proxy-cookie.md) | Cookie 过期 vs 代理被封 vs IP 绑定诊断 | 连接 403 时 |
 | [references/adult-section-search.md](references/adult-section-search.md) | PTTime/M-Team 成人区搜索参数 | 成人内容搜索 |
 | [references/nexusphp-parser-notes.md](references/nexusphp-parser-notes.md) | 两种 HTML 解析模式 | 适配新站解析器 |
+| [references/duplicate-media-scan.md](references/duplicate-media-scan.md) | 媒体库重复检测（深度扫描同名电影/剧集） | 清理重复下载 |
 | [references/orphan-media-scan.md](references/orphan-media-scan.md) | 磁盘孤儿媒体扫描 | 手动恢复 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
 
@@ -83,7 +84,7 @@ metadata:
 
 | 站点 | 接入 | 成人区 | 代理 | 备注 |
 |------|------|--------|------|------|
-| M-Team (馒头) | REST API | `/browse/adult`（web），API 待验证 `mode` 参数 | ✅ | POST，`x-api-key` header，**禁 Cookie**，API 需代理 |
+| M-Team (馒头) | REST API | `/browse/adult`（web），API 待验证 `mode` 参数 | ✅ **必须** | POST，`x-api-key` header，**禁 Cookie**，**国内 IP 直连 403，必须走 PT_PROXY** |
 | PTTime | Cookie | `adults.php?searchstr=` | ❌ | `data=` attribute 变体 |
 | BTSchool | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
 | CarPT | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
@@ -94,7 +95,7 @@ metadata:
 
 ### M-Team API 要点
 
-- **API Host**: `https://api.m-team.cc/api`（国内需代理，`mteam_api.py` 自动走 `PT_PROXY`）
+- **API Host**: `https://api.m-team.cc/api`（**必须走 `PT_PROXY`，国内直连 403**）
 - **Auth**: `x-api-key` header（控制台 → 实验室 → 存取令牌）
 - **Method**: 仅 POST
 - **禁止 Cookie 访问 API**，会封号。只能用 API Key
@@ -256,7 +257,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ### 🟠 严重级
 
-**7. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302 ④**国内 IP 直连 403，需走 PT_PROXY**。`mteam_api.py` 自动走代理。
+**7. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302 ④**国内 IP 直连 403，必须走 PT_PROXY**。`mteam_api.py` 和 `pt_search.py` 在 `PT_PROXY` 未设置时直接报错，不会静默直连。
 
 **8. qB URL 推送静默失败**：PT 站 download.php 需 Cookie，qB 没有。两步法见 [references/qb-operations.md](references/qb-operations.md)。
 
@@ -280,7 +281,12 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **17. JF/javbus-api 中文 URL 编码**：`--data-urlencode` 或 `urllib.parse.quote()`。
 
-**18. 公开磁链**：JavBus > Sukebei、`--list-files`→确认→`--select-files`、`--max-video` 兜底、下完删种保文件。
+**18. 公开磁链**：JavBus > Sukebei（磁链多/去码/AI）、`--list-files`→用户确认→`--select-files`、`--max-video` 兜底、下完删种保文件、卡死换不同 hash。
+
+**18b. JavBus 磁链获取需两步**：`javbus_magnet.py --api` 返回的是电影详情（封面/演员/gid/uc），不是磁链列表。获取磁链的正确流程：
+1. `GET /api/movies/{code}` → 提取 `gid` 和 `uc`
+2. `GET /api/magnets/{code}?gid=X&uc=Y` → 获取结构化磁链列表（含大小/HD/字幕标记）
+不要只调 `javbus_magnet.py` 就以为拿到了磁链——需要手动走第二步。
 
 **19. 三重去重**：下载历史 → JF 搜索 → JF `DateCreated` vs qB `added_on`。
 
@@ -290,7 +296,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **22. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
 
-**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。
+**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。完整步骤见 [references/proxy-migration.md](references/proxy-migration.md)。
 
 **24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
 
@@ -298,7 +304,16 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ### 🔧 脚本纪律
 
-**26. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
+**26. javbus-api 磁链获取需两步**：`javbus_magnet.py --api` 返回的是影片详情（含 gid/uc），不是磁链。正确流程：① `GET /api/movies/{番号}` 获取 gid 和 uc；② `GET /api/magnets/{番号}?gid=X&uc=Y` 获取结构化磁链。一步到位命令：
+```bash
+gid=$(curl -s "http://localhost:8922/api/movies/$CODE" | python3 -c "import sys,json; print(json.load(sys.stdin)['gid'])")
+uc=$(curl -s "http://localhost:8922/api/movies/$CODE" | python3 -c "import sys,json; print(json.load(sys.stdin)['uc'])")
+curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
+```
+
+**27. qb_add.py 磁链推送超时回退**：`qb_add.py --stdin` 的 `max_video` 模式会等待元数据取回，对慢磁链可能超时。超时时回退到直接 qB API 推送：`curl -b <cookie> -X POST '<qb_url>/api/v2/torrents/add' --data-urlencode 'urls=<magnet>'`，然后补 `setCategory` + `setLocation` + `addTags`。
+
+**28. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
 
 **27. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
 
@@ -321,7 +336,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 | `PT_COOKIE_1PTBA` | 1PTBar Cookie |
 | `PT_COOKIE_SOULVOICE` | SoulVoice Cookie |
 | `PT_COOKIE_ZMPT` | 织梦 (zmpt.cc) Cookie |
-| `MTEAM_API_KEY` | M-Team API Key。**禁止 Cookie——会封号** |
+| `MTEAM_API_KEY` | M-Team API Key。**禁止 Cookie——会封号**。**必须同时配置 `PT_PROXY`** |
 
 ### 下载器
 

@@ -54,6 +54,19 @@ elif "cloudflare" in body.lower():
 - 有效 Cookie 通常 150-200 字符（c_secure_uid + c_secure_pass + c_secure_ssl 等）
 - 如果截断/丢失，长度会明显异常
 
+## M-Team API 代理诊断
+
+M-Team 使用 REST API（非 Cookie），但国内 IP 直连 API 会被墙。
+
+| 错误 | 含义 | 动作 |
+|------|------|------|
+| `No route to host` | **代理挂了**，不是 API 问题 | `curl -x $PT_PROXY https://api.m-team.cc` 验证代理 |
+| HTTP 403 | API 限速（1000次/24h）或 key 无效 | 先检查配额消耗（`connectivity_check.py` 每次烧 1 次），等恢复 |
+| HTTP 302 | DNS/API 下线 | 等恢复，跳过馒头 |
+| HTTP 405 | API 端点不可用 | 等恢复 |
+
+**诊断顺序**：先验证代理 → 再判断 API 状态。`No route to host` + `pt_search.py`/`mteam_api.py` 报错 = 代理不通，不是 API 的问题。
+
 ## 规则
 
 **直连优先。`needs_proxy=True` 的站走代理。直连失败时自动代理重试。代理出口 IP 必须与浏览器 CookieCloud 同步时的出口一致。**
