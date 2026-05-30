@@ -40,6 +40,7 @@ metadata:
 |------|--------|
 | 搜索/下载 | 搜、搜索、下载、下、找个资源、有没有、求片 |
 | qBittorrent | qb、qB、qbit、下载进度、下载状态、做种、种子、删种、暂停、恢复、死种 |
+| 辅种 | 辅种、cross seed、检查辅种、哪些站能辅、批量辅种、全站辅种 |
 | PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦 |
 | 番号/成人 | 番号、车牌、jav、JAV、成人、sukebei、javbus、nyaa |
 | 定时任务 | 定时任务、cron、追剧、刷流、下载通知 |
@@ -58,6 +59,7 @@ metadata:
 | 「恢复」「qb种子丢了」 | → [references/qb-operations.md](references/qb-operations.md) |
 | 「首次配置」「初始化」 | → [references/first-time-setup.md](references/first-time-setup.md) |
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
+| 「辅种」「哪些站能辅」「cross seed」 | → `cross_seed.py` — 多站辅种验证与推送 |
 
 ## 参考文档
 

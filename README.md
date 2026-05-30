@@ -61,6 +61,7 @@
 | `jf_query.py` | Jellyfin 查询（演员排名/搜索/去重） |
 | `download_history.py` | 下载历史追踪（防重复） |
 | `pt_ratio_boost.py` | Freeleech 自动辅种 |
+| `cross_seed.py` | 多站辅种验证与推送（下载.torrent→SHA1比对→qB暂停添加） |
 | `mteam_api.py` | M-Team API 客户端 |
 | `env_check.sh` | 环境变量完整性检查 |
 | `connectivity_check.py` | 全服务连接测试（实际登录/API调用/站点可达性/Cookie保活） |
