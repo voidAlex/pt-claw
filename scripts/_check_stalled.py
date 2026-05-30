@@ -20,7 +20,7 @@ def _load_env_file():
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 key, val = line.split('=', 1)
-                _env_cache[key.strip()] = val.strip().strip('"').strip("'")
+                _env_cache[key.strip()] = val.strip()
 
 def _env(name, default=""):
     val = os.environ.get(name, "")

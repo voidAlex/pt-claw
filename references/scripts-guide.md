@@ -54,6 +54,7 @@ echo '{"magnet": "...", "category": "<分类名>", "save_path": "<路径>", "tag
 3. 兜底取最大视频文件
 
 stdin JSON 传 `"code": "MIMK-267"` 可辅助精确匹配。字幕文件（.srt/.ass）同名校验后保留。PT 站种子不需要此参数（PT 资源干净）。
+
 ### _cron_check.py — Cron 进度检查（合并：完成通知 + 死种频率控制 + 公开种清理）
 
 ```bash

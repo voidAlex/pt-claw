@@ -58,7 +58,10 @@ def _env(key, default=""):
     return val
 
 def qb_get(endpoint: str, host: str = None) -> dict:
-    qb_url = host or _env("QBITTORRENT_URL")
+    qb_url = (host or _env("QBITTORRENT_URL")).rstrip("/")
+    if not qb_url:
+        print("ERROR: QBITTORRENT_URL is not set", file=sys.stderr)
+        return None
     qb_user = _env("QBITTORRENT_USER")
     qb_pass = _env("QBITTORRENT_PASS")
 

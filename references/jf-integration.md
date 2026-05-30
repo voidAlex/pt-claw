@@ -219,6 +219,10 @@ curl -s "https://sukebei.nyaa.si/?page=rss&q=SNOS-151" \
 # magnet:?xt=urn:btih:<infoHash>&dn=<title>
 ```
 
+---
+
+## Jellyfin 集成 — 连接配置 & 自动追剧
+
 ### Jellyfin 连接
 
 **⚠️ Jellyfin 未配置 → 跳过此节，不影响 PT 下载。**

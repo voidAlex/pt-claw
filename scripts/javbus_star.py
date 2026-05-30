@@ -96,13 +96,21 @@ def main():
     if not star_id:
         star_name = args[0]
         # Search javbus-api for the actress
-        results = javbus_get(f"/api/movies/search?keyword={urllib.parse.quote(star_name)}&page=1")
+        try:
+            results = javbus_get(f"/api/movies/search?keyword={urllib.parse.quote(star_name)}&page=1")
+        except Exception as e:
+            print(json.dumps({"error": f"Network error searching for star: {e}"}, ensure_ascii=False))
+            sys.exit(1)
         movies = results.get("movies", [])
         if not movies:
             print(json.dumps({"error": f"No results for '{star_name}'", "hint": "Try Japanese name"}, ensure_ascii=False))
             sys.exit(1)
         # Get star ID from first movie
-        detail = javbus_get(f"/api/movies/{movies[0]['id']}")
+        try:
+            detail = javbus_get(f"/api/movies/{movies[0]['id']}")
+        except Exception as e:
+            print(json.dumps({"error": f"Network error fetching movie detail: {e}"}, ensure_ascii=False))
+            sys.exit(1)
         stars = detail.get("stars", [])
         if not stars:
             print(json.dumps({"error": "No star info found"}))
@@ -114,13 +122,21 @@ def main():
     all_films = {}
     page = 1
     while True:
-        results = javbus_get(f"/api/movies/search?keyword={urllib.parse.quote(star_name)}&page={page}")
+        search_kw = star_name if star_name else star_id
+        try:
+            results = javbus_get(f"/api/movies/search?keyword={urllib.parse.quote(search_kw)}&page={page}")
+        except Exception as e:
+            print(f"Warning: network error on page {page}: {e}", file=sys.stderr)
+            break
         movies = results.get("movies", [])
         if not movies or page > 10:
             break
         for m in movies:
             # Only include if this star is in the cast
-            detail = javbus_get(f"/api/movies/{m['id']}")
+            try:
+                detail = javbus_get(f"/api/movies/{m['id']}")
+            except Exception:
+                continue
             for s in detail.get("stars", []):
                 if s["id"] == star_id:
                     all_films[m["id"]] = {

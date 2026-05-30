@@ -57,7 +57,7 @@ CHECK_MODE = "--check" in sys.argv
 def main():
     _check = CHECK_MODE or DRY_RUN
 
-    qb_url = _env("QBITTORRENT_URL")
+    qb_url = _env("QBITTORRENT_URL").rstrip("/")
     qb_user = _env("QBITTORRENT_USER")
     qb_pass = _env("QBITTORRENT_PASS")
 

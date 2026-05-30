@@ -43,5 +43,11 @@
 - 直连即可的站：PTTime、HDFans、1PTBar
 - ⚠️ 禁止无脑给所有请求加代理，代理 IP 可能被 PT 站封禁
 
+## 其他偏好
+- 原盘/压制偏好：<REMUX_OR_ENCODE>（如：优先原盘 REMUX，次选压制版）
+- 字幕语言：<SUBTITLE_LANG>（如：简体中文 > 繁体中文 > 原声无字幕）
+- 音轨偏好：<AUDIO_PREF>（如：优先 Atmos/DTS:X，次选 DTS-HD MA）
+- 制作组偏好：<RELEASE_GROUP>（如：优先 FraMeSToR、PTHome，排除 <EXCLUDED_GROUPS>）
+
 ## 代码偏好
 - 禁止 /tmp 临时脚本

@@ -53,7 +53,7 @@ def _get_opener():
     if _qb_opener is not None:
         return _qb_opener
 
-    _qb_url = _env("QBITTORRENT_URL", "")
+    _qb_url = _env("QBITTORRENT_URL", "").rstrip("/")
     qb_user = _env("QBITTORRENT_USER", "")
     qb_pass = _env("QBITTORRENT_PASS", "")
 

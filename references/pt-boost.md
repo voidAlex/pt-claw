@@ -16,7 +16,7 @@
     "enabled": false,
     "global": {
         "boost_category": "boost",
-        "boost_save_path": "<dedicated_download_path>",
+        "boost_save_path": "<BOOST_PATH>",
         "max_seed_days": 7,
         "max_torrents": 20,
         "dead_seed_hours": 48,
@@ -72,6 +72,7 @@ cronjob(action='create',
     prompt="运行 python3 scripts/pt_ratio_boost.py run，中文总结今日刷流情况后通知。",
     skills=["pt-claw"],
     deliver="origin",
+    repeat="forever",
     workdir="<skill-dir>"
 )
 ```

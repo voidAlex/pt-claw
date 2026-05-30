@@ -39,7 +39,7 @@ def _env(key, default=""):
 
 def _qb_auth():
     """Create an authenticated qB opener."""
-    qb_url = _env("QBITTORRENT_URL")
+    qb_url = _env("QBITTORRENT_URL").rstrip("/")
     qb_user = _env("QBITTORRENT_USER")
     qb_pass = _env("QBITTORRENT_PASS")
     if not all([qb_url, qb_user, qb_pass]):
