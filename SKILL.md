@@ -75,11 +75,9 @@ metadata:
 | [references/pt-boost.md](references/pt-boost.md) | PT 刷流配置 + 执行逻辑 | 刷流保号 |
 | [references/new-site-adaptation.md](references/new-site-adaptation.md) | 新增 PT 站适配 5 步流程 | 用户要添加新站 |
 | [references/mteam-api.md](references/mteam-api.md) | 馒头 API 端点 + 认证 + genDlToken | 涉及 M-Team |
-| [references/diagnostic-proxy-cookie.md](references/diagnostic-proxy-cookie.md) | Cookie 过期 vs 代理被封 vs IP 绑定诊断 | 连接 403 时 |
+| [references/diagnostic-network.md](references/diagnostic-network.md) | Cookie/代理/IP绑定诊断 + 代理变更检查清单 | 连接 403 或代理迁移时 |
 | [references/adult-section-search.md](references/adult-section-search.md) | PTTime/M-Team 成人区搜索参数 | 成人内容搜索 |
-| [references/nexusphp-parser-notes.md](references/nexusphp-parser-notes.md) | 两种 HTML 解析模式 | 适配新站解析器 |
-| [references/duplicate-media-scan.md](references/duplicate-media-scan.md) | 媒体库重复检测（深度扫描同名电影/剧集） | 清理重复下载 |
-| [references/orphan-media-scan.md](references/orphan-media-scan.md) | 磁盘孤儿媒体扫描 | 手动恢复 |
+| [references/media-maintenance.md](references/media-maintenance.md) | 媒体库重复检测 + 磁盘孤儿扫描 | 清理重复下载或手动恢复 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
 
 ## Supported PT Sites
@@ -306,11 +304,11 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **20. 搜老剧多关键词**：中文通用标题 + 季别名 + 英文名+季号。
 
-**21. Cookie 403 ≠ 过期**：NexusPHP `c_secure_*` cookie 绑定登录 IP。直连 403 → 走代理重试（代理出口 IP 需和浏览器一致），代理也 403 → 才判过期。详见 [references/diagnostic-proxy-cookie.md](references/diagnostic-proxy-cookie.md)。
+**21. Cookie 403 ≠ 过期**：NexusPHP `c_secure_*` cookie 绑定登录 IP。直连 403 → 走代理重试（代理出口 IP 需和浏览器一致），代理也 403 → 才判过期。详见 [references/diagnostic-network.md](references/diagnostic-network.md)。
 
 **22. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
 
-**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。完整步骤见 [references/proxy-migration.md](references/proxy-migration.md)。
+**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。完整步骤见 [references/diagnostic-network.md](references/diagnostic-network.md)。
 
 **24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
 

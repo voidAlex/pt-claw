@@ -48,10 +48,10 @@ grep -oP 'torrents|torrentname|data-row|torrent-search|api/v1' /tmp/<site>_searc
 
 如果 `grep` 命中了 `torrentname` 或 `torrents` class：
 
-1. **经典 NexusPHP** → 复用 BTSchool/CarPT 的解析逻辑（`nexusphp-parser-notes.md` 的「Classic 变体」）
-   - 检查点：`details.php?id=` 链接格式、`download.php?id=` 格式、搜索页搜索参数名（`search` / `searchstr`）
+   1. **经典 NexusPHP** → 复用 BTSchool/CarPT 的解析逻辑（见下方「NexusPHP Parser Notes」的「模式 2: 经典表格」）
+    - 检查点：`details.php?id=` 链接格式、`download.php?id=` 格式、搜索页搜索参数名（`search` / `searchstr`）
 
-2. **NexusPHP `data=` 变体** → 复用 PTTime 解析逻辑（`nexusphp-parser-notes.md` 的「PTTime 变体」）
+   2. **NexusPHP `data=` 变体** → 复用 PTTime 解析逻辑（见下方「NexusPHP Parser Notes」的「模式 1: rowfollow 分离式」）
    - 检查点：`<tr data=ID>` 是否存在、stats cells 是否在 `</tr>` 之后
 
 **无需重写代码，只需在 `pt_search.py` 中注册新站点**：
@@ -118,7 +118,7 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
 
 适配完成后：
 
-1. **更新 `nexusphp-parser-notes.md`** — 如果是新解析模式的变体，记录关键差异
+   1. **更新 NexusPHP Parser Notes（下方）** — 如果是新解析模式的变体，记录关键差异
 2. **更新 skill 的 Supported PT Sites 表格** — 添加新站点行
 3. **更新 `user-preferences.md`** — 补充新站点的代理需求配置
 4. **更新 `templates/secrets.env.example`** — 添加新站点的 Cookie/API key 环境变量
@@ -141,3 +141,66 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
 | 11 | `pt_search.py` SITES 字典已注册 | ☐ |
 | 12 | Skill 文档站点表格已更新 | ☐ |
 | 13 | 模板文件已更新（secrets.env.example + user-preferences.md） | ☐ |
+
+## NexusPHP Parser Notes
+
+### 两种页面模式
+
+#### 模式 1: rowfollow 分离式（PTTime）
+
+```html
+<tr data=47540>                              ← 标题行（含 data 属性）
+  <td>category icon</td>
+  <td class="embedded">                      ← 嵌套 table
+    <a title="Title">Title</a>
+    50%免费
+  </td>
+</tr>
+<td class="rowfollow dn">0</td>              ← 统计单元格（在标题 </tr> 之后）
+<td class="rowfollow">41.57<br>GB</td>       ← 大小
+<td class="rowfollow"><b><a>7</a></b></td>   ← 做种数
+<td class="rowfollow">0</td>                 ← 下载数
+<tr data=59817>                              ← 下一个种子的标题行
+```
+
+**解析策略**: `_parse_nexusphp()`
+- 找 `<tr data=ID>` 匹配标题和 promo
+- 标题行 `</tr>` 到下一个 `<tr data=` 之间是统计区
+- 大小: `<td>N.NN<br>GB</td>` 
+- 种子: `<b>N</b>`（第一个 = seeders，第二个 = leechers）
+
+#### 模式 2: 经典表格（BTSchool/CarPT/HDFans/1PTBar/SoulVoice/织梦）
+
+```html
+<table class="torrents">
+  <tr><th>...</th></tr>                      ← 表头
+  <tr>                                        ← 标题行（嵌套 table）
+    <td class="embedded">
+      <table class="torrentname">
+        <tr>
+          <td>
+            <a title="Title">Title</a>
+            50%免费
+          </td>
+        </tr>
+      </table>
+    </td>
+    <td class="embedded">📥</td>              ← 下载图标
+  </tr>
+  ...stats cells between rows...              ← 同模式 1 的 stats 结构
+  <tr>                                        ← 下一个标题行
+```
+
+**解析策略**: `_parse_nexusphp_classic()`
+- ⚠️ 关键坑: `class="torrents"` 表内嵌套了内层 `<table>`，`</table>` 正则匹配会提前截断
+- 解决方案: 不解析表格边界，直接用 download.php 链接定位
+- 找每个 download.php 链接 → 向前找 `<tr` 开始 → 用深度计数找匹配 `</tr>`
+- 标题在 `<a title="...">` 或 `details.php` 链接文本中
+- Stats 在标题行 `</tr>` 和下一个 `<tr>` 之间（同模式 1）
+
+### 通用规则
+
+- 大小正则: `r'>\s*([\d.,]+)\s*(?:<br\s*/?>\s*)?(GB|MB|TB|KB)\s*<'`（处理 `<br>` 分隔）
+- 种子数: stats 区第一个 `<b>N</b>` 通常是 seeders，第二个是 leechers
+- Promo 检测: `halfdown`/`50%`/`pro_free` 在标题行 HTML 中
+- 下载链接: 经典站无 passkey (`download.php?id=X`)，PTTime 有 passkey (`download.php?id=X&passkey=XX&uid=XX`)

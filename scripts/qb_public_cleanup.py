@@ -19,7 +19,7 @@ from http.cookiejar import CookieJar
 # Import backup module
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
-from qb_backup import backup_from_torrents
+from qb_snapshot import backup_from_torrents
 
 from _common import _env
 

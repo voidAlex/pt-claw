@@ -5,6 +5,7 @@ qBittorrent monitor — check completions, download status, filter by codes/tags
 Usage:
     python3 qb_monitor.py                              # completed in 24h (default)
     python3 qb_monitor.py --full                       # full status report
+    python3 qb_monitor.py --stalled                    # stalled download diagnosis
     python3 qb_monitor.py --codes ROYD-318,JUFE-622    # filter by codes in name
     python3 qb_monitor.py --tags sukebei,javbus         # filter by tags
     python3 qb_monitor.py --states downloading,stalledDL # filter by state
@@ -31,7 +32,7 @@ from _common import _env
 # Import backup module
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
-from qb_backup import backup_from_torrents
+from qb_snapshot import backup_from_torrents
 
 MAX_DELETE_PER_RUN = 50
 
@@ -212,6 +213,16 @@ def main():
         with opener.open(req, timeout=10) as resp:
             pass
         print(json.dumps({"deleted": len(hashes), "names": names}, ensure_ascii=False))
+        sys.exit(0)
+
+    # --- Stalled diagnosis mode ---
+    if flag_present(args, "--stalled"):
+        for t in torrents:
+            pct = t['progress'] * 100
+            if pct < 10 and t['state'] == 'stalledDL':
+                added = datetime.fromtimestamp(t['added_on'], tz=timezone.utc)
+                days = (now - added).days
+                print(f'{t["name"]} | {pct:.0f}% | {t["size"]/1e9:.1f}GB | {days}d old | tags={t["tags"]}')
         sys.exit(0)
 
     # --- Full status mode ---

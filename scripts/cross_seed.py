@@ -186,6 +186,13 @@ _SITE_MAP = {
     "pttime": {"url": "https://www.pttime.org", "needs_proxy": False},
     "soulvoice": {"url": "https://pt.soulvoice.club", "needs_proxy": True},
     "zmpt": {"url": "https://zmpt.cc", "needs_proxy": True},
+    "ptskit": {"url": "https://www.ptskit.org", "needs_proxy": True},
+    "pthome": {"url": "https://pthome.org", "needs_proxy": True},
+    "hdsky": {"url": "https://hdsky.me", "needs_proxy": True},
+    "hdhome": {"url": "https://hdhome.org", "needs_proxy": True},
+    "audiences": {"url": "https://audiences.me", "needs_proxy": True},
+    "keepfrds": {"url": "https://pt.keepfrds.com", "needs_proxy": True},
+    "ttg": {"url": "https://totheglory.im", "needs_proxy": True},
 }
 
 
@@ -538,6 +545,23 @@ def _clean_torrent_name(name: str) -> str:
     return name.strip()
 
 
+def _names_match(name1, name2):
+    """Check if two torrent names refer to the same release.
+
+    Cleans both names and returns True if they are identical
+    or one contains the other (for partial matches).
+    """
+    c1 = _clean_torrent_name(name1).lower()
+    c2 = _clean_torrent_name(name2).lower()
+    if not c1 or not c2:
+        return False
+    if c1 == c2:
+        return True
+    if c1 in c2 or c2 in c1:
+        return True
+    return False
+
+
 def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
     completed = _qb_get_completed()
     if not completed:
@@ -624,24 +648,29 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
                 })
                 continue
 
-            # Tier 2: size within 5% + file list match
+            # Tier 2: name match + size within 5% + file list match
             if existing_size > 0 and sr_size > 0:
-                size_ratio = sr_size / existing_size
-                if 0.95 <= size_ratio <= 1.05:
-                    result = _compare_files(
-                        [{"path": "", "length": existing_size}],
-                        [{"path": "", "length": sr_size}],
-                    )
-                    if result == "VERIFIED" or cand_torrent["length"] == existing_size:
-                        candidates.append({
-                            "site": sr_site,
-                            "title": sr.get("title", ""),
-                            "info_hash": cand_torrent["info_hash"],
-                            "match_type": "name_size",
-                            "download_url": sr_dl_url,
-                            "seeders": sr.get("seeders", 0),
-                            "promo": sr.get("promo", ""),
-                        })
+                cand_name = cand_torrent["name"]
+                sr_title = sr.get("title", "")
+                name_ok = (_names_match(cand_name, raw_name)
+                           or (sr_title and _names_match(sr_title, raw_name)))
+                if name_ok:
+                    size_ratio = sr_size / existing_size
+                    if 0.95 <= size_ratio <= 1.05:
+                        result = _compare_files(
+                            [{"path": "", "length": existing_size}],
+                            [{"path": "", "length": sr_size}],
+                        )
+                        if result == "VERIFIED" or cand_torrent["length"] == existing_size:
+                            candidates.append({
+                                "site": sr_site,
+                                "title": sr.get("title", ""),
+                                "info_hash": cand_torrent["info_hash"],
+                                "match_type": "name_size",
+                                "download_url": sr_dl_url,
+                                "seeders": sr.get("seeders", 0),
+                                "promo": sr.get("promo", ""),
+                            })
 
         if candidates:
             opportunities.append({

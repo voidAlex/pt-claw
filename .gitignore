@@ -32,4 +32,6 @@ pt_downloaded.json
 pt_boost.json
 pt_deleted_backup.json
 pt_completed_last.txt
+pt_search_cache.json
+cross_seed_tasks.json
 torrent_backups/

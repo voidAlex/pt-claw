@@ -51,10 +51,9 @@
 |------|------|
 | `pt_search.py` | 多站搜索（NexusPHP + M-Team API） |
 | `qb_add.py` | 添加种子到 qBittorrent（含站点标签+正片提取） |
-| `qb_monitor.py` | qB 全功能查询（状态/过滤/删除） |
+| `qb_monitor.py` | qB 全功能查询（状态/过滤/删除/死种诊断） |
 | `qb_public_cleanup.py` | 公开磁链清理（手动使用，cron 已合并到 `_cron_check.py`） |
-| `qb_restore.py` | 删种恢复（从备份还原到 qB） |
-| `qb_backup.py` | 删种前自动备份元数据 |
+| `qb_snapshot.py` | 删种备份与恢复（backup/restore/list 合一） |
 | `sukebei_search.py` | Sukebei 公开磁链搜索 |
 | `javbus_magnet.py` | JavBus 磁链爬取 |
 | `javbus_star.py` | 演员片单交叉对比（javbus-api → JF + 历史） |
@@ -68,7 +67,6 @@
 | `connectivity_check.py` | 全服务连接测试（实际登录/API调用/站点可达性/Cookie保活） |
 | `cookie_sync.py` | CookieCloud Cookie 同步（浏览器→secrets.env 自动更新） |
 | `_cron_check.py` | Cron 进度检查（完成通知 + 死种告警 + 公开种自动清理） |
-| `_check_stalled.py` | 死种诊断（检查停滞种子时长/进度） |
 
 ## 许可
 

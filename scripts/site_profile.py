@@ -93,7 +93,12 @@ def _extract_ratio(html):
 
 
 def _parse_nexusphp_profile(site_id, site_cfg, cookie):
-    """Scrape NexusPHP site index page for user profile stats."""
+    """Scrape NexusPHP site profile via 3-phase scraping.
+
+    Phase 1: GET /index.php — username, uploaded, downloaded, ratio, bonus, seeding, seeding_size
+    Phase 2: GET /userdetails.php — level, join_time, is_donor, hnr_count, uploads
+    Phase 3: GET /mybonus.php — bonus_per_hour, seeding_bonus
+    """
     result = {"status": "ok"}
     base_url = site_cfg["url"].rstrip("/")
     proxy = _env("PT_PROXY") if site_cfg.get("needs_proxy") else None
@@ -183,6 +188,73 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
         seeding_size_str = _extract_field(html, ["做种量", "Seeding size", "做种体积"])
     if seeding_size_str:
         result["seeding_size"] = seeding_size_str
+
+    # --- Phase 2: /userdetails.php — richer profile data ---
+    try:
+        detail_html = _fetch_page(f"{base_url}/userdetails.php", cookie, proxy=proxy, timeout=15)
+
+        # Level — Phase 2 is more reliable than Phase 1 sidebar
+        level2 = _extract_text_field(detail_html, ["等级", "Class", "User class", "用户等级"])
+        if level2:
+            result["level"] = level2
+
+        # Join time
+        join_time = _extract_text_field(detail_html, ["加入日期", "Join date"])
+        if join_time:
+            result["join_time"] = join_time
+
+        # Donor — look for donor flag image
+        is_donor = False
+        if re.search(r'<img[^>]+alt\s*=\s*["\']Donor["\']', detail_html, re.IGNORECASE):
+            is_donor = True
+        elif re.search(r'<img[^>]+src\s*=\s*["\'][^"\']*flag[^"\']*["\']', detail_html, re.IGNORECASE):
+            is_donor = True
+        if is_donor:
+            result["is_donor"] = True
+
+        # H&R count — look for links to myhr.php with numbers like "2/5"
+        hnr_match = re.search(r'href\s*=\s*["\'][^"\']*myhr\.php[^"\']*["\'][^>]*>\s*([\d]+)\s*/\s*([\d]+)', detail_html)
+        if hnr_match:
+            result["hnr_count"] = f"{hnr_match.group(1)}/{hnr_match.group(2)}"
+        else:
+            hnr_match2 = re.search(r'([\d]+)\s*/\s*([\d]+)[^<]*(?:<[^>]+>)*\s*(?:<a[^>]*myhr\.php)', detail_html)
+            if hnr_match2:
+                result["hnr_count"] = f"{hnr_match2.group(1)}/{hnr_match2.group(2)}"
+
+        # Uploads — torrent upload count
+        uploads_str = _extract_field(detail_html, ["发布", "上传种数", "Uploads"])
+        if not uploads_str:
+            uploads_str = _extract_text_field(detail_html, ["发布", "上传种数", "Uploads"])
+        if uploads_str:
+            result["uploads"] = uploads_str
+    except Exception:
+        pass
+
+    # --- Phase 3: /mybonus.php — bonus rate info ---
+    try:
+        bonus_html = _fetch_page(f"{base_url}/mybonus.php", cookie, proxy=proxy, timeout=15)
+
+        # Bonus per hour
+        bph_match = re.search(
+            r'(?:每小时|per hour|当前每小时能获取)(?:[^<\d]*?)([\d,.]+)',
+            bonus_html, re.IGNORECASE)
+        if bph_match:
+            try:
+                result["bonus_per_hour"] = float(bph_match.group(1).replace(",", ""))
+            except ValueError:
+                result["bonus_per_hour"] = bph_match.group(1)
+
+        # Seeding bonus points
+        sb_match = re.search(
+            r'(?:做种积分|Seeding Points)(?:[^<\d]*?)([\d,.]+)',
+            bonus_html, re.IGNORECASE)
+        if sb_match:
+            try:
+                result["seeding_bonus"] = float(sb_match.group(1).replace(",", ""))
+            except ValueError:
+                result["seeding_bonus"] = sb_match.group(1)
+    except Exception:
+        pass
 
     # If we got nothing useful, mark as parse error
     has_data = any(k in result for k in ("uploaded", "downloaded", "ratio", "bonus", "seeding"))

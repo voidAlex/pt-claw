@@ -133,35 +133,41 @@ python3 scripts/javbus_star.py --star-id 11wm
 
 输出：已有（JF或已下载）和缺失的影片列表，按日期排序。
 
-### qb_backup.py / qb_restore.py — 删种备份与恢复
+### qb_snapshot.py — 删种备份与恢复
 
 ```bash
 # 查看最近50条备份
-python3 scripts/qb_backup.py --list
+python3 scripts/qb_snapshot.py list
 
-# 查看最近备份（格式化）
-python3 scripts/qb_restore.py --list
+# 备份单个种子
+python3 scripts/qb_snapshot.py backup --hash <hash_prefix>
+
+# 批量备份（从 stdin 传入 JSON 种子列表）
+python3 scripts/qb_snapshot.py backup-batch
+
+# 查看恢复说明（信息展示）
+python3 scripts/qb_snapshot.py info --hash <hash_prefix>
 
 # 恢复指定种子（按hash前缀）
-python3 scripts/qb_restore.py --restore <hash_prefix>
+python3 scripts/qb_snapshot.py restore --hash <hash_prefix>
 
 # 恢复最近一次删除的种子
-python3 scripts/qb_restore.py --last
+python3 scripts/qb_snapshot.py restore-last
 
 # 批量恢复（按删除原因）
-python3 scripts/qb_restore.py --restore-all --reason public_cleanup
-python3 scripts/qb_restore.py --restore-all --reason manual_delete
-python3 scripts/qb_restore.py --restore-all --reason boost_aged
+python3 scripts/qb_snapshot.py restore-all --reason public_cleanup
+python3 scripts/qb_snapshot.py restore-all --reason manual_delete
+python3 scripts/qb_snapshot.py restore-all --reason boost_aged
 
 # 清除备份记录
-python3 scripts/qb_backup.py --clear
+python3 scripts/qb_snapshot.py clear
 ```
 
-> **`qb_backup.py --restore` vs `qb_restore.py --restore`**：`qb_backup.py --restore <hash>` 只显示恢复说明（信息展示），`qb_restore.py --restore <hash>` 才会实际将种子恢复到 qBittorrent。
+> **`qb_snapshot.py info` vs `qb_snapshot.py restore`**：`info --hash` 只显示恢复说明（信息展示），`restore --hash` 才会实际将种子恢复到 qBittorrent。
 
 `qb_public_cleanup.py`、`qb_monitor.py --delete`、`pt_ratio_boost.py` 删除种子前自动调用 `backup_from_torrents()`，将 hash/名称/路径/标签/分类 **加上 .torrent 文件** 备份到 `torrent_backups/`，元数据写入 `pt_deleted_backup.json`（保留最近 500 条）。
 
-**恢复链路**：`qb_restore.py` 从备份恢复种子到 qBittorrent。支持按 hash 单个恢复、最近恢复、按原因批量恢复。恢复时重新上传 .torrent 文件并应用原始标签/分类/路径。无 .torrent 文件的条目会打印搜索关键词供手动恢复。
+**恢复链路**：`qb_snapshot.py restore` 从备份恢复种子到 qBittorrent。支持按 hash 单个恢复、最近恢复、按原因批量恢复。恢复时重新上传 .torrent 文件并应用原始标签/分类/路径。无 .torrent 文件的条目会打印搜索关键词供手动恢复。
 
 **确认机制**：三个删种脚本均支持 `--check` 参数，只查不删，展示将被删除的种子清单，等用户确认后再执行实际删除。用法：
 
@@ -232,13 +238,13 @@ python3 scripts/connectivity_check.py --json        # JSON 格式输出
 
 `needs_proxy=True` 站点走代理访问；`needs_proxy=False` 站点先直连，失败自动代理重试。`--keepalive` 模式访问各站首页刷新 session，cookie 失败时自动触发 CookieCloud 同步。
 
-### _check_stalled.py — 死种诊断
+### qb_monitor.py --stalled — 死种诊断
 
 ```bash
-python3 scripts/_check_stalled.py    # 列出所有停滞种子
+python3 scripts/qb_monitor.py --stalled    # 列出所有停滞种子
 ```
 
-诊断脚本，列出 qBittorrent 中停滞超过一定时间且进度极低的种子（进度 <10%、状态 `stalledDL`）。输出格式：`种子名 | 进度% | 大小 | 天数 | tags`。与 `_cron_check.py` 的区别：`_cron_check.py` 是 cron 用的综合检查（含完成通知+死种告警+公开种清理），`_check_stalled.py` 是纯诊断工具，适合手动排查下载卡住的问题。
+诊断模式，列出 qBittorrent 中停滞且进度极低的种子（进度 <10%、状态 `stalledDL`）。输出格式：`种子名 | 进度% | 大小 | 天数 | tags`。与 `_cron_check.py` 的区别：`_cron_check.py` 是 cron 用的综合检查（含完成通知+死种告警+公开种清理），`--stalled` 是纯诊断工具，适合手动排查下载卡住的问题。
 
 ### cookie_sync.py — CookieCloud Cookie 同步（可选）
 

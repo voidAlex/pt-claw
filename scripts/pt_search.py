@@ -544,19 +544,35 @@ def _parse_ttg(html, site, site_id, limit):
 
         # Title: look inside <div class="name_left"> or similar
         title = ""
-        # Try <a><b><font>TITLE</font></b></a> first
-        tm = re.search(
-            r'<div[^>]*class=["\']?name_left["\']?[^>]*>.*?<a[^>]*><b>(?:<font[^>]*>)?([^<]+)',
+        sub_title = ""
+        name_div_match = re.search(
+            r'<div[^>]*class=["\']?name_left["\']?[^>]*>(.*?)</div>',
             row_html, re.DOTALL | re.IGNORECASE)
-        if tm:
-            title = tm.group(1).strip()
-        if not title:
-            # Try <a><b>TITLE</b></a>
+        if name_div_match:
+            name_div_html = name_div_match.group(1)
+            # Try <a><b><font>TITLE</font></b></a> first
             tm = re.search(
-                r'<div[^>]*class=["\']?name_left["\']?[^>]*>.*?<a[^>]*><b>([^<]+)</b>',
-                row_html, re.DOTALL | re.IGNORECASE)
+                r'<a[^>]*><b>(?:<font[^>]*>)?([^<]+)',
+                name_div_html, re.DOTALL | re.IGNORECASE)
             if tm:
                 title = tm.group(1).strip()
+            if not title:
+                # Try <a><b>TITLE</b></a>
+                tm = re.search(
+                    r'<a[^>]*><b>([^<]+)</b>',
+                    name_div_html, re.DOTALL | re.IGNORECASE)
+                if tm:
+                    title = tm.group(1).strip()
+            # subTitle: text after <br> inside the <b> element
+            b_match = re.search(r'<b[^>]*>(.*?)</b>', name_div_html,
+                                re.DOTALL | re.IGNORECASE)
+            if b_match:
+                b_inner = b_match.group(1)
+                br_parts = re.split(r'<br\s*/?>', b_inner, maxsplit=1)
+                if len(br_parts) > 1:
+                    after_br = re.sub(r'<[^>]+>', '', br_parts[1]).strip()
+                    if after_br:
+                        sub_title = after_br
         if not title:
             # Broader fallback: first <b>TITLE</b> inside the row
             tm = re.search(r'<b>([^<]{4,})</b>', row_html)
@@ -614,7 +630,7 @@ def _parse_ttg(html, site, site_id, limit):
                       row_html, re.IGNORECASE):
             promo = (promo + " Excl").strip() if promo else "Excl"
 
-        results.append({
+        result = {
             "title": title.strip(),
             "size": size_str,
             "size_bytes": 0,
@@ -626,7 +642,10 @@ def _parse_ttg(html, site, site_id, limit):
             "site": site["name"],
             "site_id": site_id,
             "source": site_id,
-        })
+        }
+        if sub_title:
+            result["sub_title"] = sub_title
+        results.append(result)
         if len(results) >= limit:
             break
 
