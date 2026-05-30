@@ -15,7 +15,7 @@ Config from env:
 Details: references/mteam-api.md
 """
 
-import sys, json, os, urllib.request
+import sys, json, os, urllib.request, urllib.error
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None

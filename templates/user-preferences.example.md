@@ -10,17 +10,22 @@
 - PT 做种阈值：≥5
 - 版本优选：做种数 > 去码 > 字幕 > 画质
 - 公开源优先级：JavBus > Sukebei
+- 清晰度范围：<RESOLUTION_RANGE>（如：4K + 1080p 都接受）
+- 默认下载路径：<ADULT_PATH>（如：分类 9kg → /9kg/x64/javdb-top250）
 
 ## qBittorrent 分类映射
-- 电影 → /<MOVIE_PATH>
-- 电视剧 → /<TV_PATH>
-- 纪录片 → /<LIVE_PATH>
-- 成人 → /<ADULT_PATH>
+- 电影 → 分类"电影" → /<MOVIE_PATH>
+- 电视剧 → 分类"电视剧" → /<TV_PATH>
+- 纪录片 → 分类"纪录片" → /<LIVE_PATH>
+- 综艺/节目 → 分类"<SHOW_TAG>" → /<SHOW_PATH>
+- 成人 → 分类"<ADULT_TAG>" → /<ADULT_PATH>
+- 其他 → 分类"<OTHER_TAG>" → /<OTHER_PATH>
 
 ## 通知偏好
 - 无事件时静默（[SILENT]）
 - 下载完成通知 ✅
 - 死种告警 💀
+- 定时任务只推必要信息，不推送进度百分比/做种数/汇总统计等废话
 
 ## Jellyfin 集成
 - 实例数量：<COUNT>（如 2 个：成人 + 影视）
@@ -32,7 +37,7 @@
 ## javbus-api（Docker）
 - 部署地址：见 `secrets.env` → `JAVBUS_API_URL`
 - 端口映射：`-p 8922:3000`
-- 代理：通过 Docker daemon proxy 配置（`/etc/systemd/system/docker.service.d/proxy.conf`）
+- 代理：通过容器环境变量 `HTTP_PROXY`/`HTTPS_PROXY` 传入（同 `PT_PROXY` 值，见 `docker-compose.javbus-api.yml`）
 - 用途：封面预览 + 结构化磁链（含 HD/字幕/去码标记）
 - ⚠️ 不部署也可裸爬 JavBus，仅数据不如 API 结构化
 
@@ -50,4 +55,14 @@
 - 制作组偏好：<RELEASE_GROUP>（如：优先 FraMeSToR、PTHome，排除 <EXCLUDED_GROUPS>）
 
 ## 代码偏好
-- 禁止 /tmp 临时脚本
+- 所有写代码/改代码任务委托 OpenCode CLI，使用 <MODEL> 模型
+- 禁止自己直接写代码或调 patch/write_file 改脚本
+- 禁止 /tmp 临时脚本，日常用 skill 脚本
+
+## 站点标签
+推送到 qB 必打来源标签：<SITE_TAGS>（如：mteam / pttime / btschool / carpt / hdfans / 1ptba / soulvoice / zmpt / sukebei / javbus）
+
+## 下载确认闸门
+- 搜索只展示信息，等用户说「下」才推送
+- 删除只 `--check` 预览，等用户说「清了」才执行
+- 删除前自动备份 .torrent + 元数据到 `torrent_backups/` 和 `pt_deleted_backup.json`

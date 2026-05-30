@@ -10,7 +10,7 @@ Usage:
 """
 
 import json, os, sys, argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 HISTORY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
 
@@ -46,7 +46,7 @@ def cmd_add(code: str, title: str, source: str = "unknown") -> None:
     data["items"].append({
         "code": code,
         "title": title,
-        "added_at": datetime.now().isoformat(),
+        "added_at": datetime.now(timezone.utc).isoformat(),
         "source": source,
         "status": "downloaded",
     })

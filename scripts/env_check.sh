@@ -6,7 +6,7 @@
 
 ENV_FILE="$(dirname "$(dirname "$(readlink -f "$0")")")/secrets.env"
 # Safe env parser — handles '=' in cookie values (unlike bash source which breaks on ';')
-# SKILL.md #25: never `source secrets.env` directly
+# SKILL.md #26: never `source secrets.env` directly
 if [[ -f "$ENV_FILE" ]]; then
     while IFS= read -r line; do
         line="${line%%#*}"

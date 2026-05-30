@@ -53,7 +53,7 @@ def javbus_get(path):
         return json.loads(r.read())
 
 def jf_check(code, server=1):
-    url = _env(f"JELLYFIN{server}_URL")
+    url = _env(f"JELLYFIN{server}_URL").rstrip("/")
     key = _env(f"JELLYFIN{server}_API_KEY")
     if not url or not key:
         return False
@@ -139,6 +139,8 @@ def main():
                 continue
             for s in detail.get("stars", []):
                 if s["id"] == star_id:
+                    if not star_name:
+                        star_name = s.get("name", star_name)
                     all_films[m["id"]] = {
                         "code": m["id"],
                         "date": m.get("date", "?"),
@@ -167,7 +169,7 @@ def main():
         missing = missing[:top_n]
 
     result = {
-        "star": {"id": star_id, "name": star_name},
+        "star": {"id": star_id, "name": star_name or star_id},
         "total": len(all_films),
         "existing": len(existing),
         "missing": len(missing),

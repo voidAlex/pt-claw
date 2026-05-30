@@ -220,21 +220,24 @@ if completed_public:
         to_delete = completed_public[:MAX_DELETE_PER_RUN]
 
         if not dry_run:
-            backup_from_torrents(to_delete, reason="cron_public_cleanup")
-            for t in to_delete:
-                try:
-                    data = urllib.parse.urlencode(
-                        {"hashes": t["hash"], "deleteFiles": "false"}
-                    ).encode()
-                    _request(f"{qb_url}/api/v2/torrents/delete", data=data, timeout=10)
-                    auto_cleaned.append({
-                        "name": t["name"],
-                        "size_gb": round(t.get("size", 0) / (1024**3), 2),
-                        "tags": t.get("tags", ""),
-                        "hash": t["hash"].lower(),
-                    })
-                except Exception:
-                    pass
+            backed_up = backup_from_torrents(to_delete, reason="cron_public_cleanup")
+            if not backed_up and to_delete:
+                print("WARNING: Backup failed, skipping deletion to prevent data loss", file=sys.stderr)
+            else:
+                for t in to_delete:
+                    try:
+                        data = urllib.parse.urlencode(
+                            {"hashes": t["hash"], "deleteFiles": "false"}
+                        ).encode()
+                        _request(f"{qb_url}/api/v2/torrents/delete", data=data, timeout=10)
+                        auto_cleaned.append({
+                            "name": t["name"],
+                            "size_gb": round(t.get("size", 0) / (1024**3), 2),
+                            "tags": t.get("tags", ""),
+                            "hash": t["hash"].lower(),
+                        })
+                    except Exception:
+                        pass
         else:
             for t in to_delete:
                 auto_cleaned.append({

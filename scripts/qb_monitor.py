@@ -125,6 +125,9 @@ def main():
         sys.exit(0)
 
     torrents = qb_get("/api/v2/torrents/info")
+    if torrents is None:
+        print(json.dumps({"error": "QBITTORRENT_URL not configured"}))
+        sys.exit(1)
     if isinstance(torrents, dict) and "error" in torrents:
         print(json.dumps(torrents))
         sys.exit(1)

@@ -12,7 +12,7 @@ Env: reads JELLYFIN1_URL / JELLYFIN1_API_KEY from secrets.env
      Pass --server 1|2 to select JF1/JF2 (default: 1)
 """
 
-import json, os, sys, urllib.request, urllib.parse
+import json, os, sys, urllib.request, urllib.parse, urllib.error
 from collections import Counter
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
@@ -49,7 +49,7 @@ def flag_present(args, flag):
     return flag in args
 
 def jf_get(endpoint, server=1):
-    url = _env(f"JELLYFIN{server}_URL")
+    url = _env(f"JELLYFIN{server}_URL").rstrip("/")
     key = _env(f"JELLYFIN{server}_API_KEY")
     if not url or not key:
         return {"error": f"JELLYFIN{server} not configured"}
@@ -57,8 +57,11 @@ def jf_get(endpoint, server=1):
                                  headers={"X-MediaBrowser-Token": key,
                                            "User-Agent": "Hermes/1.0"})
     opener = urllib.request.build_opener()
-    with opener.open(req, timeout=15) as r:
-        return json.loads(r.read())
+    try:
+        with opener.open(req, timeout=15) as r:
+            return json.loads(r.read())
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        return {"error": f"Jellyfin unreachable: {e}"}
 
 def main():
     args = sys.argv[1:]
@@ -75,6 +78,9 @@ def main():
 
         if list_what == "libs":
             libs = jf_get("/Library/VirtualFolders", server)
+            if isinstance(libs, dict) and "error" in libs:
+                print(json.dumps(libs))
+                sys.exit(1)
             for lib in libs:
                 print(f"  {lib['Name']:>8} ({lib.get('CollectionType','?')}) id={lib['ItemId']}")
             sys.exit(0)
@@ -83,6 +89,9 @@ def main():
             top_n = int(parse_arg(args, "--top", "20"))
             # Find movies library
             libs = jf_get("/Library/VirtualFolders", server)
+            if isinstance(libs, dict) and "error" in libs:
+                print(json.dumps(libs))
+                sys.exit(1)
             movie_lib = None
             for lib in libs:
                 if lib.get('CollectionType') == 'movies':
