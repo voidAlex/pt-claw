@@ -55,7 +55,7 @@ metadata:
 | 「查下载进度」「qb怎么样了」 | → `qb_monitor.py` |
 | 「删掉那个死种」「暂停xxx」 | → qB API 操作 |
 | 「关注诺兰」「收藏SSIS-xxx」 | → 写入 `pt_wishlist.json` |
-| 「恢复」「qb种子丢了」 | → [references/qb-disaster-recovery.md](references/qb-disaster-recovery.md) |
+| 「恢复」「qb种子丢了」 | → [references/qb-operations.md](references/qb-operations.md) |
 | 「首次配置」「初始化」 | → [references/first-time-setup.md](references/first-time-setup.md) |
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
 
@@ -299,13 +299,13 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **25. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
 
-**24. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
+**26. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
 
-**25. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
+**27. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
 
-**26. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
+**28. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
 
-**27. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
+**29. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
 
 ## 环境变量清单（`secrets.env`）
 
