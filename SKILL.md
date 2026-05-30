@@ -67,23 +67,16 @@ metadata:
 |------|------|--------|
 | [references/scripts-guide.md](references/scripts-guide.md) | 全部脚本用法速查（命令示例 + 参数说明） | 需要运行脚本时 |
 | [references/first-time-setup.md](references/first-time-setup.md) | 首次配置清单 + 初始化流程 + cron 创建 | 用户首次使用或重新配置 |
-| [references/qb-push-two-step.md](references/qb-push-two-step.md) | qB 推送两步法（URL 推送会静默失败） | 推送下载时 |
-| [references/jf-integration.md](references/jf-integration.md) | Jellyfin 集成 + javbus-api + 关注列表 + 追剧 + 去重 | 涉及 JF/追剧/成人内容 |
+| [references/qb-operations.md](references/qb-operations.md) | qB 推送两步法 + 公开种清理 + 灾难恢复 + NAS 路径映射 | 推送下载、恢复种子、路径问题 |
+| [references/jf-integration.md](references/jf-integration.md) | Jellyfin + javbus-api + 演员统计 + 关注列表 + 追剧 + 去重 | 涉及 JF/追剧/成人内容/演员查询 |
+| [references/cron-patterns.md](references/cron-patterns.md) | Cron 下载进度检查 + 成人追剧高效链路 | cron 定时任务配置或调试 |
 | [references/pt-boost.md](references/pt-boost.md) | PT 刷流配置 + 执行逻辑 | 刷流保号 |
 | [references/new-site-adaptation.md](references/new-site-adaptation.md) | 新增 PT 站适配 5 步流程 | 用户要添加新站 |
 | [references/mteam-api.md](references/mteam-api.md) | 馒头 API 端点 + 认证 + genDlToken | 涉及 M-Team |
 | [references/diagnostic-proxy-cookie.md](references/diagnostic-proxy-cookie.md) | Cookie 过期 vs 代理被封 vs IP 绑定诊断 | 连接 403 时 |
 | [references/adult-section-search.md](references/adult-section-search.md) | PTTime/M-Team 成人区搜索参数 | 成人内容搜索 |
 | [references/nexusphp-parser-notes.md](references/nexusphp-parser-notes.md) | 两种 HTML 解析模式 | 适配新站解析器 |
-| [references/public-magnet-detection.md](references/public-magnet-detection.md) | 公开磁链判定规则（tag-only） | 公开种清理 |
-| [references/qb-disaster-recovery.md](references/qb-disaster-recovery.md) | qB 种子误删恢复流程 | 恢复种子 |
-| [references/nas-volume-mapping.md](references/nas-volume-mapping.md) | NAS NFS 挂载与 qB 路径映射 | 路径问题 |
-| [references/cron-progress-check-pattern.md](references/cron-progress-check-pattern.md) | Cron 下载进度检查模式 | cron 相关 |
-| [references/cron-adult-chase.md](references/cron-adult-chase.md) | Cron 成人追剧高效模式 | 成人追剧 cron |
-| [references/jf-actor-count.md](references/jf-actor-count.md) | JF 演员片库统计 | 「谁最多」查询 |
 | [references/orphan-media-scan.md](references/orphan-media-scan.md) | 磁盘孤儿媒体扫描 | 手动恢复 |
-| [references/javbus-api.md](references/javbus-api.md) | javbus-api 端点 + 部署 + 响应格式 | JavBus 集成或排错 |
-| [references/qbittorrent-setup.md](references/qbittorrent-setup.md) | qBittorrent Web API + 环境变量 + 分类 | qB 配置或 API 调试 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
 
 ## Supported PT Sites
@@ -202,7 +195,7 @@ python3 scripts/download_history.py check --code <番号>
 echo -e "CODE1\nCODE2" | python3 scripts/download_history.py filter  # 批量
 ```
 
-**推送下载** — **必须使用两步法**，详见 [references/qb-push-two-step.md](references/qb-push-two-step.md)。禁止只用 URL 推送（会静默失败）。
+**推送下载** — **必须使用两步法**，详见 [references/qb-operations.md](references/qb-operations.md)。禁止只用 URL 推送（会静默失败）。
 
 **🏷️ 站点标签（必须！）**：
 
@@ -266,7 +259,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **7. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302 ④**国内 IP 直连 403，需走 PT_PROXY**。`mteam_api.py` 自动走代理。
 
-**8. qB URL 推送静默失败**：PT 站 download.php 需 Cookie，qB 没有。两步法见 [references/qb-push-two-step.md](references/qb-push-two-step.md)。
+**8. qB URL 推送静默失败**：PT 站 download.php 需 Cookie，qB 没有。两步法见 [references/qb-operations.md](references/qb-operations.md)。
 
 **9. JF 已有 ≠ 重复**：比 `DateCreated` vs qB `added_on` 时间戳。JF 晚于 qB = 正常入库。
 
@@ -298,9 +291,13 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **22. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
 
+**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。
+
+**24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
+
 ### 🔧 脚本纪律
 
-**23. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
+**25. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
 
 **24. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
 

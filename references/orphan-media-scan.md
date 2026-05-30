@@ -48,7 +48,11 @@ def normalize(s):
 
 ### 4. 输出格式
 
-对每项标注类型标签：
+**大小格式**：使用 `du -sk`（KB 精度），转为人类可读时保留 **两位小数**（如 `41.23G`，不是 `41G`）。
+
+**路径格式**：使用 qBittorrent 容器内的原始路径（如 `/media/video/movie/xxx`），不要用本机 NFS 挂载路径（`/mnt/nas-media/video/movie/xxx`）。路径转换：`/mnt/nas-media/video/` → `/media/video/`。
+
+**类型标签**：
 
 | 标签 | 含义 |
 |------|------|
