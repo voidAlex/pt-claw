@@ -5,7 +5,17 @@
 # Exit 0 if all required keys found, 1 if any missing.
 
 ENV_FILE="$(dirname "$(dirname "$(readlink -f "$0")")")/secrets.env"
-[[ -f "$ENV_FILE" ]] && source "$ENV_FILE" 2>/dev/null
+# Safe env parser — handles '=' in cookie values (unlike bash source which breaks on ';')
+# SKILL.md #25: never `source secrets.env` directly
+if [[ -f "$ENV_FILE" ]]; then
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        [[ -z "$line" || "$line" != *=* ]] && continue
+        key="${line%%=*}"
+        val="${line#*=}"
+        export "${key}=${val}"
+    done < "$ENV_FILE" 2>/dev/null
+fi
 
 MISSING=0
 check() {

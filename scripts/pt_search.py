@@ -595,8 +595,14 @@ def main():
                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                        "AppleWebKit/537.36 (KHTML, like Gecko) "
                        "Chrome/125.0.0.0 Safari/537.36")
+        proxy = _env("PT_PROXY") if s.get("needs_proxy") else None
+        if proxy:
+            proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+            opener = urllib.request.build_opener(proxy_handler)
+        else:
+            opener = urllib.request.build_opener()
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with opener.open(req, timeout=15) as resp:
                 raw = resp.read()
                 ct = resp.headers.get("Content-Type", "")
                 m = re.search(r'charset=([\w-]+)', ct)

@@ -23,8 +23,11 @@ def _load_env_file():
                 _env_cache[key.strip()] = val.strip().strip('"').strip("'")
 
 def _env(name, default=""):
-    _load_env_file()
-    return os.environ.get(name, _env_cache.get(name, default))
+    val = os.environ.get(name, "")
+    if not val:
+        _load_env_file()
+        val = _env_cache.get(name, default)
+    return val
 
 cj = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))

@@ -202,9 +202,12 @@ def _fetch(url: str, proxy: str = "", referer: str = "") -> str:
         headers["Referer"] = referer
     req = urllib.request.Request(url, headers=headers)
     if proxy:
-        req.set_proxy(proxy, "http")
+        proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        opener = urllib.request.build_opener(proxy_handler)
+    else:
+        opener = urllib.request.build_opener()
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with opener.open(req, timeout=15) as resp:
             return resp.read().decode("utf-8", errors="replace")
     except Exception as e:
         return ""
