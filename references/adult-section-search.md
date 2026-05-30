@@ -1,4 +1,4 @@
-# PTTime / M-Team 成人区（9kg）搜索适配
+# 成人区（9kg）搜索适配
 
 ## PTTime
 
@@ -29,27 +29,81 @@
 curl -s --data-urlencode "actor=浅野心" "https://www.pttime.org/adults.php" -G -b "cookie_str"
 ```
 
+### pt-claw 适配状态
+
+**已适配**。`pt_search.py` 中 `search_site()` 函数已处理 PTTime 成人区：
+- `adult=True` 时切换到 `/adults.php?searchstr=`
+- `actor` 参数时切换到 `/adults.php?actor=`
+- HTML 解析器与普通搜索共用（NexusPHP 结构一致）
+
+### PT-depiler 对比
+
+PT-depiler 对 PTTime 成人区的处理方式：
+- 成人区入口：`/adults.php`（与我们一致）
+- 通过 `searchEntry.area_special` 预设，默认禁用
+- 使用 `#url` 特殊 key 直接替换请求 URL
+- 成人分类 ID（PTTime 独有，与 M-Team 不同）:
+
+| Category ID | 名称 |
+|-------------|------|
+| 440 | 9kg-步兵(步兵/无码) |
+| 441 | 9kg-骑兵(骑兵/有码) |
+| 442 | 9kg-III(三级片、限制级电影) |
+| 443 | 9kg-H漫(动漫、漫画) |
+| 444 | 9kg-H游(游戏及相关) |
+| 445 | 9kg-H书(书籍、有声书) |
+| 446 | 9kg-H图(写真、图片、私拍、短视频) |
+| 447 | 9kg-H音(ASMR、音频、音乐) |
+| 448 | 9kg-H综(综艺、综合、剪辑、其他等) |
+| 449 | 9kg-H同(男同、女同、人妖) |
+
 ## M-Team (馒头)
 
-- **Web 页面**: `https://kp.m-team.cc/browse/adult`
-- **搜索**: 需 cookie 认证（当前未获取 mteam web cookie，依赖 API）
-- **API 搜索**: 待验证是否支持 `mode: "adult"` 或 `categories` 参数
+- **Web 页面**: `https://kp.m-team.cc/browse/adult`（需 Cookie，但 M-Team 禁止 Cookie 访问 API）
+- **API 搜索**: ✅ 已验证 `mode: "adult"` 参数有效
 - **API 限速**: 1000 次/24h，超限返回 403
-- **当前状态**: API 搜索基本不限分类即搜全站，成人内容是否被过滤待 API 恢复后验证
 
-## 脚本适配建议
-
-在 `pt_search.py` 中为 `pttime` 站点增加 `adult_mode` 和 `actor` 参数：
+### 已验证的 API 方案
 
 ```python
-# Adult mode: use adults.php
-if adult_mode:
-    if actor:
-        url = f"{site['url']}/adults.php?actor={urllib.parse.quote(actor)}"
-    else:
-        url = f"{site['url']}/adults.php?searchstr={urllib.parse.quote(query)}"
-else:
-    url = f"{site['url']}/torrents.php?search={urllib.parse.quote(query)}&notnewword=1"
+POST https://api.m-team.cc/api/torrent/search
+Headers: x-api-key, Content-Type: application/json
+Body: {"keyword": "", "page": 1, "size": 25, "mode": "adult"}
 ```
 
-两个页面的 HTML 解析逻辑完全相同，无需额外 parser。
+详细验证结果见 `references/mteam-api.md`「成人内容 / 9kg 区搜索」章节。
+
+### 三方项目成人搜索对比
+
+| 项目 | 成人搜索方式 | 实现状态 |
+|------|------------|---------|
+| **pt-claw** | 未实现 | 待开发 |
+| **PT-depiler** | `mode: "adult"` in JSON body，通过 `searchEntry.area_adult` 预设（默认禁用） | 完整实现 |
+| **MoviePilot** | `visible: 1`（仅过滤活种，非成人区切换）；实际成人搜索依赖站点 URL 而非 API 参数 | 部分实现 |
+
+## PTSkit（拾刻）
+
+- **URL**: https://www.ptskit.org/
+- **框架**: NexusPHP
+- **标签**: 短剧、成人
+- **成人区**: `/special.php`（称为「十八禁」）
+- **成人分类**:
+
+| Category ID | 名称 |
+|-------------|------|
+| 412 | 欧美 |
+| 411 | 日本 |
+| 410 | 国产 |
+
+- **成人区入口**: `searchEntry.area_9kg`，URL 为 `/special.php`（PT-depiler 默认禁用）
+- **搜索参数**: 与综合区相同（NexusPHP 标准 `search` 参数），HTML 结构一致
+- **pt-claw 适配状态**: 未适配
+
+## PTHome（铂金家）
+
+- **URL**: https://pthome.net/
+- **框架**: NexusPHP
+- **标签**: 影视、综合
+- **成人区**: **无**（PT-depiler 定义中无成人区入口）
+- **分类**: Movies(401)、TV Series(402)、TV Shows(403)、Documentaries(404)、Animations(405)、Music Videos(406)、Sports(407)、HQ Audio(408)、Games(410)、Study(411)、Others(409)
+- **pt-claw 适配状态**: 未适配
