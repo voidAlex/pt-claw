@@ -17,18 +17,14 @@ from _proxy import using_proxy
 
 JAVBUS_API = (_env("JAVBUS_API_URL") or "http://localhost:8922").rstrip("/")
 
-def _make_opener():
-    proxy = _env("PT_PROXY")
-    if proxy:
-        os.environ['http_proxy'] = proxy
-        os.environ['https_proxy'] = proxy
-    return urllib.request.build_opener()
-
 def javbus_get(path):
+    proxy = _env("PT_PROXY") or None
     req = urllib.request.Request(f"{JAVBUS_API}{path}",
                                  headers={"User-Agent": "Hermes/1.0"})
-    with _make_opener().open(req, timeout=15) as r:
-        return json.loads(r.read())
+    with using_proxy(proxy):
+        opener = urllib.request.build_opener()
+        with opener.open(req, timeout=15) as r:
+            return json.loads(r.read())
 
 def jf_check(code, server=1):
     url = _env(f"JELLYFIN{server}_URL").rstrip("/")

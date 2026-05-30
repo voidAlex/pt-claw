@@ -20,7 +20,6 @@ import json, os, sys, time, urllib.request, urllib.parse, urllib.error
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 
-# Proxy compatibility: ProxyHandler breaks with certain proxy types
 from _common import _env
 from _proxy import using_proxy
 

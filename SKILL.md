@@ -249,6 +249,12 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 详见 [references/new-site-adaptation.md](references/new-site-adaptation.md)：5 步适配流程（信息收集→平台识别→解析器→验证→文档更新）+ 适配检查清单。
 
+**参考项目优先**：适配新站点时，必须先查阅以下两个开源项目的对应站点实现，作为标准参考：
+- **PT-depiler**（`/tmp/opencode/research/PT-depiler/`）：PT 站点解析器、辅种逻辑、促销标签映射、Cookie 认证流程
+- **MoviePilot**（`/tmp/opencode/research/MoviePilot/`）：站点适配、用户信息采集、促销类型识别、站点配置 schema
+
+遇到不确定的解析逻辑、认证方式或字段映射时，优先对照这两个项目的实现，保持一致。
+
 **手写解析器必须委托编程 agent**：NexusPHP 系站点只需注册 SITES 字典（零代码），Agent 可直接完成。但遇到非标框架需要手写解析器时（Case 3），Agent **禁止自己写代码**——先完成 Step A/B 的信息收集和 HTML 分析，然后将完整的解析规格（DOM 结构、字段映射、示例 HTML 片段）委托给 Claude Code / OpenCode 等专业编程 agent 实现和调试。
 
 ## Common Pitfalls

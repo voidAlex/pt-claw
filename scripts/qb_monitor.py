@@ -22,12 +22,12 @@ Usage:
 Combine flags: --full --codes XX --states downloading
 """
 
-import json, os, sys, urllib.request, urllib.parse, urllib.error
+import json, os, sys, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
-from http.cookiejar import CookieJar
 
-from _common import _env
+from _common import _env, _fmt_size, _fmt_speed, parse_arg, flag_present
+from _qb_session import get_session, qb_request
 
 # Import backup module
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,25 +36,8 @@ from qb_snapshot import backup_from_torrents
 
 MAX_DELETE_PER_RUN = 50
 
-def qb_get(endpoint: str, host: str = None) -> dict:
-    qb_url = (host or _env("QBITTORRENT_URL")).rstrip("/")
-    if not qb_url:
-        print("ERROR: QBITTORRENT_URL is not set", file=sys.stderr)
-        return None
-    qb_user = _env("QBITTORRENT_USER")
-    qb_pass = _env("QBITTORRENT_PASS")
-
-    cj = CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    opener.addheaders = [("User-Agent", "Hermes/1.0")]
-    login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
-    try:
-        opener.open(f"{qb_url}/api/v2/auth/login", login_data, timeout=10)
-    except urllib.error.HTTPError as e:
-        if e.code == 403:
-            return {"error": "Login failed"}
-        raise
-
+def qb_get(endpoint: str) -> dict:
+    opener, qb_url = get_session()
     full_url = f"{qb_url}{endpoint}"
     try:
         with opener.open(full_url, timeout=30) as resp:
@@ -73,28 +56,6 @@ def _write_tracker(path: str, epoch: int):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w") as f:
         f.write(str(epoch))
-
-def fmt_size(b):
-    for u in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if b < 1024: return f"{b:.1f}{u}"
-        b /= 1024
-    return f"{b:.1f}PB"
-
-def fmt_speed(b):
-    if b == 0: return "0"
-    for u in ['B/s', 'KB/s', 'MB/s', 'GB/s']:
-        if b < 1024: return f"{b:.1f}{u}"
-        b /= 1024
-    return f"{b:.1f}TB/s"
-
-def parse_arg(args, flag, default=None):
-    for i, a in enumerate(args):
-        if a == flag and i + 1 < len(args):
-            return args[i + 1]
-    return default
-
-def flag_present(args, flag):
-    return flag in args
 
 def main():
     args = sys.argv[1:]
@@ -182,7 +143,7 @@ def main():
                 "would_delete_list": [{
                     "hash": t["hash"][:12],
                     "name": t["name"][:80],
-                    "size": fmt_size(t["size"]),
+                    "size": _fmt_size(t["size"]),
                     "state": t["state"],
                     "tags": t.get("tags", ""),
                 } for t in torrents],
@@ -193,21 +154,7 @@ def main():
         # Backup before delete
         backup_from_torrents(torrents, reason="manual_delete")
         
-        # Delete without removing files (POST only, GET not supported)
-        qb_url = _env("QBITTORRENT_URL").rstrip("/")
-        cj = CookieJar()
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-        opener.addheaders = [("User-Agent", "Hermes/1.0")]
-        qb_user = _env("QBITTORRENT_USER")
-        qb_pass = _env("QBITTORRENT_PASS")
-        login_d = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
-        try:
-            opener.open(f"{qb_url}/api/v2/auth/login", login_d, timeout=10)
-        except urllib.error.HTTPError as e:
-            if e.code == 403:
-                print(json.dumps({"error": "Login failed"}, ensure_ascii=False))
-                sys.exit(1)
-            raise
+        opener, qb_url = get_session()
         data = urllib.parse.urlencode({"hashes": "|".join(hashes), "deleteFiles": "false"}).encode()
         req = urllib.request.Request(f"{qb_url}/api/v2/torrents/delete", data=data)
         with opener.open(req, timeout=10) as resp:
@@ -236,8 +183,8 @@ def main():
 
         result = {
             "total": len(torrents),
-            "dl_speed": fmt_speed(dl_speed),
-            "ul_speed": fmt_speed(ul_speed),
+            "dl_speed": _fmt_speed(dl_speed),
+            "ul_speed": _fmt_speed(ul_speed),
             "time": now.isoformat(),
             "states": {k: len(v) for k, v in by_state.items()},
             "downloading": [],
@@ -250,8 +197,8 @@ def main():
             result["downloading"].append({
                 "name": t['name'],
                 "progress": round(t['progress'] * 100),
-                "size": fmt_size(t['size']),
-                "dlspeed": fmt_speed(t['dlspeed']),
+                "size": _fmt_size(t['size']),
+                "dlspeed": _fmt_speed(t['dlspeed']),
                 "tags": t.get('tags', ''),
                 "state": t['state'],
             })
@@ -267,7 +214,7 @@ def main():
                 if now.timestamp() - t['completion_on'] < 7*86400:
                     result["completed_recent"].append({
                         "name": t['name'],
-                        "size": fmt_size(t['total_size']),
+                        "size": _fmt_size(t['total_size']),
                         "completed_hours_ago": round((now.timestamp() - t['completion_on']) / 3600, 1),
                         "tags": t.get('tags', ''),
                     })
@@ -303,7 +250,7 @@ def main():
         max_completion_epoch = max(max_completion_epoch, completion_time)
         completed.append({
             "name": t.get("name", ""),
-            "size": fmt_size(t.get("size", 0)),
+            "size": _fmt_size(t.get("size", 0)),
             "size_bytes": t.get("size", 0),
             "category": t.get("category", ""),
             "completed_at": completion_dt.isoformat(),

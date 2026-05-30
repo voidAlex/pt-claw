@@ -13,64 +13,25 @@ Public magnet file selection (two-step):
     python3 qb_add.py --select-files <hash> --keep 0,3,5
 """
 
-import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
-from http.cookiejar import CookieJar
+import json, os, re, sys, time, urllib.request, urllib.parse
 
 from _common import _env
+from _qb_session import get_session as _get_session, qb_request as _qb_api_request, reset as _reset_session
 
 
-# ── QBittorrent session (reusable) ────────────────────────────
-_qb_opener = None
+# Re-export for backward compat with scripts that import from qb_add
 _qb_url = None
 
 
 def _get_opener():
-    """Return a logged-in qB opener, reusing the session cookie."""
-    global _qb_opener, _qb_url
-    if _qb_opener is not None:
-        return _qb_opener
-
-    _qb_url = _env("QBITTORRENT_URL", "").rstrip("/")
-    qb_user = _env("QBITTORRENT_USER", "")
-    qb_pass = _env("QBITTORRENT_PASS", "")
-
-    cj = CookieJar()
-    _qb_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    _qb_opener.addheaders = [("User-Agent", "Hermes/1.0")]
-    login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
-    try:
-        _qb_opener.open(f"{_qb_url}/api/v2/auth/login", login_data, timeout=10)
-    except urllib.error.HTTPError as e:
-        if e.code == 403:
-            raise RuntimeError("Login failed — check QBITTORRENT_USER/PASS in secrets.env")
-        raise
-    return _qb_opener
+    opener, url = _get_session()
+    global _qb_url
+    _qb_url = url
+    return opener
 
 
 def qb_request(endpoint: str, method: str = "GET", data: dict = None) -> dict:
-    """Make an authenticated request to qBittorrent Web API."""
-    opener = _get_opener()
-    full_url = f"{_qb_url}{endpoint}"
-    if method == "POST" and data:
-        req = urllib.request.Request(full_url,
-                                     data=urllib.parse.urlencode(data).encode(),
-                                     method=method)
-    else:
-        req = urllib.request.Request(full_url, method=method)
-    try:
-        with opener.open(req, timeout=30) as resp:
-            raw = resp.read()
-            if not raw.strip():
-                return {}
-            try:
-                return json.loads(raw)
-            except json.JSONDecodeError:
-                text = raw.decode("utf-8", errors="replace").strip()
-                return {"raw": text}
-    except urllib.error.HTTPError as e:
-        return {"error": f"HTTP {e.code}: {e.reason}"}
-    except urllib.error.URLError as e:
-        return {"error": f"Connection failed: {e}"}
+    return _qb_api_request(endpoint, method, data)
 
 
 def _extract_hash_from_magnet(magnet: str) -> str | None:

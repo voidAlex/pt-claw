@@ -12,21 +12,11 @@ SAFEGUARDS (防误删三道防线):
 2. MAX_PUBLIC_RATIO = 0.20 — 如果"公开种"占总种子超20%，判定异常中止
 3. DRY_RUN — 设置环境变量 QB_CLEANUP_DRY_RUN=1 只报告不执行
 """
-import json, os, sys, urllib.request, urllib.parse, urllib.error
-from datetime import datetime, timedelta, timezone
-from http.cookiejar import CookieJar
+import json, os, sys, urllib.parse, urllib.request
+from datetime import datetime, timezone
 
-# Import backup module
-_skill_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _skill_dir)
-from qb_snapshot import backup_from_torrents
-
-from _common import _env
-
-
-PUBLIC_TAGS = {"sukebei", "javbus"}
-MAX_DELETE_PER_RUN = 50
-MAX_PUBLIC_RATIO = 0.20
+from _common import _env, PUBLIC_TAGS, MAX_DELETE_PER_RUN, MAX_PUBLIC_RATIO
+from _qb_session import get_session
 DRY_RUN = _env("QB_CLEANUP_DRY_RUN") == "1"
 CHECK_MODE = "--check" in sys.argv
 
@@ -34,24 +24,15 @@ CHECK_MODE = "--check" in sys.argv
 def main():
     _check = CHECK_MODE or DRY_RUN
 
-    qb_url = _env("QBITTORRENT_URL").rstrip("/")
-    qb_user = _env("QBITTORRENT_USER")
-    qb_pass = _env("QBITTORRENT_PASS")
-
-    if not all([qb_url, qb_user, qb_pass]):
-        print(json.dumps({"error": "Missing QBITTORRENT_* env vars"}))
-        sys.exit(1)
-
-    cj = CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    opener.addheaders = [("User-Agent", "Hermes/1.0")]
     try:
-        opener.open(f"{qb_url}/api/v2/auth/login",
-            data=urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode(),
-            timeout=10)
-    except Exception as e:
-        print(json.dumps({"error": f"Login failed: {e}"}))
+        opener, qb_url = get_session()
+    except RuntimeError as e:
+        print(json.dumps({"error": str(e)}))
         sys.exit(1)
+
+    _skill_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, _skill_dir)
+    from qb_snapshot import backup_from_torrents
 
     try:
         with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=60) as resp:

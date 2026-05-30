@@ -10,21 +10,10 @@ Usage:
 
 import json, os, re, sys, time, urllib.request, urllib.error
 
-from _common import _env, _fmt_size, _env_matching, _load_env_file
+from _common import _env, _fmt_size, _env_matching, _load_env_file, _parse_size
 from _proxy import using_proxy
 from mteam_api import _api_post
 from pt_search import SITES, load_cookies
-
-
-def _parse_size(s):
-    """Convert human size string to bytes (inverse of _fmt_size)."""
-    m = re.match(r'([\d,.]+)\s*(TB|GB|MB|KB|B)', s, re.IGNORECASE)
-    if not m:
-        return 0
-    val = float(m.group(1).replace(",", ""))
-    unit = m.group(2).upper()
-    mult = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
-    return int(val * mult.get(unit, 1))
 
 
 def _fetch_page(url, cookie, proxy=None, timeout=15):

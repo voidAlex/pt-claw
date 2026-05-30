@@ -68,6 +68,13 @@
 | `cookie_sync.py` | CookieCloud Cookie 同步（浏览器→secrets.env 自动更新） |
 | `_cron_check.py` | Cron 进度检查（完成通知 + 死种告警 + 公开种自动清理） |
 
+## 致谢
+
+本项目在开发过程中参考了以下开源项目的实现：
+
+- **[PT-depiler](https://github.com/PT-depiler/pt-depiler)** — PT 站点解析、辅种逻辑、促销标签映射等核心实现的重要参考
+- **[MoviePilot](https://github.com/jxxghp/MoviePilot)** — 站点适配、用户信息采集、促销类型识别等方面的参考实现
+
 ## 许可
 
 MIT

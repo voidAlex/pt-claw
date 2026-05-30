@@ -15,16 +15,7 @@ Env: reads JELLYFIN1_URL / JELLYFIN1_API_KEY from secrets.env
 import json, os, sys, urllib.request, urllib.parse, urllib.error
 from collections import Counter
 
-from _common import _env
-
-def parse_arg(args, flag, default=None):
-    for i, a in enumerate(args):
-        if a == flag and i + 1 < len(args):
-            return args[i + 1]
-    return default
-
-def flag_present(args, flag):
-    return flag in args
+from _common import _env, parse_arg, flag_present
 
 def jf_get(endpoint, server=1):
     url = _env(f"JELLYFIN{server}_URL").rstrip("/")

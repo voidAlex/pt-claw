@@ -10,9 +10,10 @@ Usage:
 Config: <skill-dir>/pt_boost.json (template: templates/pt_boost.example.json)
 """
 
-import json, os, re, sys, time, urllib.request, urllib.parse, http.cookiejar, subprocess
+import json, os, re, sys, time, urllib.request, urllib.parse, subprocess
 
-from _common import _env, _fmt_size
+from _common import _env, _fmt_size, _parse_size
+from _qb_session import get_session, qb_request as _qb_api_req
 
 MAX_DELETE_PER_RUN = 50
 
@@ -63,45 +64,14 @@ def load_config() -> dict:
 
 class QBit:
     def __init__(self, url: str, user: str, password: str):
-        self.url = url.rstrip("/")
-        self.jar = {}
-        self._opener = urllib.request.build_opener()
-        self._login(user, password)
-
-    def _login(self, user: str, password: str):
-        data = urllib.parse.urlencode({"username": user, "password": password}).encode()
-        req = urllib.request.Request(f"{self.url}/api/v2/auth/login", data=data)
-        req.add_header("User-Agent", "Hermes/1.0")
-        try:
-            with self._opener.open(req, timeout=10) as resp:
-                for h in resp.headers.get_all("Set-Cookie", []):
-                    if "SID=" in h:
-                        self.jar["SID"] = h.split("SID=")[1].split(";")[0]
-        except Exception as e:
-            raise RuntimeError(f"qBittorrent login failed: {e}")
-
-    def _get(self, endpoint: str):
-        req = urllib.request.Request(f"{self.url}/api/v2/{endpoint}")
-        req.add_header("User-Agent", "Hermes/1.0")
-        if "SID" in self.jar:
-            req.add_header("Cookie", f"SID={self.jar['SID']}")
-        with self._opener.open(req, timeout=15) as resp:
-            return json.loads(resp.read())
-
-    def _post(self, endpoint: str, data: dict) -> str:
-        body = urllib.parse.urlencode(data).encode()
-        req = urllib.request.Request(f"{self.url}/api/v2/{endpoint}", data=body)
-        req.add_header("User-Agent", "Hermes/1.0")
-        if "SID" in self.jar:
-            req.add_header("Cookie", f"SID={self.jar['SID']}")
-        with self._opener.open(req, timeout=15) as resp:
-            return resp.read().decode()
+        self.opener, self.url = get_session()
 
     def list_torrents(self, category: str = "") -> list[dict]:
         endpoint = "torrents/info"
         if category:
             endpoint += f"?category={urllib.parse.quote(category)}"
-        return self._get(endpoint)
+        result = _qb_api_req(f"/{endpoint}")
+        return result if isinstance(result, list) else []
 
     def add_torrent(self, url_or_magnet: str, category: str = "", save_path: str = "") -> bool:
         data = {"urls": url_or_magnet}
@@ -109,12 +79,12 @@ class QBit:
             data["category"] = category
         if save_path:
             data["savepath"] = save_path
-        resp = self._post("torrents/add", data)
-        return resp.strip() == "Ok."
+        result = _qb_api_req("/torrents/add", method="POST", data=data)
+        return isinstance(result, dict) and "error" not in result
 
     def delete_torrents(self, hashes: list[str], delete_files: bool = True):
         data = {"hashes": "|".join(hashes), "deleteFiles": str(delete_files).lower()}
-        self._post("torrents/delete", data)
+        _qb_api_req("/torrents/delete", method="POST", data=data)
 
 
 def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dict]:
@@ -173,7 +143,7 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
         max_results = site_cfg.get("max_results", 50)
         search_script = os.path.join(_skill_dir, "pt_search.py")
         r = subprocess.run(
-            ["python3", search_script, site_id, keyword, "--limit", str(max_results)],
+            ["python3", search_script, keyword, "--site", site_id, "--limit", str(max_results)],
             capture_output=True, text=True, timeout=60,
         )
         try:
@@ -204,17 +174,6 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
             results.append(item)
 
     return results
-
-
-def _parse_size(size_str: str) -> int:
-    """Parse human-readable size string like '4.37 GB' to bytes."""
-    m = re.match(r'([\d.]+)\s*(TB|GB|MB|KB|B)', size_str, re.IGNORECASE)
-    if not m:
-        return 0
-    val = float(m.group(1))
-    unit = m.group(2).upper()
-    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
-    return int(val * multipliers.get(unit, 1))
 
 
 def cleanup_aged(cfg: dict, qb: QBit, dry_run: bool = False) -> list[dict]:

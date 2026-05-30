@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 """Cron progress check: new completions, dead torrents, public auto-cleanup."""
-import json, os, re, sys, fcntl, urllib.request, urllib.parse
+import json, os, re, sys, fcntl, urllib.parse, urllib.request
 from datetime import datetime, timezone, timedelta
-from http.cookiejar import CookieJar
 
-from _common import _env
+from _common import _env, PUBLIC_TAGS, MAX_DELETE_PER_RUN, MAX_PUBLIC_RATIO, COMPLETED_STATES
+from _qb_session import get_session
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 from qb_snapshot import backup_from_torrents
 
 _skill_root = os.path.join(_skill_dir, "..")
-
-PUBLIC_TAGS = {"sukebei", "javbus"}
-MAX_DELETE_PER_RUN = 50
-MAX_PUBLIC_RATIO = 0.20
-COMPLETED_STATES = {"pausedUP", "uploading", "forcedUP", "stalledUP"}
 
 STATE_FILE = os.path.join(_skill_root, "pt_notify_state.json")
 TRACKER_FILE = os.path.join(_skill_root, "pt_completed_last.txt")
@@ -64,28 +59,13 @@ def _save_state(state):
 
 
 def main():
-    qb_url = _env("QBITTORRENT_URL").rstrip("/")
-    qb_user = _env("QBITTORRENT_USER")
-    qb_pass = _env("QBITTORRENT_PASS")
-    if not qb_url:
-        print(json.dumps({"error": "QBITTORRENT_URL not configured"}))
+    try:
+        opener, qb_url = get_session()
+    except RuntimeError as e:
+        print(json.dumps({"error": str(e)}))
         sys.exit(1)
 
-    cj = CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-
-    def _request(url, data=None, timeout=30):
-        req = urllib.request.Request(url, data=data)
-        req.add_header("User-Agent", "Hermes/1.0")
-        return opener.open(req, timeout=timeout)
-
-    _request(
-        f"{qb_url}/api/v2/auth/login",
-        urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode(),
-        timeout=10,
-    )
-
-    with _request(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
+    with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
         torrents = json.loads(r.read())
 
     known_hashes = set()
@@ -204,7 +184,8 @@ def main():
                             data = urllib.parse.urlencode(
                                 {"hashes": t["hash"], "deleteFiles": "false"}
                             ).encode()
-                            _request(f"{qb_url}/api/v2/torrents/delete", data=data, timeout=10)
+                            req = urllib.request.Request(f"{qb_url}/api/v2/torrents/delete", data=data)
+                            opener.open(req, timeout=10)
                             auto_cleaned.append({
                                 "name": t["name"],
                                 "size_gb": round(t.get("size", 0) / (1024**3), 2),

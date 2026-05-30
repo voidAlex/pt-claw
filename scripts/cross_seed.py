@@ -26,17 +26,16 @@ import re
 import subprocess
 import sys
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
-from http.cookiejar import CookieJar
 
-from _common import _env, _fmt_size, _load_env_file
+from _common import _env, _fmt_size, _load_env_file, _parse_size
 from _proxy import using_proxy
 from _search_cache import cache_get, cache_put
 
 # Single source of truth — pt_search.SITES is the canonical registry
 from pt_search import SITES as _PT_SITES, load_cookies as _load_cookies
+from _qb_session import get_session, qb_request as _qb_request
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 TASKS_FILE = os.path.join(_skill_dir, "cross_seed_tasks.json")
@@ -276,59 +275,7 @@ def delete_task(task_id: str) -> dict:
     return {"deleted": task_id}
 
 
-# ── qBittorrent integration (inline session) ──────────────────
-
-_qb_opener = None
-_qb_url = None
-
-
-def _qb_get_opener():
-    global _qb_opener, _qb_url
-    if _qb_opener is not None:
-        return _qb_opener
-
-    _qb_url = _env("QBITTORRENT_URL", "").rstrip("/")
-    qb_user = _env("QBITTORRENT_USER", "")
-    qb_pass = _env("QBITTORRENT_PASS", "")
-
-    cj = CookieJar()
-    _qb_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    _qb_opener.addheaders = [("User-Agent", "Hermes/1.0")]
-    login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
-    try:
-        _qb_opener.open(f"{_qb_url}/api/v2/auth/login", login_data, timeout=10)
-    except urllib.error.HTTPError as e:
-        if e.code == 403:
-            raise RuntimeError("qBittorrent login failed — check QBITTORRENT_USER/PASS")
-        raise
-    return _qb_opener
-
-
-def _qb_request(endpoint: str, method: str = "GET", data: dict = None):
-    opener = _qb_get_opener()
-    full_url = f"{_qb_url}{endpoint}"
-    if method == "POST" and data:
-        encoded = urllib.parse.urlencode(data).encode()
-        req = urllib.request.Request(full_url, data=encoded, method=method)
-    elif method == "POST":
-        req = urllib.request.Request(full_url, method=method)
-    else:
-        req = urllib.request.Request(full_url, method=method)
-
-    try:
-        with opener.open(req, timeout=30) as resp:
-            raw = resp.read()
-            if not raw.strip():
-                return {}
-            try:
-                return json.loads(raw)
-            except json.JSONDecodeError:
-                return {"raw": raw.decode("utf-8", errors="replace").strip()}
-    except urllib.error.HTTPError as e:
-        return {"error": f"HTTP {e.code}: {e.reason}"}
-    except urllib.error.URLError as e:
-        return {"error": f"Connection failed: {e}"}
-
+# ── qBittorrent integration ────────────────────────────────────
 
 def _qb_add_torrent_paused(download_url: str, save_path: str, tags: list[str]) -> dict:
     data = {
@@ -476,7 +423,7 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
                 continue
             sr_size = sr.get("size_bytes", 0)
             if sr_size == 0:
-                sr_size = _parse_size_str(sr.get("size", ""))
+                sr_size = _parse_size(sr.get("size", ""))
 
             sr_site = sr.get("source", sr.get("site_id", sr.get("site", ""))).lower()
             sr_dl_url = sr.get("download_url", "")
@@ -546,16 +493,6 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
             })
 
     return opportunities
-
-
-def _parse_size_str(size_str: str) -> int:
-    m = re.match(r'([\d.]+)\s*(TB|GB|MB|KB|B)', size_str, re.IGNORECASE)
-    if not m:
-        return 0
-    val = float(m.group(1))
-    unit = m.group(2).upper()
-    mult = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
-    return int(val * mult.get(unit, 1))
 
 
 # ── CLI ────────────────────────────────────────────────────────

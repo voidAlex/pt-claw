@@ -17,7 +17,7 @@ Usage:
 Metadata: <skill-dir>/pt_deleted_backup.json
 .torrent files: <skill-dir>/torrent_backups/<hash>.torrent
 """
-import json, os, re, sys, time, urllib.request, urllib.parse, http.cookiejar, fcntl, binascii
+import json, os, re, sys, time, urllib.request, urllib.parse, fcntl, binascii
 from datetime import datetime, timezone
 
 _skill_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -25,20 +25,14 @@ BACKUP_FILE = os.path.join(_skill_root, "pt_deleted_backup.json")
 TORRENT_DIR = os.path.join(_skill_root, "torrent_backups")
 
 from _common import _env
+from _qb_session import get_session
 
 
 def _qb_auth():
-    qb_url = _env("QBITTORRENT_URL").rstrip("/")
-    qb_user = _env("QBITTORRENT_USER")
-    qb_pass = _env("QBITTORRENT_PASS")
-    if not all([qb_url, qb_user, qb_pass]):
+    try:
+        return get_session()
+    except RuntimeError:
         return None, None
-    cj = http.cookiejar.CookieJar()
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    opener.addheaders = [("User-Agent", "Hermes/1.0")]
-    login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
-    opener.open(f"{qb_url}/api/v2/auth/login", login_data, timeout=10)
-    return opener, qb_url
 
 
 def _download_torrent(opener, qb_url, info_hash):

@@ -9,43 +9,14 @@ Usage:
 Output: JSON array with seeders, leechers, size, magnet link, title.
 """
 
-import sys, json, os, re, urllib.request, urllib.parse
+import sys, json, os, urllib.request, urllib.parse
 from xml.etree import ElementTree as ET
 
-from _common import _env
+from _common import _env, _is_spam as is_spam, _magnet_score as score
 from _proxy import using_proxy
 
 SUKEBEI_RSS = "https://sukebei.nyaa.si/?page=rss"
 NYAA_NS = "https://sukebei.nyaa.si/xmlns/nyaa"
-
-# ── Ad / spam filter ──────────────────────────────────────────
-AD_KEYWORDS = [
-    "加群", "QQ", "微信", "tg", "广告", "推广", "福利", "免费", "导航",
-    "合集", "大合集", "まとめ", "pack", "collection", "全作品",
-    "预告", "宣传片", "sample", "trailer", "预览",
-]
-PREFERRED_TAGS = ["FHDC", "HD", "4K", "中文字幕", "H265", "HEVC", "uncensored",
-                  "破解", "無碼", "Reducing Mosaic", "破坏版", "破壊版", "RM", "leak"]
-
-
-def is_spam(title: str) -> bool:
-    """Filter out ads, compilations, and previews."""
-    for kw in AD_KEYWORDS:
-        if kw.lower() in title.lower():
-            return True
-    # Skip hash-only or garbled titles
-    if re.match(r'^[a-f0-9]{40}$', title.strip(), re.I):
-        return True
-    return False
-
-
-def score(title: str) -> int:
-    """Higher score = better match. Prefer known tags."""
-    s = 0
-    for tag in PREFERRED_TAGS:
-        if tag.lower() in title.lower():
-            s += 1
-    return s
 
 
 def search(code: str, limit: int = 20) -> list[dict]:

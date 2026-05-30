@@ -66,6 +66,13 @@ SITE_DOMAINS = {
     "1ptba": "1ptba.com",
     "soulvoice": "pt.soulvoice.club",
     "zmpt": "zmpt.cc",
+    "ptskit": "www.ptskit.org",
+    "pthome": "pthome.org",
+    "hdsky": "hdsky.me",
+    "hdhome": "hdhome.org",
+    "audiences": "audiences.me",
+    "keepfrds": "pt.keepfrds.com",
+    "ttg": "totheglory.im",
 }
 
 
