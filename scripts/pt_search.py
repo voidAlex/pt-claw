@@ -525,32 +525,12 @@ def _parse_ttg(html, site, site_id, limit):
     Rows are <tr id="TID"> inside table#torrent_table.
     Title in <div class="name_left"> -> <a><b><font>TITLE</font></b></a> or <a><b>TITLE</b></a>.
     Download: <a class="dl_a" href="...">.
-    Columns mapped from <th> header row; falls back to hardcoded indices.
+    Size: 7th <td>, Completed: 8th <td>, Seeders/Leechers: 9th <td> as "N/N".
     Promo: img[alt='free'] -> Free, img[alt='30%'] -> 30%, img[alt='50%'] -> 50%,
            span.browse.excl -> Excl.
     """
     results = []
     seen_ids = set()
-
-    # Build column index mapping from <th> header row of table#torrent_table
-    col_map = {}
-    table_match = re.search(
-        r'<table[^>]*id=["\']?torrent_table["\']?[^>]*>(.*?)</table>',
-        html, re.DOTALL | re.IGNORECASE)
-    if table_match:
-        th_cells = re.findall(r'<th[^>]*>(.*?)</th>', table_match.group(1),
-                              re.DOTALL | re.IGNORECASE)
-        for _idx, _th in enumerate(th_cells):
-            _text = re.sub(r'<[^>]+>', '', _th).strip().lower()
-            if _text in ('大小', 'size'):
-                col_map['size'] = _idx
-            elif _text in ('完成', 'completed', '完成数'):
-                col_map['completed'] = _idx
-            elif _text in ('做种/下载', '做种-下载', 's/l', 'seeders/leechers', '种/下载'):
-                col_map['sl'] = _idx
-    size_idx = col_map.get('size', 6)
-    completed_idx = col_map.get('completed', 7)
-    sl_idx = col_map.get('sl', 8)
 
     # Find torrent table rows with id attribute
     row_matches = list(re.finditer(
@@ -613,28 +593,28 @@ def _parse_ttg(html, site, site_id, limit):
         # Extract all <td> cells
         tds = re.findall(r'<td[^>]*>(.*?)</td>', row_html, re.DOTALL | re.IGNORECASE)
 
-        # Size (mapped column, default index 6)
+        # Size: 7th <td> (index 6)
         size_str = ""
-        if len(tds) > size_idx:
-            size_inner = re.sub(r'<[^>]+>', '', tds[size_idx]).strip()
+        if len(tds) > 6:
+            size_inner = re.sub(r'<[^>]+>', '', tds[6]).strip()
             sm = re.search(r'([\d.,]+)\s*(GB|MB|TB|KB)', size_inner, re.IGNORECASE)
             if sm:
                 size_str = f"{sm.group(1)} {sm.group(2).upper()}"
 
-        # Completed (mapped column, default index 7)
+        # Completed: 8th <td> (index 7)
         completed = 0
-        if len(tds) > completed_idx:
-            completed_str = re.sub(r'<[^>]+>', '', tds[completed_idx]).strip()
+        if len(tds) > 7:
+            completed_str = re.sub(r'<[^>]+>', '', tds[7]).strip()
             try:
                 completed = int(re.sub(r'[^\d]', '', completed_str))
             except ValueError:
                 pass
 
-        # Seeders/Leechers (mapped column, default index 8) in format "N/N"
+        # Seeders/Leechers: 9th <td> (index 8) in format "N/N"
         seeders = 0
         leechers = 0
-        if len(tds) > sl_idx:
-            sl_inner = re.sub(r'<[^>]+>', '', tds[sl_idx]).strip()
+        if len(tds) > 8:
+            sl_inner = re.sub(r'<[^>]+>', '', tds[8]).strip()
             sl_match = re.search(r'(\d+)\s*/\s*(\d+)', sl_inner)
             if sl_match:
                 seeders = int(sl_match.group(1))
