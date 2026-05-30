@@ -32,12 +32,6 @@
 
 ## 注意级
 
-**14a. PTTime 成人区搜索不生效（`adults.php?searchstr=` 不过滤）**：`adults.php?searchstr=XXX` 参数传入后页面仍返回全部成人区列表（50 条），不做关键词过滤。推测 PTTime 站点升级导致成人区搜索失效。**正确做法**：成人番号用常规 `torrents.php?search=XXX` 搜（已验证可用），或直接用 M-Team API。`pt_search.py --adult` 对 PTTime 也走常规搜索路径，不要调 `adults.php`。
-
-**14b. `pt_search.py --adult` 误报 Cookie expired**：成人搜索走 `adults.php?searchstr=` 时，因页面不过滤返回全量列表，解析器找不到匹配内容后误判 cookie 过期。实际 cookie 有效。此 bug 源自 pitfalls #14a，根治办法是将 PTTime 成人搜索改为 `torrents.php?search=`。
-
-**14c. qBittorrent API 需 session 认证（不再支持 Basic Auth）**：直接 `curl -u user:pass` 返回 403 Forbidden。必须两步：① `POST /api/v2/auth/login` 获取 SID cookie → ② 后续请求带 `Cookie: SID=xxx`。`qb_monitor.py` 和 `qb_add.py` 已内置此逻辑（`_qb_session.py`），但手动 curl 调 qB API 时必须照做。
-
 **14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime `adults.php?searchstr=`、M-Team 成人区、做种不足→javbus-api + Sukebei。
 
 **15. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
