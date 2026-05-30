@@ -63,7 +63,7 @@ SITES["new_site"] = {
     "parser": "nexusphp",
     "search": "/torrents.php?search={query}&notnewword=1",
     "needs_proxy": True,
-    "categories": {},
+    "categories": [],
 }
 ```
 
@@ -106,7 +106,7 @@ SITES["new_site"] = {
 python3 scripts/pt_search.py "test" --site <new_site> --limit 3
 
 # 2. 验证下载链接可访问
-curl -I -b "<cookie>" -x $PT_PROXY "<download_url>" | head-3
+curl -I -b "<cookie>" -x $PT_PROXY "<download_url>" | head -3
 # 应返回 Content-Type: application/x-bittorrent 或 Content-Disposition: attachment
 
 # 3. 验证推送到 qBittorrent

@@ -17,7 +17,7 @@
 ```bash
 # ⚠️ 不要用 source secrets.env（Cookie 值含 =，bash source 会误解析）
 # 用 python 脚本代替，它们内部用 _load_env_file() 正确解析
-python3 scripts/qb_monitor.py --full --json > /tmp/qb_torrents.json
+python3 scripts/qb_monitor.py --full > /tmp/qb_torrents.json
 ```
 
 ### 2. 扫描媒体目录

@@ -22,7 +22,7 @@
 5. 筛选 progress==0.0 且 added_on 超过7天的 → dead
 6. 报告 new_completed（去重：同内容多文件只报一次）→ 更新 pt_completed_last.txt
 7. 报告 dead → 不更新 tracker
-8. 两者都没有 → 回复 `[SILENT]`（三个字符，无其他内容。符合主 SKILL.md v2.5 静默规范）
+8. 两者都没有 → 回复 `[SILENT]`（仅此标记，无其他内容）
 ```
 
 ### 关键约束
