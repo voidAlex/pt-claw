@@ -32,11 +32,11 @@ def _load_env_file():
                 k, v = line.split("=", 1)
                 _env_cache[k.strip()] = v.strip()
 
-def get_env(key):
+def _env(key, default=""):
     val = os.environ.get(key, "")
     if not val:
         _load_env_file()
-        val = _env_cache.get(key, "")
+        val = _env_cache.get(key, default)
     return val
 
 def parse_arg(args, flag, default=None):
@@ -49,12 +49,15 @@ def flag_present(args, flag):
     return flag in args
 
 def jf_get(endpoint, server=1):
-    url = get_env(f"JELLYFIN{server}_URL")
-    key = get_env(f"JELLYFIN{server}_API_KEY")
+    url = _env(f"JELLYFIN{server}_URL")
+    key = _env(f"JELLYFIN{server}_API_KEY")
     if not url or not key:
         return {"error": f"JELLYFIN{server} not configured"}
-    req = urllib.request.Request(f"{url}{endpoint}", headers={"X-MediaBrowser-Token": key})
-    with urllib.request.urlopen(req, timeout=15) as r:
+    req = urllib.request.Request(f"{url}{endpoint}",
+                                 headers={"X-MediaBrowser-Token": key,
+                                           "User-Agent": "Hermes/1.0"})
+    opener = urllib.request.build_opener()
+    with opener.open(req, timeout=15) as r:
         return json.loads(r.read())
 
 def main():

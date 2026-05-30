@@ -93,7 +93,9 @@ def test_qbittorrent():
         data = urllib.parse.urlencode({"username": user, "password": passwd}).encode()
         t0 = time.time()
         req = urllib.request.Request(f"{url.rstrip('/')}/api/v2/auth/login", data=data)
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        req.add_header("User-Agent", "Hermes/1.0")
+        opener = urllib.request.build_opener()
+        with opener.open(req, timeout=10) as resp:
             elapsed = (time.time() - t0) * 1000
             cookies = resp.headers.get_all("Set-Cookie", [])
             sid = any("SID=" in c for c in cookies)
@@ -157,10 +159,11 @@ def test_jellyfin(instance, url_key, token_key):
     try:
         req = urllib.request.Request(
             f"{url.rstrip('/')}/System/Info",
-            headers={"X-MediaBrowser-Token": token},
+            headers={"X-MediaBrowser-Token": token, "User-Agent": "Hermes/1.0"},
         )
         t0 = time.time()
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        opener = urllib.request.build_opener()
+        with opener.open(req, timeout=10) as resp:
             elapsed = (time.time() - t0) * 1000
             info = json.loads(resp.read())
         version = info.get("Version", "?")

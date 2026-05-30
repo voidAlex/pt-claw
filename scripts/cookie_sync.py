@@ -159,7 +159,9 @@ def main():
     print(f"Fetching cookies from CookieCloud ({host})...")
     try:
         url = f"{host.rstrip('/')}/get/{uuid}"
-        with urllib.request.urlopen(url, timeout=10) as resp:
+        req = urllib.request.Request(url, headers={"User-Agent": "Hermes/1.0"})
+        opener = urllib.request.build_opener()
+        with opener.open(req, timeout=10) as resp:
             data = json.loads(resp.read())
     except Exception as e:
         print(f"❌ Failed to fetch from CookieCloud: {e}")
