@@ -25,6 +25,7 @@ from http.cookiejar import CookieJar
 
 from _common import _env, _env_matching, _fmt_size, _load_env_file
 from _proxy import using_proxy
+from _search_cache import cache_get, cache_put
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 TASKS_FILE = os.path.join(_skill_dir, "cross_seed_tasks.json")
@@ -551,21 +552,27 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
         existing_size = torrent.get("size", 0)
         save_path = torrent.get("save_path", torrent.get("content_path", ""))
 
-        cmd = ["python3", search_script, query, "--limit", "10"]
-        if sites:
-            for s in sites:
-                cmd.extend(["--site", s])
+        site_suffix = ",".join(sites) if sites else "all"
+        cached = cache_get(f"batch-{site_suffix}", query)
+        if cached is not None:
+            search_results = cached
+        else:
+            cmd = ["python3", search_script, query, "--limit", "10"]
+            if sites:
+                for s in sites:
+                    cmd.extend(["--site", s])
 
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
-                               env=os.environ.copy())
-            if r.returncode != 0 or not r.stdout.strip():
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=60,
+                                   env=os.environ.copy())
+                if r.returncode != 0 or not r.stdout.strip():
+                    continue
+                data = json.loads(r.stdout)
+            except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
                 continue
-            data = json.loads(r.stdout)
-        except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
-            continue
 
-        search_results = data.get("results", []) if isinstance(data, dict) else data
+            search_results = data.get("results", []) if isinstance(data, dict) else data
+            cache_put(f"batch-{site_suffix}", query, search_results)
         candidates = []
 
         for sr in search_results:

@@ -121,6 +121,39 @@ SITES = {
         "needs_proxy": True,
         "categories": [],
     },
+    "ptskit": {
+        "name": "PTSkit",
+        "url": "https://www.ptskit.org",
+        "search": "/torrents.php?search={query}&notnewword=1",
+        "parser": "nexusphp",
+        "needs_proxy": True,
+        "categories": ["短剧", "成人"],
+        "adult_search": "/special.php?search={query}&notnewword=1",
+    },
+    "pthome": {
+        "name": "PTHome",
+        "url": "https://pthome.org",
+        "search": "/torrents.php?search={query}&notnewword=1",
+        "parser": "nexusphp",
+        "needs_proxy": True,
+        "categories": ["影视", "综合"],
+    },
+    "hdsky": {
+        "name": "HDSky",
+        "url": "https://hdsky.me",
+        "search": "/torrents.php?search={query}&notnewword=1",
+        "parser": "nexusphp",
+        "needs_proxy": True,
+        "categories": ["影视", "纪录片", "综合"],
+    },
+    "hdhome": {
+        "name": "HDHome",
+        "url": "https://hdhome.org",
+        "search": "/torrents.php?search={query}&notnewword=1",
+        "parser": "nexusphp",
+        "needs_proxy": True,
+        "categories": ["影视", "综合"],
+    },
 }
 
 
@@ -150,6 +183,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
 
     if adult and site_id == "pttime":
         search_path = f"/adults.php?searchstr={urllib.parse.quote(query)}"
+    elif adult and "adult_search" in site:
+        search_path = site["adult_search"].format(query=urllib.parse.quote(query))
     else:
         search_path = site["search"].format(query=urllib.parse.quote(query))
     full_url = f"{site['url']}{search_path}"
