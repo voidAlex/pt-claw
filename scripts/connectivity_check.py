@@ -15,7 +15,7 @@ Usage:
     python3 connectivity_check.py --keepalive             # keepalive all PT sites
     python3 connectivity_check.py --keepalive --site btschool  # keepalive one site
 """
-import json, os, sys, time, urllib.request, urllib.parse, urllib.error
+import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
@@ -211,7 +211,8 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy, search_path=None):
     for use_proxy in attempts:
         try:
             status, body, elapsed = _fetch(url, timeout=15, headers=headers, proxy=use_proxy)
-            if "登录" in body[:3000] or "login" in body[:3000].lower():
+            title_match = re.search(r'<title>(.*?)</title>', body, re.IGNORECASE | re.DOTALL)
+            if title_match and ("登录" in title_match.group(1) or "login" in title_match.group(1).lower()):
                 _result(name, "fail", f"cookie expired (login page returned)", elapsed)
                 return
             elif "<title>" in body and "403" in body[:500]:
@@ -277,7 +278,8 @@ def _keepalive_site(name, base_url, cookie_var, needs_proxy):
     for use_proxy in attempts:
         try:
             status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=use_proxy)
-            if "登录" in body[:3000] or "login" in body[:3000].lower():
+            title_match = re.search(r'<title>(.*?)</title>', body, re.IGNORECASE | re.DOTALL)
+            if title_match and ("登录" in title_match.group(1) or "login" in title_match.group(1).lower()):
                 print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
                 return False
             elif status == 200:

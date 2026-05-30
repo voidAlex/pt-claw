@@ -100,7 +100,8 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
         return {"status": "error", "error": str(e)[:120]}
 
     # Detect login page
-    if "<title>" in html[:3000] and ("登录" in html[:3000] or "login" in html[:3000].lower()):
+    title_match = re.search(r'<title>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+    if title_match and ("登录" in title_match.group(1) or "login" in title_match.group(1).lower()):
         return {"status": "error", "error": "Cookie expired"}
 
     # Try to find user info block — usually in a sidebar or top bar area
@@ -356,7 +357,8 @@ def _parse_ttg_profile(site_id, site_cfg, cookie):
     except Exception as e:
         return {"status": "error", "error": str(e)[:120]}
 
-    if "<title>" in html[:3000] and ("登录" in html[:3000] or "login" in html[:3000].lower()):
+    title_match = re.search(r'<title>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+    if title_match and ("登录" in title_match.group(1) or "login" in title_match.group(1).lower()):
         return {"status": "error", "error": "Cookie expired"}
 
     username = _extract_text_field(html, ["用户名", "Username"])

@@ -60,11 +60,11 @@ curl -s "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=<GID>&lang=zh&im
 
 ### PTTime
 
-- **页面**: `https://www.pttime.org/adults.php`
-- **按番号**: `searchstr=SSIS-448`
+- **页面**: `https://www.pttime.org/adults.php`（⚠️ **搜索不过滤** — `?searchstr=` 参数传入后页面返回全量成人列表，不过滤关键词。疑似站点升级导致搜索失效。）
+- **按番号**: ~~`searchstr=SSIS-448`~~ → 改用 `https://www.pttime.org/torrents.php?search=SSIS-448`（常规搜索已验证可用）
 - **按演员**: `actor=浅野心`（演员在 tag 里不在标题里，必须用 `actor=`）
 - **HTML**: 与主页 `torrents.php` 相同（NexusPHP 双行结构）
-- **pt-claw**: 已适配，`pt_search.py --site pttime --adult`
+- **pt-claw**: 已适配常规搜索路径，`pt_search.py --site pttime --adult` 当前走 `adults.php`（有 bug，见 pitfalls #14a），修复前请手动用常规搜索
 
 | Category ID | 名称 |
 |-------------|------|

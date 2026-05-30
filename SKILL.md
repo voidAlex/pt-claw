@@ -112,7 +112,7 @@ metadata:
 | 站点 | 接入 | 成人区 | 代理 | 备注 |
 |------|------|--------|------|------|
 | M-Team (馒头) | REST API | ✅ API `mode: "adult"` 已验证（分类 410-440） | ✅ **必须** | POST，`x-api-key` header，**禁 Cookie**，**国内 IP 直连 403，必须走 PT_PROXY** |
-| PTTime | Cookie | `adults.php?searchstr=` | ❌ | `data=` attribute 变体 |
+| PTTime | Cookie | `adults.php?searchstr=`（⚠️ 不过滤，用 `torrents.php?search=` 替代） | ❌ | `data=` attribute 变体 |
 | BTSchool | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
 | CarPT | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，cookie IP 绑定 |
 | HDFans | Cookie | 无 | ❌ | Classic NexusPHP |

@@ -208,7 +208,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
                  "site": site["name"], "site_id": site_id}]
 
     if adult and site_id == "pttime":
-        search_path = f"/adults.php?searchstr={urllib.parse.quote(query)}"
+        # adults.php?searchstr= broken — returns unfiltered listing. torrents.php covers adult content
+        search_path = site["search"].format(query=urllib.parse.quote(query))
     elif adult and "adult_search" in site:
         search_path = site["adult_search"].format(query=urllib.parse.quote(query))
     else:
@@ -242,7 +243,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
         return [{"error": str(e), "site": site["name"], "site_id": site_id}]
 
     # Detect if we got a login page instead of results
-    if "<title>" in html and "登录" in html[:2000]:
+    title_match = re.search(r'<title>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+    if title_match and ("登录" in title_match.group(1) or "login" in title_match.group(1).lower()):
         return [{"error": "Cookie expired — re-login needed",
                  "site": site["name"], "site_id": site_id}]
 
