@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 HISTORY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
 
 DEFAULT_HISTORY = {
-    "description": "记录所有已推送下载的内容，防止用户手动删除后被定时任务重复下载",
+    "description": "下载历史 — 防止用户手动删除后定时任务重复下载",
     "items": []
 }
 

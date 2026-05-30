@@ -222,7 +222,13 @@ def main():
         qb_user = _env("QBITTORRENT_USER")
         qb_pass = _env("QBITTORRENT_PASS")
         login_d = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
-        opener.open(f"{qb_url}/api/v2/auth/login", login_d, timeout=10)
+        try:
+            opener.open(f"{qb_url}/api/v2/auth/login", login_d, timeout=10)
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                print(json.dumps({"error": "Login failed"}, ensure_ascii=False))
+                sys.exit(1)
+            raise
         data = urllib.parse.urlencode({"hashes": "|".join(hashes), "deleteFiles": "false"}).encode()
         req = urllib.request.Request(f"{qb_url}/api/v2/torrents/delete", data=data)
         with opener.open(req, timeout=10) as resp:

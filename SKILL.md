@@ -40,7 +40,7 @@ metadata:
 |------|--------|
 | 搜索/下载 | 搜、搜索、下载、下、找个资源、有没有、求片 |
 | qBittorrent | qb、qB、qbit、下载进度、下载状态、做种、种子、删种、暂停、恢复、死种 |
-| PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、soulvoice、zmpt、织梦 |
+| PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦 |
 | 番号/成人 | 番号、车牌、jav、JAV、成人、sukebei、javbus、nyaa |
 | 定时任务 | 定时任务、cron、追剧、刷流、下载通知 |
 | 关注/收藏 | 关注、取消关注、关注列表、wishlist |
@@ -102,7 +102,7 @@ metadata:
 - **Quirk**: `code` 是字符串 `"0"`；官方 Swagger 文档有 bug（参数格式/必传项可能不准）
 - **Search**: `POST /torrent/search`，body `{"keyword": "...", "page": 1, "size": 25}`
 - **Download**: `POST /torrent/genDlToken?id=<torrent_id>`（返回签名下载 URL）
-- **限速**: 搜索 1000次/24h，下载 100个/h，详情 100次/h
+- **限速**: 下载配额 1000个/天，下载行为 100个/h，详情 100次/h，搜索 1000次/24h
 
 ## Agent Workflow
 

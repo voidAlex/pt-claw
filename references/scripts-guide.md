@@ -157,6 +157,8 @@ python3 scripts/qb_restore.py --restore-all --reason boost_aged
 python3 scripts/qb_backup.py --clear
 ```
 
+> **`qb_backup.py --restore` vs `qb_restore.py --restore`**：`qb_backup.py --restore <hash>` 只显示恢复说明（信息展示），`qb_restore.py --restore <hash>` 才会实际将种子恢复到 qBittorrent。
+
 `qb_public_cleanup.py`、`qb_monitor.py --delete`、`pt_ratio_boost.py` 删除种子前自动调用 `backup_from_torrents()`，将 hash/名称/路径/标签/分类 **加上 .torrent 文件** 备份到 `torrent_backups/`，元数据写入 `pt_deleted_backup.json`（保留最近 500 条）。
 
 **恢复链路**：`qb_restore.py` 从备份恢复种子到 qBittorrent。支持按 hash 单个恢复、最近恢复、按原因批量恢复。恢复时重新上传 .torrent 文件并应用原始标签/分类/路径。无 .torrent 文件的条目会打印搜索关键词供手动恢复。

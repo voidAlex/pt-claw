@@ -36,7 +36,7 @@ def _env(key, default=""):
         val = _env_cache.get(key, default)
     return val
 
-JAVBUS_API = _env("JAVBUS_API_URL") or "http://localhost:8922"
+JAVBUS_API = (_env("JAVBUS_API_URL") or "http://localhost:8922").rstrip("/")
 
 def _make_opener():
     proxy = _env("PT_PROXY")

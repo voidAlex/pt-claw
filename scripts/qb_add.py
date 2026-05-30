@@ -137,10 +137,8 @@ def _select_main_video(info_hash: str, code: str = "", timeout: int = 30) -> dic
     2. Largest video file, EXCLUDING those with ad/sample keywords
     3. If no video found at all, keep the single largest file
     """
-    import os
-
     AD_KEYWORDS = ["广告", "ad", "sample", "preview", "trailer", "promo",
-                   "推广", "宣传", "预告", "试看", "预览", "sample", "demo"]
+                    "推广", "宣传", "预告", "试看", "预览", "demo"]
 
     # Wait for metadata
     deadline = time.time() + timeout
