@@ -100,12 +100,14 @@ metadata:
 ### M-Team API 要点
 
 - **API Host**: `https://api.m-team.cc/api`（国内需代理，`mteam_api.py` 自动走 `PT_PROXY`）
-- **Auth**: `x-api-key` header
+- **Auth**: `x-api-key` header（控制台 → 实验室 → 存取令牌）
 - **Method**: 仅 POST
-- **Quirk**: `code` 是字符串 `"0"`，不是整数
+- **禁止 Cookie 访问 API**，会封号。只能用 API Key
+- **允许调用的端点**: `/member/*`、`/msg/*`、`/torrent/*`
+- **Quirk**: `code` 是字符串 `"0"`；官方 Swagger 文档有 bug（参数格式/必传项可能不准）
 - **Search**: `POST /torrent/search`，body `{"keyword": "...", "page": 1, "size": 25}`
 - **Download**: `POST /torrent/genDlToken?id=<torrent_id>`（返回签名下载 URL）
-- **限速**: 搜索 1000次/24h，超限返回 403
+- **限速**: 搜索 1000次/24h，下载 100个/h，详情 100次/h
 
 ## Agent Workflow
 

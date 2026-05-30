@@ -4,17 +4,56 @@
 
 - **主站**: https://kp.m-team.cc/
 - **API 主机**: https://api.m-team.cc/api（从主站 HTML 中的 `_APIHOSTS` JS 变量提取）
-- **API 文档**: https://test2.m-team.cc/api/swagger-ui.html（需登录 test2 才能查看，主站 Cloudflare 拦截）
+- **API 文档**: https://test2.m-team.cc/api/swagger-ui.html（需登录 test2 才能查看）
 - **认证方式**: HTTP 请求头 `x-api-key: <token>`
-- **Token**: 从 `MTEAM_API_KEY` 环境变量读取（控制台→實驗室→存取令牌 获取）
+- **Token 获取**: 控制台 → 实验室 → 存取令牌（自助获取）
+- **代理**: API 从国内直连 403，需走 `PT_PROXY`。`mteam_api.py` 自动读取 `PT_PROXY`
 
-## 重要规则
+## 官方规则
+
+### 禁止 Cookie 访问
+
+自开放 API KEY 后，如发现第三方工具仍通过 cookie 访问接口，**不排除禁用账户的可能**。
+
+### 不允许第三方调用的端点
+
+- `/admin/**`
+- `/login`
+- `/apikey/**`
+
+### 允许第三方调用的端点
+
+**`/member/` 前缀**:
+- `/member/profile`
+- `/member/base`
+- `/member/bases`
+- `/member/sysRoleList`
+- `/member/getUserTorrentList`
+- `/member/getCrimeRecords`
+- `/member/queryUserLoginHistory`
+
+**`/msg/` 前缀**:
+- `/msg/statistic`
+- `/msg/notify/statistic`
+
+### API 速率限制
+
+| 行为 | 限制 | 备注 |
+|------|------|------|
+| 下载种子配额 | 1000 个/每天 | 建议值 |
+| 下载种子行为 | 100 个/每小时 | 建议值 |
+| `/torrent/detail` | 100 次/每小时 | 建议值 |
+| `/torrent/search` | 1000 次/近 24 小时 | 建议值 |
+
+### 文档注意事项
+
+官方文档（Swagger）存在 bug：请求数据格式 json/form 与实际可能不一致；必传参数可能不准确。建议辅以 web 调用情况使用。
+
+## 请求规范
 
 1. **只能 POST**，GET 返回 "Request method 'GET' is not supported"
 2. **`code` 是字符串** `"0"`，不是整数 `0`，判断时用 `str(code) != "0"`
-3. **禁止用 cookie 访问 API**，否则可能被封号
-4. 搜索限速: 1000次/24小时
-5. 下载限速: 100个/小时
+3. **HTTP Header**: `x-api-key: <token>`，`Content-Type: application/json`
 
 ## 已验证的 API 端点
 
@@ -63,9 +102,7 @@ Body: {"keyword": "Wandering", "page": 1, "size": 25}
 
 需要参数 `{"userId": <USER_ID>}`。
 
-## ✅ 下载端点（已解决）
-
-### POST /torrent/genDlToken — 生成种子下载链接
+### ✅ POST /torrent/genDlToken — 生成种子下载链接
 
 ```python
 POST https://api.m-team.cc/api/torrent/genDlToken?id=<torrent_id>
@@ -86,13 +123,14 @@ Headers: x-api-key, Accept: application/json
 
 **注意**: genDlToken 返回的 URL 有时效性（sign 与 t 时间戳绑定），生成后尽快使用。
 
-## API 故障模式（三类，渐进式降级）
+## API 故障模式（四类，渐进式降级）
 
 | 模式 | HTTP 响应 | 表现 | 原因 | 处理 |
 |------|----------|------|------|------|
 | ① 限速 | `403 Forbidden` | JSON `code != "0"` | 搜索 1000次/24h 超限 | 等冷却或换 PTTime |
 | ② 下线 | `405 Method Not Allowed` | Google 风格 HTML 错误页，POST 被拒 | API 服务端维护/关闭 | **跳过馒头**，走 PTTime → Sukebei |
-| ③ DNS 失效 | `302 Found` → Google 搜索页 (`<title>Google</title>`) | `api.m-team.cc` 和 `api.m-team.io` 都解析到 Google | DNS/托管配置问题 | **跳过馒头**，走 PTTime → Sukebei |
+| ③ DNS 失效 | `302 Found` → Google 搜索页 | `api.m-team.cc` 解析到 Google | DNS/托管配置问题 | **跳过馒头**，走 PTTime → Sukebei |
+| ④ 国内 IP | `403 Forbidden` | 直连 403 | API 不允许国内 IP 直连 | **走 PT_PROXY** |
 
 **模式②③时不要重试**：curl `-L` 跟随重定向只会得到 Google 错误页，不是临时故障。立即回退到其他源。
 
@@ -107,22 +145,14 @@ curl -s -o /dev/null -w "%{http_code}" -X POST "https://api.m-team.cc/api/torren
 dig api.m-team.cc +short
 ```
 
-## 已知限制
+## 成人内容 / 9kg 区搜索
 
-### 成人内容 / 9kg 区搜索
-
-馒头成人内容位于独立的「9kg」区（页面标题 "Adult"）。当前搜索脚本 `pt_search.py` 的 API 调用**不包含成人区**，仅搜索通用影视区。搜索 SSIS/番号类内容需要：
+馒头成人内容位于独立的「9kg」区（页面标题 "Adult"）。当前搜索脚本 `pt_search.py` 的 API 调用**不包含成人区**，仅搜索通用影视区。
 
 **API 方案**（推荐，待验证）:
 - `mode: "adult"` 参数
 - `categories: [9]` 参数（9kg 分类 ID）
-- 具体参数尚未验证（API 返回 403 时未能测试）
 
 **Web 方案**（备选）:
 - 成人区地址: `https://kp.m-team.cc/browse/adult`
-- 搜索 URL: `https://kp.m-team.cc/browse/adult?search={query}`（待验证）
-- ⚠️ 需要有效的 web cookie（当前 `pt_cookies.json` 中 mteam 无有效 cookie）
-
-### 搜索频率限制
-
-API 搜索限制 **1000 次/24 小时**。超限后返回 `403 Forbidden`，需等待冷却。开发调试时注意控制频率，不要短时间内大量请求。
+- ⚠️ 需要有效的 web cookie，但 M-Team **禁止 Cookie 访问 API**
