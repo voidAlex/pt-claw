@@ -27,13 +27,15 @@ API_HOST = "https://api.m-team.cc/api"
 def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: int = 15) -> dict:
     """Make a POST request to M-Team API. Uses PT_PROXY if available."""
     url = f"{API_HOST}{endpoint}"
-    data = json.dumps(body or {}).encode() if body else b""
 
-    req = urllib.request.Request(url, data=data, method="POST")
+    req = urllib.request.Request(url, data=b"", method="POST")
     req.add_header("x-api-key", api_key)
-    req.add_header("Content-Type", "application/json")
     req.add_header("Accept", "application/json")
     req.add_header("User-Agent", "Mozilla/5.0")
+
+    if body:
+        req.data = json.dumps(body).encode()
+        req.add_header("Content-Type", "application/json")
 
     proxy = _env("PT_PROXY")
     if not proxy:
@@ -50,9 +52,12 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
             return {"code": "-1", "message": str(e)}
 
 
-def search(keyword: str, api_key: str, limit: int = 25) -> list[dict]:
+def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> list[dict]:
     """Search M-Team torrents. Returns list of results."""
-    resp = _api_post("/torrent/search", api_key, {"keyword": keyword, "page": 1, "size": min(limit, 25)})
+    req_body = {"keyword": keyword, "page": 1, "size": min(limit, 25)}
+    if adult:
+        req_body["mode"] = "adult"
+    resp = _api_post("/torrent/search", api_key, req_body)
 
     if str(resp.get("code")) != "0":
         return [{"error": resp.get("message", "API error"), "source": "mteam"}]
@@ -129,11 +134,12 @@ def main():
     if cmd == "search":
         query = sys.argv[2] if len(sys.argv) > 2 else ""
         limit = 25
+        adult = "--adult" in sys.argv
         if "--limit" in sys.argv:
             idx = sys.argv.index("--limit")
             if idx + 1 < len(sys.argv):
                 limit = int(sys.argv[idx + 1])
-        results = search(query, api_key, limit)
+        results = search(query, api_key, limit, adult=adult)
         print(json.dumps(results, ensure_ascii=False, indent=2))
 
     elif cmd == "download":
