@@ -47,7 +47,7 @@ API_HOST = "https://api.m-team.cc/api"
 
 
 def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: int = 15) -> dict:
-    """Make a POST request to M-Team API."""
+    """Make a POST request to M-Team API. Uses PT_PROXY if available."""
     url = f"{API_HOST}{endpoint}"
     data = json.dumps(body or {}).encode() if body else b""
 
@@ -57,8 +57,14 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
     req.add_header("Accept", "application/json")
     req.add_header("User-Agent", "Mozilla/5.0")
 
+    proxy = _env("PT_PROXY")
+    handlers = []
+    if proxy:
+        handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    opener = urllib.request.build_opener(*handlers)
+
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as e:
         return {"code": str(e.code), "message": f"HTTP {e.code}: {e.reason}"}

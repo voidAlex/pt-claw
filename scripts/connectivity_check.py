@@ -114,14 +114,19 @@ def test_mteam():
         _result("M-Team", "fail", "MTEAM_API_KEY not set")
         return
     try:
-        body = json.dumps({"keyword": "test", "pageNumber": 1, "pageSize": 1}).encode()
+        body = json.dumps({"keyword": "test", "page": 1, "size": 1}).encode()
         req = urllib.request.Request(
             "https://api.m-team.cc/api/torrent/search",
             data=body,
             headers={"x-api-key": key, "Content-Type": "application/json"},
         )
+        proxy = _env("PT_PROXY")
+        handlers = []
+        if proxy:
+            handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+        opener = urllib.request.build_opener(*handlers)
         t0 = time.time()
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with opener.open(req, timeout=15) as resp:
             elapsed = (time.time() - t0) * 1000
             data = json.loads(resp.read())
         code = str(data.get("code", ""))
