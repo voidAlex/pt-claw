@@ -272,28 +272,9 @@ curl -s "https://sukebei.nyaa.si/?page=rss&q=SNOS-151" \
 
 创建 cron 每天运行一次：
 
-```python
-cronjob(action='create',
-    name="PT自动追剧",
-    schedule="0 10 * * *",  # 每天上午10点
-    prompt="""自动追剧检查（只搜索展示，不自动下载）：
-1. 读取 pt_wishlist.json 关注列表
-2. **第一步：读 pt_downloaded.json 下载历史**，构建已下载集合
-3. 对每个关注项搜索资源（影视→PT全站，成人→javbus-api片单+Sukebei）
-4. **逐条三重去重**：
-   - 🛡️ 先查下载历史：在 pt_downloaded.json 中 → 无条件跳过
-   - 🎬 再查 Jellyfin：已存在则跳过
-   - ⏱️ 最后比时间戳：JF 入库 < qB 添加 → 真重复，跳过
-5. 检查演员的 exclude_prefixes（如有），跳过排除厂牌的作品
-6. **展示结果给用户**（每部列出：站点、大小、做种数、路径、元数据）
-7. **绝对不推送下载**——等用户确认。用户说「下」后才执行推送
-8. 无新资源则报告「今日无新资源」""",
-    skills=["pt-claw"],
-    deliver="origin"
-)
-```
+> **Cron 定义见 [first-time-setup.md](first-time-setup.md) 的「PT自动追剧」部分**——那里是唯一权威的 cronjob 定义（含 `workdir`、`_load_env_file()` 说明等）。以下仅描述追剧流程供参考。
 
-**Cron 执行流程**：
+Cron 执行流程：
 
 1. 读取 wishlist → 下载历史 → JF 去重 → 搜索 → 筛选 → **展示结果**
 2. 展示格式同 Step 4 确认闸门的格式（站点、大小、做种、路径、元数据）

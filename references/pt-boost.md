@@ -87,7 +87,7 @@ cronjob(action='create',
 
 ### 脚本
 
-- **[scripts/pt_ratio_boost.py](scripts/pt_ratio_boost.py)** — 刷流主脚本，三个子命令：
+- **[scripts/pt_ratio_boost.py](../scripts/pt_ratio_boost.py)** — 刷流主脚本，三个子命令：
   - `python3 scripts/pt_ratio_boost.py run` — 完整刷流一次
   - `python3 scripts/pt_ratio_boost.py cleanup` — 仅清理过期
   - `python3 scripts/pt_ratio_boost.py status` — 查看刷流状态
