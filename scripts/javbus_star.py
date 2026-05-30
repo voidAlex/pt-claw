@@ -29,18 +29,27 @@ def _load_env_file():
                 k, v = line.split("=", 1)
                 _env_cache[k.strip()] = v.strip()
 
-def _env(key):
+def _env(key, default=""):
     val = os.environ.get(key, "")
     if not val:
         _load_env_file()
-        val = _env_cache.get(key, "")
+        val = _env_cache.get(key, default)
     return val
 
 JAVBUS_API = _env("JAVBUS_API_URL") or "http://localhost:8922"
 
+def _make_opener():
+    proxy = _env("PT_PROXY")
+    if proxy:
+        return urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        )
+    return urllib.request.build_opener()
+
 def javbus_get(path):
-    req = urllib.request.Request(f"{JAVBUS_API}{path}")
-    with urllib.request.urlopen(req, timeout=15) as r:
+    req = urllib.request.Request(f"{JAVBUS_API}{path}",
+                                 headers={"User-Agent": "Hermes/1.0"})
+    with _make_opener().open(req, timeout=15) as r:
         return json.loads(r.read())
 
 def jf_check(code, server=1):
@@ -51,8 +60,9 @@ def jf_check(code, server=1):
     try:
         q = urllib.parse.quote(code)
         req = urllib.request.Request(f"{url}/Items?searchTerm={q}&recursive=true",
-                                     headers={"X-MediaBrowser-Token": key})
-        with urllib.request.urlopen(req, timeout=5) as r:
+                                     headers={"X-MediaBrowser-Token": key,
+                                               "User-Agent": "Hermes/1.0"})
+        with _make_opener().open(req, timeout=5) as r:
             return json.loads(r.read()).get("TotalRecordCount", 0) > 0
     except Exception:
         return False
