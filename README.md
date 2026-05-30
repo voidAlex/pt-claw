@@ -2,11 +2,11 @@
 
 多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
 
-对话式搜索 12 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
+对话式搜索 15 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
 
 ## 功能
 
-- **12 站支持**：M-Team (API)、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦、PTSkit、PTHome、HDSky、HDHome
+- **15 站支持**：M-Team (API)、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦、PTSkit、PTHome、HDSky、HDHome、Audiences、KeepFriends、ToTheGlory
 - **双引擎搜索**：Cookie 直连站点 + M-Team REST API
 - **智能去重**：下载历史记录 + Jellyfin 片库感知，删了的内容不会重复下载
 - **自动回退**：PT 做种不足时自动回退到公开磁链
@@ -61,6 +61,7 @@
 | `jf_query.py` | Jellyfin 查询（演员排名/搜索/去重） |
 | `download_history.py` | 下载历史追踪（防重复） |
 | `pt_ratio_boost.py` | Freeleech 自动辅种 |
+| `site_profile.py` | 多站用户信息查询（上传/下载/分享率/魔力值/做种数） |
 | `cross_seed.py` | 多站辅种验证与推送（下载.torrent→SHA1比对→qB暂停添加） |
 | `mteam_api.py` | M-Team API 客户端 |
 | `env_check.sh` | 环境变量完整性检查 |

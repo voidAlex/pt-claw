@@ -6,6 +6,7 @@ Usage:
     python3 pt_search.py "流浪地球2"              # search all configured sites
     python3 pt_search.py "流浪地球2" --site 1ptba  # single site
     python3 pt_search.py "流浪地球2" --limit 10    # per-site limit
+    python3 pt_search.py "流浪地球2" --no-cache    # bypass result cache
 
 Config:
     Environment variables:
@@ -23,6 +24,7 @@ from http.cookiejar import CookieJar
 
 from _common import _load_env_file, _env, _fmt_size, _env_matching
 from _proxy import using_proxy
+from _search_cache import cache_get, cache_put
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 
@@ -154,6 +156,30 @@ SITES = {
         "needs_proxy": True,
         "categories": ["影视", "综合"],
     },
+    "audiences": {
+        "name": "Audiences",
+        "url": "https://audiences.me",
+        "search": "/torrents.php?search={query}&notnewword=1",
+        "parser": "nexusphp",
+        "needs_proxy": True,
+        "categories": ["影视", "综合"],
+    },
+    "keepfrds": {
+        "name": "KeepFriends",
+        "url": "https://pt.keepfrds.com",
+        "search": "/torrents.php?search={query}&notnewword=1",
+        "parser": "nexusphp",
+        "needs_proxy": True,
+        "categories": ["影视", "综合"],
+    },
+    "ttg": {
+        "name": "ToTheGlory",
+        "url": "https://totheglory.im",
+        "search": "/browse.php?search_field={query}&c=M",
+        "parser": "ttg",
+        "needs_proxy": True,
+        "categories": ["影视", "音乐", "游戏", "综合"],
+    },
 }
 
 
@@ -228,6 +254,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
         return results
     elif site["parser"] == "mteam_api":
         return _search_mteam_api(site, query, limit, adult=adult)
+    elif site["parser"] == "ttg":
+        return _parse_ttg(html, site, site_id, limit)
 
 
 def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
@@ -489,6 +517,126 @@ def _parse_nexusphp(html: str, site: dict, site_id: str,
     return results[:limit]
 
 
+def _parse_ttg(html, site, site_id, limit):
+    """Parse TTG (TBSource schema) torrent listing.
+
+    Rows are <tr id="TID"> inside table#torrent_table.
+    Title in <div class="name_left"> -> <a><b><font>TITLE</font></b></a> or <a><b>TITLE</b></a>.
+    Download: <a class="dl_a" href="...">.
+    Size: 7th <td>, Completed: 8th <td>, Seeders/Leechers: 9th <td> as "N/N".
+    Promo: img[alt='free'] -> Free, img[alt='30%'] -> 30%, img[alt='50%'] -> 50%,
+           span.browse.excl -> Excl.
+    """
+    results = []
+    seen_ids = set()
+
+    # Find torrent table rows with id attribute
+    row_matches = list(re.finditer(
+        r'<tr\b[^>]*\bid=["\']?(\d+)["\']?[^>]*>(.*?)</tr>',
+        html, re.DOTALL | re.IGNORECASE))
+
+    for row_match in row_matches:
+        tid = row_match.group(1)
+        if tid in seen_ids:
+            continue
+        seen_ids.add(tid)
+        row_html = row_match.group(2)
+
+        # Title: look inside <div class="name_left"> or similar
+        title = ""
+        # Try <a><b><font>TITLE</font></b></a> first
+        tm = re.search(
+            r'<div[^>]*class=["\']?name_left["\']?[^>]*>.*?<a[^>]*><b>(?:<font[^>]*>)?([^<]+)',
+            row_html, re.DOTALL | re.IGNORECASE)
+        if tm:
+            title = tm.group(1).strip()
+        if not title:
+            # Try <a><b>TITLE</b></a>
+            tm = re.search(
+                r'<div[^>]*class=["\']?name_left["\']?[^>]*>.*?<a[^>]*><b>([^<]+)</b>',
+                row_html, re.DOTALL | re.IGNORECASE)
+            if tm:
+                title = tm.group(1).strip()
+        if not title:
+            # Broader fallback: first <b>TITLE</b> inside the row
+            tm = re.search(r'<b>([^<]{4,})</b>', row_html)
+            if tm:
+                title = tm.group(1).strip()
+        if not title:
+            continue
+
+        # Download link: <a class="dl_a" href="...">
+        dl_url = ""
+        dl_match = re.search(r'<a[^>]*class=["\']?dl_a["\']?[^>]*href=["\']([^"\']+)',
+                             row_html, re.IGNORECASE)
+        if dl_match:
+            dl_url = site["url"] + "/" + dl_match.group(1)
+
+        # Extract all <td> cells
+        tds = re.findall(r'<td[^>]*>(.*?)</td>', row_html, re.DOTALL | re.IGNORECASE)
+
+        # Size: 7th <td> (index 6)
+        size_str = ""
+        if len(tds) > 6:
+            size_inner = re.sub(r'<[^>]+>', '', tds[6]).strip()
+            sm = re.search(r'([\d.,]+)\s*(GB|MB|TB|KB)', size_inner, re.IGNORECASE)
+            if sm:
+                size_str = f"{sm.group(1)} {sm.group(2).upper()}"
+
+        # Completed: 8th <td> (index 7)
+        completed = 0
+        if len(tds) > 7:
+            completed_str = re.sub(r'<[^>]+>', '', tds[7]).strip()
+            try:
+                completed = int(re.sub(r'[^\d]', '', completed_str))
+            except ValueError:
+                pass
+
+        # Seeders/Leechers: 9th <td> (index 8) in format "N/N"
+        seeders = 0
+        leechers = 0
+        if len(tds) > 8:
+            sl_inner = re.sub(r'<[^>]+>', '', tds[8]).strip()
+            sl_match = re.search(r'(\d+)\s*/\s*(\d+)', sl_inner)
+            if sl_match:
+                seeders = int(sl_match.group(1))
+                leechers = int(sl_match.group(2))
+
+        # Promo detection
+        promo = ""
+        if re.search(r'<img[^>]+alt=["\']free["\']', row_html, re.IGNORECASE):
+            promo = "Free"
+        elif re.search(r'<img[^>]+alt=["\']50%["\']', row_html, re.IGNORECASE):
+            promo = "50%"
+        elif re.search(r'<img[^>]+alt=["\']30%["\']', row_html, re.IGNORECASE):
+            promo = "30%"
+        if re.search(r'<span[^>]*class=["\'][^"\']*browse\.excl[^"\']*["\']',
+                      row_html, re.IGNORECASE):
+            promo = (promo + " Excl").strip() if promo else "Excl"
+
+        results.append({
+            "title": title.strip(),
+            "size": size_str,
+            "size_bytes": 0,
+            "seeders": seeders,
+            "leechers": leechers,
+            "category": "",
+            "promo": promo,
+            "download_url": dl_url,
+            "site": site["name"],
+            "site_id": site_id,
+            "source": site_id,
+        })
+        if len(results) >= limit:
+            break
+
+    if not results:
+        return [{"error": "No results found", "site": site["name"], "site_id": site_id}]
+
+    results.sort(key=lambda r: r["seeders"], reverse=True)
+    return results[:limit]
+
+
 def main():
     raw_args = sys.argv[1:]
 
@@ -535,6 +683,7 @@ def main():
     limit = int(flags.get("limit", 20))
     adult = flags.get("adult", False)
     actor = flags.get("actor", "")
+    no_cache = "no-cache" in flags
 
     if adult and actor and "pttime" in target_sites:
         s = target_sites["pttime"]
@@ -581,22 +730,45 @@ def main():
     if len(target_sites) == 1:
         # Single site — no thread pool overhead
         sid, site = next(iter(target_sites.items()))
-        for item in search_site(sid, site, query, limit, adult=adult):
-            if "error" in item:
-                errors.append(item)
+        if not no_cache:
+            cached = cache_get(sid, query)
+            if cached is not None:
+                all_results.extend(cached)
             else:
-                all_results.append(item)
+                results = search_site(sid, site, query, limit, adult=adult)
+                valid = [item for item in results if "error" not in item]
+                if valid:
+                    cache_put(sid, query, valid)
+                for item in results:
+                    if "error" in item:
+                        errors.append(item)
+                    else:
+                        all_results.append(item)
+        else:
+            for item in search_site(sid, site, query, limit, adult=adult):
+                if "error" in item:
+                    errors.append(item)
+                else:
+                    all_results.append(item)
     else:
         # Multi-site parallel
         with ThreadPoolExecutor(max_workers=min(len(target_sites), 5)) as executor:
-            futures = {
-                executor.submit(search_site, sid, site, query, limit, adult=adult): sid
-                for sid, site in target_sites.items()
-            }
+            futures = {}
+            for sid, site in target_sites.items():
+                if not no_cache:
+                    cached = cache_get(sid, query)
+                    if cached is not None:
+                        all_results.extend(cached)
+                        continue
+                future = executor.submit(search_site, sid, site, query, limit, adult=adult)
+                futures[future] = sid
             for future in as_completed(futures):
                 sid = futures[future]
                 try:
                     r = future.result()
+                    valid = [item for item in r if "error" not in item]
+                    if valid and not no_cache:
+                        cache_put(sid, query, valid)
                     for item in r:
                         if "error" in item:
                             errors.append(item)

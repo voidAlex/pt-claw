@@ -1,6 +1,6 @@
 ---
 name: pt-claw
-description: "Use when the user wants to search/download torrents from PT sites, manage qBittorrent, or set up a media download stack. 12 sites supported: PTTime, M-Team (API), BTSchool, CarPT, HDFans, 1PTBar, SoulVoice, 织梦, PTSkit, PTHome, HDSky, HDHome. Search via cookie or REST API, push to qBittorrent, monitor completion."
+description: "Use when the user wants to search/download torrents from PT sites, manage qBittorrent, or set up a media download stack. 15 sites supported: PTTime, M-Team (API), BTSchool, CarPT, HDFans, 1PTBar, SoulVoice, 织梦, PTSkit, PTHome, HDSky, HDHome, Audiences, KeepFriends, ToTheGlory. Search via cookie or REST API, push to qBittorrent, monitor completion."
 version: 3.0.1
 author: Hermes Agent
 license: MIT
@@ -14,7 +14,7 @@ metadata:
 
 ## Overview
 
-通过对话搜索 12 个 PT 站资源、推送到 qBittorrent 下载、完成后通知。纯脚本实现，无 Prowlarr/Jackett 依赖。
+通过对话搜索 15 个 PT 站资源、推送到 qBittorrent 下载、完成后通知。纯脚本实现，无 Prowlarr/Jackett 依赖。
 
 **核心链路**：
 ```
@@ -28,7 +28,7 @@ metadata:
 - 只有用户明确说「下」「下载」「all」等确认词后才推送到 qBittorrent
 - 此规则适用于**所有场景**：手动搜索、演员追剧、自动追剧，无一例外
 
-**12 站支持**：PTTime · M-Team(馒头) · BTSchool · CarPT · HDFans · 1PTBar · SoulVoice · 织梦 · PTSkit · PTHome · HDSky · HDHome
+**15 站支持**：PTTime · M-Team(馒头) · BTSchool · CarPT · HDFans · 1PTBar · SoulVoice · 织梦 · PTSkit · PTHome · HDSky · HDHome · Audiences(观众) · KeepFriends(朋友) · ToTheGlory(TTG)
 
 ## When to Use
 
@@ -41,7 +41,7 @@ metadata:
 | 搜索/下载 | 搜、搜索、下载、下、找个资源、有没有、求片 |
 | qBittorrent | qb、qB、qbit、下载进度、下载状态、做种、种子、删种、暂停、恢复、死种 |
 | 辅种 | 辅种、cross seed、检查辅种、哪些站能辅、批量辅种、全站辅种 |
-| PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦、ptskit、拾刻、pthome、铂金家、hdsky、天雪、hdhome、家园 |
+| PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦、ptskit、拾刻、pthome、铂金家、hdsky、天雪、hdhome、家园、audiences、观众、keepfrds、朋友、ttg、套套哥、听听歌、totheglory |
 | 番号/成人 | 番号、车牌、jav、JAV、成人、sukebei、javbus、nyaa |
 | 定时任务 | 定时任务、cron、追剧、刷流、下载通知 |
 | 关注/收藏 | 关注、取消关注、关注列表、wishlist |
@@ -98,6 +98,9 @@ metadata:
 | PTHome (铂金家) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP |
 | HDSky (天雪) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP |
 | HDHome (家园) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP |
+| Audiences (观众) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP |
+| KeepFriends (朋友) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，Category 419 可能含成人内容 |
+| ToTheGlory (TTG) | Cookie | 无 | ✅ `needs_proxy` | TBSource 自定义解析器，`/browse.php` 搜索，分类嵌入搜索字符串 |
 
 ### M-Team API 要点
 
@@ -121,7 +124,7 @@ metadata:
 |-----------|---------|---------|
 | 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → **先检查 `user-preferences.md` 成人 `enabled`**；未启用则拒绝并提示；已启用 → PTTime `adults.php` + M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
 | 演员/导演名 | 影视/成人 | → **先查元数据源获取完整作品列表**，再逐部搜 PT |
-| 电影/剧集名 | 影视 | → 全 8 站常规搜索 |
+| 电影/剧集名 | 影视 | → 全 15 站常规搜索 |
 | 片库统计/演员排行 | JF查询 | → JF `fields=People` 分页计数 |
 
 **⚠️ 元数据优先原则**：搜索演员/导演时，不要直接在 PT 站搜索。PT 站的演员标签经常不完整或误标。
@@ -214,7 +217,8 @@ echo -e "CODE1\nCODE2" | python3 scripts/download_history.py filter  # 批量
 | SoulVoice | `soulvoice` | 织梦 | `zmpt` |
 | PTSkit | `ptskit` | PTHome | `pthome` |
 | HDSky | `hdsky` | HDHome | `hdhome` |
-| Sukebei | `sukebei` | JavBus | `javbus` |
+| Audiences | `audiences` | KeepFriends | `keepfrds` |
+| ToTheGlory | `ttg` | Sukebei | `sukebei` |
 
 推送成功后必须记录下载历史：
 ```bash
@@ -350,6 +354,9 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 | `PT_COOKIE_PTHOME` | PTHome (铂金家) Cookie |
 | `PT_COOKIE_HDSKY` | HDSky (天雪) Cookie |
 | `PT_COOKIE_HDHOME` | HDHome (家园) Cookie |
+| `PT_COOKIE_AUDIENCES` | Audiences (观众) Cookie |
+| `PT_COOKIE_KEEPFRDS` | KeepFriends (朋友) Cookie |
+| `PT_COOKIE_TTG` | ToTheGlory (TTG) Cookie |
 | `MTEAM_API_KEY` | M-Team API Key。**禁止 Cookie——会封号**。**必须同时配置 `PT_PROXY`** |
 
 ### 下载器

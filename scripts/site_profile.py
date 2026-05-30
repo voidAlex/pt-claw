@@ -267,6 +267,57 @@ def _fetch_mteam_profile(api_key):
     return result
 
 
+def _parse_ttg_profile(site_id, site_cfg, cookie):
+    """Scrape TTG user profile from 3 pages (index + userdetails + mybonus)."""
+    result = {"status": "ok"}
+    base_url = site_cfg["url"].rstrip("/")
+    proxy = _env("PT_PROXY") if site_cfg.get("needs_proxy") else None
+
+    try:
+        html = _fetch_page(f"{base_url}/index.php", cookie, proxy=proxy, timeout=15)
+    except Exception as e:
+        return {"status": "error", "error": str(e)[:120]}
+
+    if "<title>" in html[:3000] and ("登录" in html[:3000] or "login" in html[:3000].lower()):
+        return {"status": "error", "error": "Cookie expired"}
+
+    username = _extract_text_field(html, ["用户名", "Username"])
+    if username:
+        result["username"] = username
+
+    uploaded_str = _extract_field(html, ["上传量", "上传", "Uploaded"])
+    if uploaded_str:
+        result["uploaded"] = uploaded_str
+        result["uploaded_bytes"] = _parse_size(uploaded_str)
+
+    downloaded_str = _extract_field(html, ["下载量", "下载", "Downloaded"])
+    if downloaded_str:
+        result["downloaded"] = downloaded_str
+        result["downloaded_bytes"] = _parse_size(downloaded_str)
+
+    ratio = _extract_ratio(html)
+    if ratio:
+        result["ratio"] = ratio
+
+    try:
+        bonus_html = _fetch_page(f"{base_url}/mybonus.php", cookie, proxy=proxy, timeout=15)
+        bonus_str = _extract_field(bonus_html, ["做种积分", "魔力值", "Bonus", "积分"])
+        if bonus_str:
+            try:
+                result["bonus"] = float(bonus_str.replace(",", ""))
+            except ValueError:
+                result["bonus"] = bonus_str
+    except Exception:
+        pass
+
+    has_data = any(k in result for k in ("uploaded", "downloaded", "ratio", "bonus"))
+    if not has_data:
+        result["status"] = "error"
+        result["error"] = "Could not parse profile data from page"
+
+    return result
+
+
 def _fetch_site_profile(site_id, site_cfg, cookies):
     """Fetch profile for a single site. Returns result dict."""
     if site_id == "mteam":
@@ -281,6 +332,9 @@ def _fetch_site_profile(site_id, site_cfg, cookies):
 
     if site_cfg.get("parser") == "nexusphp":
         return _parse_nexusphp_profile(site_id, site_cfg, cookie)
+
+    if site_cfg.get("parser") == "ttg":
+        return _parse_ttg_profile(site_id, site_cfg, cookie)
 
     return {"status": "error", "error": f"Unknown parser: {site_cfg.get('parser')}"}
 

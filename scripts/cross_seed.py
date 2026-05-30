@@ -4,11 +4,19 @@ Cross-seed (辅种) — verify and add matching torrents across PT sites.
 
 Usage:
     python3 cross_seed.py verify --input results.json
+    python3 cross_seed.py verify --stdin
     python3 cross_seed.py create-task --title "Movie" --items verified.json --save-path /media/downloads
+    python3 cross_seed.py create-task --title "Movie" --stdin --save-path /media/downloads
+    python3 cross_seed.py search "流浪地球2" --save-path /media/downloads [--site mteam]
     python3 cross_seed.py list
     python3 cross_seed.py send --task-id TASK_ID [--base-only | --others-only]
     python3 cross_seed.py delete --task-id TASK_ID
     python3 cross_seed.py batch-scan [--site mteam,pttime] [--limit 50]
+
+Pipeline examples:
+    python3 pt_search.py "流浪地球2" | python3 cross_seed.py verify --stdin
+    python3 cross_seed.py verify --stdin < results.json | python3 cross_seed.py create-task --title "Movie" --stdin --save-path /media/downloads
+    python3 cross_seed.py search "流浪地球2" --save-path /media/downloads
 """
 
 import hashlib
@@ -581,8 +589,6 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
             sr_size = sr.get("size_bytes", 0)
             if sr_size == 0:
                 sr_size = _parse_size_str(sr.get("size", ""))
-            if sr_size != existing_size and existing_size > 0:
-                continue
 
             sr_site = sr.get("source", sr.get("site_id", sr.get("site", ""))).lower()
             sr_dl_url = sr.get("download_url", "")
@@ -605,6 +611,7 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
             except Exception:
                 continue
 
+            # Tier 1: exact info_hash match
             if cand_torrent["info_hash"] == existing_hash:
                 candidates.append({
                     "site": sr_site,
@@ -615,6 +622,26 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
                     "seeders": sr.get("seeders", 0),
                     "promo": sr.get("promo", ""),
                 })
+                continue
+
+            # Tier 2: size within 5% + file list match
+            if existing_size > 0 and sr_size > 0:
+                size_ratio = sr_size / existing_size
+                if 0.95 <= size_ratio <= 1.05:
+                    result = _compare_files(
+                        [{"path": "", "length": existing_size}],
+                        [{"path": "", "length": sr_size}],
+                    )
+                    if result == "VERIFIED" or cand_torrent["length"] == existing_size:
+                        candidates.append({
+                            "site": sr_site,
+                            "title": sr.get("title", ""),
+                            "info_hash": cand_torrent["info_hash"],
+                            "match_type": "name_size",
+                            "download_url": sr_dl_url,
+                            "seeders": sr.get("seeders", 0),
+                            "promo": sr.get("promo", ""),
+                        })
 
         if candidates:
             opportunities.append({
@@ -670,12 +697,18 @@ def main():
     parsed = _parse_args(argv[1:])
 
     if cmd == "verify":
-        input_path = parsed["flags"].get("input", "")
-        if not input_path:
-            print(json.dumps({"error": "--input <file> required"}))
-            sys.exit(1)
-        with open(input_path) as f:
-            items = json.load(f)
+        if "stdin" in parsed["flags"]:
+            raw = sys.stdin.read()
+            items = json.loads(raw)
+            if isinstance(items, dict) and "results" in items:
+                items = items["results"]
+        else:
+            input_path = parsed["flags"].get("input", "")
+            if not input_path:
+                print(json.dumps({"error": "--input <file> or --stdin required"}))
+                sys.exit(1)
+            with open(input_path) as f:
+                items = json.load(f)
         if not isinstance(items, list):
             print(json.dumps({"error": "Input must be a JSON array of search results"}))
             sys.exit(1)
@@ -684,13 +717,21 @@ def main():
 
     elif cmd == "create-task":
         title = parsed["flags"].get("title", "")
-        items_path = parsed["flags"].get("items", "")
         save_path = parsed["flags"].get("save-path", "")
-        if not title or not items_path:
-            print(json.dumps({"error": "--title and --items required"}))
+        if "stdin" in parsed["flags"]:
+            items = json.loads(sys.stdin.read())
+            if isinstance(items, dict) and "results" in items:
+                items = items["results"]
+        else:
+            items_path = parsed["flags"].get("items", "")
+            if not title or not items_path:
+                print(json.dumps({"error": "--title and --items required (or use --stdin)"}))
+                sys.exit(1)
+            with open(items_path) as f:
+                items = json.load(f)
+        if not title:
+            print(json.dumps({"error": "--title required"}))
             sys.exit(1)
-        with open(items_path) as f:
-            items = json.load(f)
         task = create_task(title, items, save_path)
         print(json.dumps({"task_id": task["id"], "title": task["title"],
                           "items": len(task["items"]),
@@ -718,6 +759,40 @@ def main():
             sys.exit(1)
         result = delete_task(task_id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    elif cmd == "search":
+        query = " ".join(parsed["positional"]) or parsed["flags"].get("query", "")
+        save_path = parsed["flags"].get("save-path", "")
+        site = parsed["flags"].get("site", "")
+        if not query:
+            print(json.dumps({"error": "Search query required"}))
+            sys.exit(1)
+        search_script = os.path.join(_skill_dir, "pt_search.py")
+        cmd_args = ["python3", search_script, query, "--limit", "20"]
+        if site:
+            cmd_args.extend(["--site", site])
+        r = subprocess.run(cmd_args, capture_output=True, text=True, timeout=60,
+                           env=os.environ.copy())
+        if r.returncode != 0 or not r.stdout.strip():
+            print(json.dumps({"error": "Search failed", "detail": r.stderr[:200]}))
+            sys.exit(1)
+        data = json.loads(r.stdout)
+        results = data.get("results", []) if isinstance(data, dict) else data
+        if not results:
+            print(json.dumps({"query": query, "verified": 0, "message": "No results found"}))
+            return
+        verified = verify_torrents(results)
+        verified_count = sum(1 for i in verified if i.get("verified"))
+        if verified_count < 2:
+            print(json.dumps({"query": query, "results": len(results),
+                              "verified": verified_count,
+                              "message": "Need at least 2 verified items for cross-seed"},
+                             ensure_ascii=False, indent=2))
+            return
+        task = create_task(query, verified, save_path)
+        print(json.dumps({"query": query, "task_id": task["id"],
+                          "verified": verified_count, "total": len(results),
+                          "save_path": save_path}, ensure_ascii=False, indent=2))
 
     elif cmd == "batch-scan":
         site_str = parsed["flags"].get("site", "")
