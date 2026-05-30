@@ -21,32 +21,8 @@ _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 
 # Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _common import _env
 from _proxy import using_proxy
-
-ENV_FILE = os.path.join(_skill_dir, "..", "secrets.env")
-_env_cache = None
-
-
-def _load_env_file():
-    global _env_cache
-    if _env_cache is not None:
-        return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    _env_cache[k.strip()] = v.strip()
-
-
-def _env(key, default=""):
-    val = os.environ.get(key, "")
-    if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
-    return val
 
 
 results = []

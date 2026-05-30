@@ -15,29 +15,7 @@ Env: reads JELLYFIN1_URL / JELLYFIN1_API_KEY from secrets.env
 import json, os, sys, urllib.request, urllib.parse, urllib.error
 from collections import Counter
 
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-_env_cache = None
-
-def _load_env_file():
-    global _env_cache
-    if _env_cache is not None:
-        return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                _env_cache[k.strip()] = v.strip()
-
-def _env(key, default=""):
-    val = os.environ.get(key, "")
-    if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
-    return val
+from _common import _env
 
 def parse_arg(args, flag, default=None):
     for i, a in enumerate(args):

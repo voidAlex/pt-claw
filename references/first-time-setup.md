@@ -12,16 +12,16 @@
 
 1. **PT 站点**：有哪些站？目前支持 8 站（M-Team、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦），不在列表中的需要新增适配。
 2. **下载器**：类型、地址、端口、用户名、密码（目前支持 qBittorrent）。
-3. **下载路径偏好**：读取 qBittorrent 分类 API，展示所有分类和路径，让用户确认内容类型映射（电影/电视剧/成人等 → 分类 → 路径），写入 `user-preferences.md`。
+3. **下载路径偏好**：读取 qBittorrent 分类 API，展示所有分类和路径，让用户确认内容类型映射（电影/电视剧等 → 分类 → 路径），写入 `user-preferences.md`。
 4. **清晰度偏好**：2160p / 1080p / 720p / 无偏好。
 5. **编码格式偏好**：HEVC / AVC / AV1 / 无偏好。
 6. **其他偏好**（可选）：原盘 vs 压制、字幕、音轨、制作组。
 7. **通知偏好**：下载完成后通知到哪里？
 8. **代理配置**：代理地址、哪些站需要代理。
-9. **Jellyfin 集成（可选）**：是否有 Jellyfin 服务器？几个？分别什么用途（影视/成人/音乐）？地址和 API Key？→ 没配置也能正常下载，只是无法自动去重。**API key 写入 `secrets.env`**，跨会话不丢失。
-10. **javbus-api（可选）**：是否已部署 javbus-api（`docker compose` 模板在 `templates/docker-compose.javbus-api.yml`）？→ 已部署则在 `secrets.env` 设置 `JAVBUS_API_URL=http://localhost:8922`。未部署也能裸爬 JavBus，只是磁链无结构化数据、无封面预览。
-11. **PT 刷流（可选）**：是否需要自动刷流保号？→ 需要指定：站点、搜索条件（关键词/免费/HR排除）、大小范围、做种人数、qB 专用目录、做种天数上限、死种清理阈值、每次新增上限。配置写入 `<skill-dir>/pt_boost.json`。
-12. **成人内容下载偏好（可选）**：PT 做种阈值（低于N则走公开源）、版本优选顺序（做种数/去码/字幕/画质）、清晰度范围（4K/1080p/720p）。
+9. **是否启用成人内容**：必须明确询问「需要启用成人内容搜索和下载吗？」。回答**是** → 继续询问成人偏好（做种阈值、版本优选、清晰度、下载路径），写入 `user-preferences.md` 的 `## 成人内容` 段（`enabled: true`）。回答**否** → 写入 `enabled: false`，跳过成人相关所有配置（javbus-api、成人 JF 实例、成人下载路径），后续搜索遇到番号/成人关键词时直接告知用户「未启用成人内容」。
+10. **Jellyfin 集成（可选）**：是否有 Jellyfin 服务器？几个？分别什么用途（影视/成人/音乐）？地址和 API Key？→ 没配置也能正常下载，只是无法自动去重。**API key 写入 `secrets.env`**，跨会话不丢失。
+11. **javbus-api（可选，仅成人内容启用时询问）**：是否已部署 javbus-api（`docker compose` 模板在 `templates/docker-compose.javbus-api.yml`）？→ 已部署则在 `secrets.env` 设置 `JAVBUS_API_URL=http://localhost:8922`。未部署也能裸爬 JavBus，只是磁链无结构化数据、无封面预览。**成人内容未启用则跳过此项。**
+12. **PT 刷流（可选）**：是否需要自动刷流保号？→ 需要指定：站点、搜索条件（关键词/免费/HR排除）、大小范围、做种人数、qB 专用目录、做种天数上限、死种清理阈值、每次新增上限。配置写入 `<skill-dir>/pt_boost.json`。
 13. **CookieCloud（可选）**：是否已部署 CookieCloud？→ 已部署则提供服务器地址、UUID、密码，写入 `secrets.env`（`COOKIE_CLOUD_HOST/UUID/PASS`）。未部署则提供 Docker Compose 模板（`templates/docker-compose.cookiecloud.yml`）引导部署，并提示安装浏览器扩展。CookieCloud 可自动同步浏览器 Cookie 到 skill，免去手动抓 cookie 的麻烦。需要系统安装 `python3-cryptography`。
 
 所有回答写入 `user-preferences.md`（本地文件，不入 Git）。敏感值同时写入 `secrets.env`。不使用 memory 存储偏好（容量有限）。

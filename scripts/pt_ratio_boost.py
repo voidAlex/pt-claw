@@ -12,6 +12,8 @@ Config: <skill-dir>/pt_boost.json (template: templates/pt_boost.example.json)
 
 import json, os, re, sys, time, urllib.request, urllib.parse, http.cookiejar, subprocess
 
+from _common import _env, _fmt_size
+
 MAX_DELETE_PER_RUN = 50
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,31 +21,6 @@ sys.path.insert(0, _skill_dir)
 from qb_backup import backup_from_torrents
 
 CONFIG_PATH = os.path.join(_skill_dir, "..", "pt_boost.json")
-
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-_env_cache = None
-
-
-def _load_env_file():
-    global _env_cache
-    if _env_cache is not None:
-        return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    _env_cache[k.strip()] = v.strip()
-
-
-def _env(key, default=""):
-    val = os.environ.get(key, "")
-    if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
-    return val
 
 
 DEFAULT_GLOBAL = {
@@ -332,14 +309,6 @@ def show_status(cfg: dict, qb: QBit):
             state = t.get("state", "")
             icon = "💀" if state == "stalledDL" else ("🧹" if age_days > g["max_seed_days"] else "🔄")
             print(f"   {icon} {age_days:4.0f}d | {t['name'][:50]}")
-
-
-def _fmt_size(b: int) -> str:
-    for u in ("B", "KB", "MB", "GB", "TB"):
-        if b < 1024:
-            return f"{b:.1f} {u}"
-        b /= 1024
-    return f"{b:.1f} PB"
 
 
 def main():

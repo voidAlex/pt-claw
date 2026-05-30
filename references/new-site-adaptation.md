@@ -76,26 +76,25 @@ SITES["new_site"] = {
 
 #### Case 3：完全自定义解析
 
-新 DOM 结构 → 写新解析函数：
+> ⚠️ **禁止 Agent 自己写解析器代码。** 先完成 Step A/B 收集 HTML 样本和字段定位，然后将解析规格委托给 Claude Code / OpenCode 等编程 agent 实现。
 
-1. **先定位种子列表容器**：找到包含所有种子行的最外层元素
-   ```bash
-   # 在 HTML 中找种子标题出现的位置
-   grep -n "<title>" /tmp/<site>_search.html | head -3
-   # 向上追溯找容器元素
-   ```
+**Agent 需要准备的交付物**（交给编程 agent）：
 
-2. **提取单条种子信息**，至少拿到：
+1. **HTML 样本**：保存搜索页到 `/tmp/<site>_search.html`
+2. **种子列表容器选择器**：包含所有种子行的最外层元素（标签 + class/id）
+3. **字段映射表**：
    - 标题（`<a>` 标签内的文本）
    - 详情页链接（`details.php?id=xxx`）
    - 下载链接（`download.php?id=xxx` 或 `dl.php?id=xxx`）
-   - 大小（通常在 `<td>` 中，含 `GB`/`MB`）
+   - 大小（含 `GB`/`MB` 的 `<td>`）
    - 做种数/下载数/完成数
    - 免费/优惠标签（Freeleech / 50% / 2x 等）
+4. **参考文件**：告诉编程 agent 参照 `scripts/pt_search.py` 中已有的 `_parse_nexusphp()` 或 `_parse_nexusphp_classic()` 的返回格式
 
-3. **写入解析函数** `parse_<site>(html)`，返回与已有解析器相同格式的 dict 列表
-
-4. **添加到 `pt_search.py`** 的 SITES 字典和路由逻辑
+**编程 agent 的任务**：
+1. 写解析函数 `parse_<site>(html)` → 返回与已有解析器相同格式的 dict 列表
+2. 在 `pt_search.py` 的 SITES 字典注册新站点 + 路由逻辑
+3. 用 `python3 scripts/pt_search.py "test" --site <new> --limit 3` 自测验证
 
 ### Step D：验证
 

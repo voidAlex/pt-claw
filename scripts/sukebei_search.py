@@ -12,33 +12,8 @@ Output: JSON array with seeders, leechers, size, magnet link, title.
 import sys, json, os, re, urllib.request, urllib.parse
 from xml.etree import ElementTree as ET
 
-# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _common import _env
 from _proxy import using_proxy
-
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-_env_cache = None
-
-
-def _load_env_file():
-    global _env_cache
-    if _env_cache is not None:
-        return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    _env_cache[k.strip()] = v.strip()
-
-
-def _env(key, default=""):
-    val = os.environ.get(key, "")
-    if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
-    return val
 
 SUKEBEI_RSS = "https://sukebei.nyaa.si/?page=rss"
 NYAA_NS = "https://sukebei.nyaa.si/xmlns/nyaa"

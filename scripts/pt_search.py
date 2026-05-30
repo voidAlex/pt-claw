@@ -21,44 +21,10 @@ import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.cookiejar import CookieJar
 
-# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _common import _load_env_file, _env, _fmt_size, _env_matching
 from _proxy import using_proxy
 
-
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-_env_cache = None
-
-
-def _load_env_file():
-    global _env_cache
-    if _env_cache is not None:
-        return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    _env_cache[k.strip()] = v.strip()
-
-
-def _env(key, default=""):
-    val = os.environ.get(key, "")
-    if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
-    return val
-
-
-def _fmt_size(size_bytes: int) -> str:
-    if size_bytes == 0:
-        return ""
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if size_bytes < 1024:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024
-    return f"{size_bytes:.1f} PB"
 
 # ── Site Registry ───────────────────────────────────────────
 SITES = {
@@ -134,15 +100,9 @@ def load_cookies() -> dict[str, str]:
     """Load cookie strings from environment variables (PT_COOKIE_<SITE>).
     Falls back to secrets.env if not in process environment."""
     cookies = {}
-    for key, val in os.environ.items():
-        if key.startswith("PT_COOKIE_"):
-            site_id = key[len("PT_COOKIE_"):].lower()
-            cookies[site_id] = val
-    _load_env_file()
-    for key, val in _env_cache.items():
-        if key.startswith("PT_COOKIE_") and key[len("PT_COOKIE_"):].lower() not in cookies:
-            site_id = key[len("PT_COOKIE_"):].lower()
-            cookies[site_id] = val
+    for key, val in _env_matching("PT_COOKIE_").items():
+        site_id = key[len("PT_COOKIE_"):].lower()
+        cookies[site_id] = val
     return cookies
 
 

@@ -17,33 +17,8 @@ Details: references/mteam-api.md
 
 import sys, json, os, urllib.request, urllib.error
 
-# Proxy compatibility: ProxyHandler breaks with certain proxy types
+from _common import _env, _fmt_size
 from _proxy import using_proxy
-
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
-_env_cache = None
-
-
-def _load_env_file():
-    global _env_cache
-    if _env_cache is not None:
-        return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    _env_cache[k.strip()] = v.strip()
-
-
-def _env(key, default=""):
-    val = os.environ.get(key, "")
-    if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
-    return val
 
 
 API_HOST = "https://api.m-team.cc/api"
@@ -130,16 +105,6 @@ def get_download_url(torrent_id: str, api_key: str) -> str:
         return ""
 
     return resp.get("data", "")
-
-
-def _fmt_size(size_bytes: int) -> str:
-    if size_bytes == 0:
-        return ""
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if size_bytes < 1024:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024
-    return f"{size_bytes:.1f} PB"
 
 
 def main():
