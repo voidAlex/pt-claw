@@ -111,7 +111,7 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
     """Search a single PT site. Returns list of result dicts."""
     # API-based sites (no cookie/HTTP needed)
     if site.get("parser") == "mteam_api":
-        return _search_mteam_api(site, query, limit)
+        return _search_mteam_api(site, query, limit, adult=adult)
 
     cookies = load_cookies()
     cookie_str = cookies.get(site_id, "")
@@ -164,7 +164,7 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
             results = _parse_nexusphp_classic(html, site, site_id, limit)
         return results
     elif site["parser"] == "mteam_api":
-        return _search_mteam_api(site, query, limit)
+        return _search_mteam_api(site, query, limit, adult=adult)
 
 
 def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
@@ -277,96 +277,48 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
     return results[:limit]
 
 
-def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
-    """Search M-Team via REST API (POST, x-api-key auth)."""
-    api_host = site.get("api_host", "")
+def _search_mteam_api(site: dict, query: str, limit: int, adult: bool = False) -> list[dict]:
+    """Search M-Team via REST API. Delegates to mteam_api module."""
     api_token = site.get("api_token", "")
-    if not api_host or not api_token:
-        return [{"error": "No API host/token configured",
+    if not api_token:
+        return [{"error": "No API token configured",
                  "site": site["name"], "site_id": "mteam"}]
 
-    url = f"{api_host}/torrent/search"
-    body = json.dumps({
-        "keyword": query,
-        "page": 1,
-        "size": min(limit, 25),
-    }).encode()
-
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("x-api-key", api_token)
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json")
-    req.add_header("User-Agent", "Mozilla/5.0")
-
-    # M-Team API REQUIRES proxy — domestic IPs get 403
     proxy = _env("PT_PROXY")
     if not proxy:
-        return [{"error": "PT_PROXY not set — M-Team API requires proxy (domestic IPs get 403)",
+        return [{"error": "PT_PROXY not set — M-Team API requires proxy",
                  "site": site["name"], "site_id": "mteam"}]
 
-    with using_proxy(proxy):
-        _opener = urllib.request.build_opener()
+    from mteam_api import search as mteam_search, get_download_url as mteam_dl_url
 
-        try:
-            resp = _opener.open(req, timeout=15)
-            data = json.loads(resp.read())
-        except Exception as e:
-            return [{"error": str(e), "site": site["name"], "site_id": "mteam"}]
+    items = mteam_search(query, api_token, limit=limit, adult=adult)
 
-    if str(data.get("code")) != "0":
-        return [{"error": data.get("message", "API error"),
-                 "site": site["name"], "site_id": "mteam"}]
+    if not items:
+        return [{"error": "No results found", "site": site["name"],
+                 "site_id": "mteam"}]
+    if len(items) == 1 and "error" in items[0]:
+        items[0]["site"] = site["name"]
+        items[0]["site_id"] = "mteam"
+        return items
 
-    items = data.get("data", {}).get("data", [])
     results = []
     for item in items:
-        status = item.get("status", {})
-        seeders = int(status.get("seeders", 0))
-        leechers = int(status.get("leechers", 0))
-        
-        size_bytes = int(item.get("size", 0))
-        size_str = _fmt_size(size_bytes)
-        
-        discount = status.get("discount", "")
-        promo = ""
-        if "PERCENT_50" in discount:
-            promo = "50%"
-        elif "PERCENT_30" in discount:
-            promo = "30%"
-        elif "FREE" in discount:
-            promo = "Free"
-        elif "TWOUP" in discount:
-            promo = "2xUp"
-
-        cat_id = item.get("category", "")
-        
-        torrent_id = item.get("id", "")
+        if "error" in item:
+            continue
         dl_url = ""
-        if torrent_id and api_token:
-            try:
-                with using_proxy(proxy):
-                    _dl_opener = urllib.request.build_opener()
-                    token_url = f"{api_host}/torrent/genDlToken?id={torrent_id}"
-                    token_req = urllib.request.Request(token_url, data=b'', method="POST")
-                    token_req.add_header("x-api-key", api_token)
-                    token_req.add_header("User-Agent", "Mozilla/5.0")
-                    token_resp = _dl_opener.open(token_req, timeout=8)
-                    token_data = json.loads(token_resp.read())
-                    if str(token_data.get("code")) == "0":
-                        dl_url = token_data.get("data", "")
-            except Exception:
-                pass
-
+        torrent_id = item.get("id", "")
+        if torrent_id:
+            dl_url = mteam_dl_url(torrent_id, api_token)
         results.append({
-            "title": item.get("name", "").strip(),
-            "detail_url": f"{site['url']}/detail/{torrent_id}" if torrent_id else "",
+            "title": item.get("title", "").strip(),
+            "detail_url": item.get("detail_url", ""),
             "download_url": dl_url,
-            "size": size_str,
-            "size_bytes": size_bytes,
-            "seeders": seeders,
-            "leechers": leechers,
-            "category": str(cat_id),
-            "promo": promo,
+            "size": item.get("size", ""),
+            "size_bytes": item.get("size_bytes", 0),
+            "seeders": item.get("seeders", 0),
+            "leechers": item.get("leechers", 0),
+            "category": item.get("category", ""),
+            "promo": item.get("promo", ""),
             "site": site["name"],
             "site_id": "mteam",
             "source": "mteam",
