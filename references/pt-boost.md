@@ -12,6 +12,7 @@
 
 ```json
 {
+    "description": "刷流配置 — Freeleech 自动辅种、定时清理、保号策略",
     "enabled": false,
     "global": {
         "boost_category": "boost",
@@ -70,7 +71,8 @@ cronjob(action='create',
     schedule="0 8 * * *",  # 每天早上8点
     prompt="运行 python3 scripts/pt_ratio_boost.py run，中文总结今日刷流情况后通知。",
     skills=["pt-claw"],
-    deliver="origin"
+    deliver="origin",
+    workdir="<skill-dir>"
 )
 ```
 

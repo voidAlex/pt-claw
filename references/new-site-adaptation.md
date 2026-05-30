@@ -48,10 +48,10 @@ grep -oP 'torrents|torrentname|data-row|torrent-search|api/v1' /tmp/<site>_searc
 
 如果 `grep` 命中了 `torrentname` 或 `torrents` class：
 
-1. **经典 NexusPHP** → 复用 BTSchool/CarPT 的解析逻辑（`references/nexusphp-parser-notes.md` 的「Classic 变体」）
+1. **经典 NexusPHP** → 复用 BTSchool/CarPT 的解析逻辑（`nexusphp-parser-notes.md` 的「Classic 变体」）
    - 检查点：`details.php?id=` 链接格式、`download.php?id=` 格式、搜索页搜索参数名（`search` / `searchstr`）
 
-2. **NexusPHP `data=` 变体** → 复用 PTTime 解析逻辑（`references/nexusphp-parser-notes.md` 的「PTTime 变体」）
+2. **NexusPHP `data=` 变体** → 复用 PTTime 解析逻辑（`nexusphp-parser-notes.md` 的「PTTime 变体」）
    - 检查点：`<tr data=ID>` 是否存在、stats cells 是否在 `</tr>` 之后
 
 **无需重写代码，只需在 `pt_search.py` 中注册新站点**：
@@ -72,7 +72,7 @@ SITES["new_site"] = {
 如果站点提供 REST API（类似 M-Team）：
 - 找 API 文档（通常 `https://<site>/api` 或 Swagger）
 - 确认认证方式（Bearer token / `x-api-key`）
-- 对照 `references/mteam-api.md` 的模式适配
+- 对照 `mteam-api.md` 的模式适配
 
 #### Case 3：完全自定义解析
 
@@ -119,7 +119,7 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
 
 适配完成后：
 
-1. **更新 `references/nexusphp-parser-notes.md`** — 如果是新解析模式的变体，记录关键差异
+1. **更新 `nexusphp-parser-notes.md`** — 如果是新解析模式的变体，记录关键差异
 2. **更新 skill 的 Supported PT Sites 表格** — 添加新站点行
 3. **更新 `user-preferences.md`** — 补充新站点的代理需求配置
 4. **更新 `templates/secrets.env.example`** — 添加新站点的 Cookie/API key 环境变量

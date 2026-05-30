@@ -74,7 +74,7 @@ python3 scripts/connectivity_check.py --quick
 # 下载进度检查（静默模式：没事件不通知）
 cronjob(action='create',
     name="PT下载进度检查",
-    schedule="every 15m",
+    schedule="*/15 * * * *",
     repeat="forever",
     prompt="""加载 pt-claw skill，运行 `python3 scripts/_cron_check.py` 检查 qBittorrent 状态。脚本输出结构化 JSON：
 
@@ -95,6 +95,7 @@ cronjob(action='create',
 cronjob(action='create',
     name="PT自动追剧",
     schedule="0 10 * * *",
+    repeat="forever",
     prompt="""加载 pt-claw skill，自动追剧检查（只搜索展示，不自动下载）。skill 目录下已有 secrets.env、user-preferences.md、pt_wishlist.json、pt_downloaded.json。
 
 1. 读 pt_wishlist.json + pt_downloaded.json
@@ -116,6 +117,7 @@ cronjob(action='create',
 cronjob(action='create',
     name="CookieCloud定时同步",
     schedule="0 */4 * * *",
+    repeat="forever",
     prompt="""加载 pt-claw skill。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
 如果有，运行 `python3 scripts/cookie_sync.py` 同步 cookie，然后 `python3 scripts/connectivity_check.py --quick` 验证。
 如果 CookieCloud 未配置则 [SILENT] 跳过。
@@ -130,6 +132,7 @@ cronjob(action='create',
 cronjob(action='create',
     name="PT站点Cookie保活",
     schedule="0 6 * * *",
+    repeat="forever",
     prompt="""加载 pt-claw skill。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
 如果有则 [SILENT] 跳过（CookieCloud 已覆盖 cookie 刷新）。
 如果没有，运行 `python3 scripts/connectivity_check.py --keepalive`，只报告失败的站点。全部成功则 [SILENT]。

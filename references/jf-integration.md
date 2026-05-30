@@ -12,21 +12,21 @@
 
 当 PT 站做种不足（<3）时，自动回退到公开源。三个公开源互为补充：
 
-## javbus-api — 影片元数据 API（可选）
-
-> ⚠️ **非必选项**。不部署也能通过裸爬方式获取磁链、封面和预览图。部署后数据更结构化，磁链可排序，封面预览一键获取。用户在 Step 0 被询问是否部署。
-
 | 源 | 类型 | 接入方式 | 做种数 | 封面 | 预览图 | 备注 |
 |----|------|---------|--------|------|--------|------|
 | **javbus-api** | REST API | Docker 自部署 (localhost:8922) | ❌ 无 | ✅ | ✅ | **首选**，磁链多+有去码/AI版 |
 | **Sukebei Nyaa** | RSS 磁链 | `?page=rss&q=<番号>` | ✅ 有 | ❌ | ❌ | 备选，有种数可判断活性 |
-| **JavBus 裸爬** | HTML+Ajax | 两步（详情页+Ajax） | ❌ 无 | ✅ | ✅ | javbus-api 不可用时的备选
+| **JavBus 裸爬** | HTML+Ajax | 两步（详情页+Ajax） | ❌ 无 | ✅ | ✅ | javbus-api 不可用时的备选 |
 
 **优先级**：JavBus（javbus-api，磁链多+去码/AI版）→ Sukebei Nyaa（有种数）→ JavBus 裸爬（最后手段）
 
 ---
 
-#### Sukebei Nyaa（备选）
+## javbus-api — 影片元数据 API（可选）
+
+> ⚠️ **非必选项**。不部署也能通过裸爬方式获取磁链、封面和预览图。部署后数据更结构化，磁链可排序，封面预览一键获取。用户在 Step 0 被询问是否部署。
+
+### Sukebei Nyaa（备选）
 
 **直接用脚本**：`python3 scripts/sukebei_search.py <CODE> --limit 10`，返回 JSON（seeders/leechers/size/magnet/score）。不要手动 HTML 解析——脚本已处理 RSS、去重、广告过滤、评分排序。
 ```xml
@@ -49,7 +49,7 @@
 5. 通过 `magnet:?xt=urn:btih:<hash>` 推 qBittorrent，标签 `javbus` 或 `sukebei`
 
 
-#### JavBus（备选，量大无种数 + 封面/预览图）
+### JavBus（备选，量大无种数 + 封面/预览图）
 
 JavBus 不提供做种数，但磁链数量是 Sukebei 的 2-3 倍，还能获取封面和内容预览截图。适合 Sukebei 也找不到种时碰运气。
 
@@ -243,12 +243,13 @@ curl -s "https://sukebei.nyaa.si/?page=rss&q=SNOS-151" \
 
 ```json
 {
+  "description": "关注列表 — 用户关注的影视、演员、番号，定时追剧用",
   "movies": [
     {"title": "流浪地球3", "year": 2027, "quality": "4K", "codec": "HEVC"},
     {"title": "碟中谍9", "year": null, "quality": null, "codec": null}
   ],
   "actors": [
-    {"name": "诺兰", "type": "director"},
+    {"name": "Christopher Nolan", "type": "director"},
     {"name": "汤姆·克鲁斯", "type": "actor"},
     {"name": "浅野こころ", "type": "adult_actress", "exclude_prefixes": ["FNS"]}
   ],
@@ -260,7 +261,7 @@ curl -s "https://sukebei.nyaa.si/?page=rss&q=SNOS-151" \
 
 **操作**：
 - 「关注《流浪地球3》」→ 加到 movies 列表
-- 「关注诺兰的电影」→ 加到 actors（type=director）
+- 「关注诺兰的电影」→ 加到 actors（type=director，存储英文原名 Christopher Nolan）
 - 「取消关注 SSIS-448」→ 从 fanhao 移除
 - 「我的关注列表」→ 展示当前所有关注
 
