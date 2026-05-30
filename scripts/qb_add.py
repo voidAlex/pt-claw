@@ -479,7 +479,14 @@ def main():
         query = " ".join(args)
         r = subprocess.run(["python3", search_script, query],
                            capture_output=True, text=True, timeout=60)
-        data = json.loads(r.stdout)
+        if r.returncode != 0 or not r.stdout.strip():
+            print(json.dumps({"error": f"Search failed: {r.stderr[:200]}"}))
+            sys.exit(1)
+        try:
+            data = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            print(json.dumps({"error": "Search returned invalid JSON"}))
+            sys.exit(1)
         items = data.get("results", [])
         if idx >= len(items):
             print(json.dumps({"error": f"Index {idx} out of range ({len(items)} results)"}))

@@ -209,6 +209,7 @@ def main():
         backup_from_torrents(torrents, reason="manual_delete")
         
         # Delete without removing files (POST only, GET not supported)
+        qb_url = _env("QBITTORRENT_URL").rstrip("/")
         cj = CookieJar()
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
         opener.addheaders = [("User-Agent", "Hermes/1.0")]
