@@ -33,8 +33,12 @@ check QBITTORRENT_URL  "qBittorrent base URL"
 check QBITTORRENT_USER "qBittorrent username"
 check QBITTORRENT_PASS "qBittorrent password"
 
-echo "=== M-Team ==="
-check MTEAM_API_KEY "M-Team API key (x-api-key)"
+echo "=== M-Team (optional) ==="
+if [[ -n "${MTEAM_API_KEY}" ]]; then
+    echo "  ✓ MTEAM_API_KEY (set, ${#MTEAM_API_KEY} chars)"
+else
+    echo "  ℹ MTEAM_API_KEY — not set (M-Team API search disabled)"
+fi
 
 echo "=== Jellyfin (adult) ==="
 check JELLYFIN1_URL  "Adult Jellyfin URL (e.g. JF adult address)"
