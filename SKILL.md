@@ -220,9 +220,8 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 | 任务 | 频率 | 通知条件 |
 |------|------|---------|
-| 下载进度检查 | 每 15 分钟 | 完成/死种 |
+| 下载进度检查 | 每 15 分钟 | 完成/死种（首次立即，之后每 6h 提醒，最多 20 次）/公开种自动清理 |
 | 自动追剧 | 每天 10:00 | 有新资源（只展示不下载） |
-| 公开种检查 | 每 30 分钟 | 有待清理项 |
 | CookieCloud同步/Cookie保活 | 每4h/每天06:00 | 二选一，视配置 |
 
 管理：「暂停XX任务」「恢复XX任务」「列出定时任务」
@@ -295,17 +294,19 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 **24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
 
+**25. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
+
 ### 🔧 脚本纪律
 
-**25. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
+**26. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
 
-**26. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
+**27. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
 
-**27. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
+**28. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
 
-**28. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
+**29. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
 
-**29. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
+**30. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md)。
 
 ## 环境变量清单（`secrets.env`）
 

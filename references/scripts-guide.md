@@ -54,6 +54,25 @@ echo '{"magnet": "...", "category": "<分类名>", "save_path": "<路径>", "tag
 3. 兜底取最大视频文件
 
 stdin JSON 传 `"code": "MIMK-267"` 可辅助精确匹配。字幕文件（.srt/.ass）同名校验后保留。PT 站种子不需要此参数（PT 资源干净）。
+### _cron_check.py — Cron 进度检查（合并：完成通知 + 死种频率控制 + 公开种清理）
+
+```bash
+# 直接运行（cron 15分钟调用一次）
+python3 scripts/_cron_check.py
+```
+
+Cron 定时任务的核心脚本，合并了三个功能：
+
+1. **完成通知**：检测新完成的下载（对比 `pt_completed_last.txt`），去重后输出
+2. **死种告警**：7天+ 0% stalledDL 的种子，首次立即通知，之后每 6h 提醒一次，最多 20 次（状态存储在 `pt_notify_state.json`）
+3. **公开种自动清理**：sukebei/javbus 标签且已完成的种子，自动备份后移除（文件保留）。安全防线：公开种占比超 20% 时跳过清理
+
+输出结构化 JSON：
+- `{"silent": true}` — 无事件
+- `{"notifications": [...], "stats": {...}}` — 含 completion/dead_reminder/auto_cleaned 三种通知类型
+
+> 此脚本替代了旧的 `qb_public_cleanup.py --check` cron 调用。`qb_public_cleanup.py` 仍可手动使用。
+
 ### download_history.py — 下载历史追踪
 
 ```bash

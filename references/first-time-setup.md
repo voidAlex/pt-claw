@@ -63,9 +63,8 @@ python3 scripts/connectivity_check.py --quick
 
 | 任务 | 频率 | 作用 |
 |------|------|------|
-| PT下载进度检查 | 每 15 分钟 | 完成通知 + 死种告警，没事件时不发消息 |
+| PT下载进度检查 | 每 15 分钟 | 完成通知 + 死种告警（首次立即，之后每 6h 提醒，最多 20 次）+ 公开种自动清理 |
 | PT自动追剧 | 每天 10:00 | 搜索+去重+展示，等用户确认后才下载 |
-| 公开磁链状态检查 | 每 30 分钟 | 自动删除已完成公开种、标记死种 |
 | CookieCloud定时同步 | 每 4 小时 | 从 CookieCloud 拉取最新 cookie 更新 secrets.env（配置了 CookieCloud 时） |
 | PT站点Cookie保活 | 每天 06:00 | 访问各站首页刷新 session（未配置 CookieCloud 时才创建） |
 
@@ -75,16 +74,16 @@ cronjob(action='create',
     name="PT下载进度检查",
     schedule="every 15m",
     repeat="forever",
-    prompt="""加载 pt-claw skill，检查 qBittorrent 下载进度。skill 目录下已有 secrets.env（凭据）、user-preferences.md（偏好）、pt_completed_last.txt（上次检查时间戳）。
+    prompt="""加载 pt-claw skill，运行 `python3 scripts/_cron_check.py` 检查 qBittorrent 状态。脚本输出结构化 JSON：
 
-只做三件事：
-1. 有下载完成的（progress=100%）→ 通知「✅ xxx 下载完成」，更新 pt_completed_last.txt
-   - 公开磁链（sukebei/javbus 标签）完成后自动调 qb_public_cleanup.py 停止做种保留文件
-2. 超7天0%死种 → 通知「💀 xxx 已死种N天，回复「删」清理」
-   - ⚠️ 不要自动删除，等用户确认
-3. 都没有 → 整个回复仅：[SILENT]
+1. JSON 含 `silent: true` → 整个回复仅：[SILENT]
+2. JSON 含 `notifications` 数组 → 按类型格式化输出：
+   - ✅ completion：新完成的下载（去重后的）
+   - 💀 dead_reminder：死种告警（7天+ 0% stalledDL），首次立即通知，之后每 6h 提醒，最多 20 次。回复「删」清理
+   - 🧹 auto_cleaned：已自动备份并移除的公开磁链（sukebei/javbus），文件保留
+3. 输出底部 stats（总数/下载中/做种中/死种）仅参考，不重复展示
 
-脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
+⚠️ 不要自动删除死种，等用户确认。脚本已处理完成跟踪和频率控制。""",
     skills=["pt-claw"],
     deliver="origin",
     workdir="<skill-dir>",
@@ -104,20 +103,6 @@ cronjob(action='create',
 6. 无新资源则「今日无新资源」
 
 脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
-    skills=["pt-claw"],
-    deliver="origin",
-    workdir="<skill-dir>",
-)
-
-# 公开磁链清理（只报告不自动删）
-cronjob(action='create',
-    name="公开磁链状态检查",
-    schedule="every 30m",
-    repeat="forever",
-    prompt="""加载 pt-claw skill。运行 `python3 scripts/qb_public_cleanup.py --check` 检查公开磁链（TAG ONLY：sukebei/javbus，禁止 tracker URL 匹配）。
-- 无事 → [SILENT]
-- 有事 → 列出待清理清单，结尾「回复「清了」确认删除」
-⚠️ 绝对不能自动删种，必须等用户确认""",
     skills=["pt-claw"],
     deliver="origin",
     workdir="<skill-dir>",
@@ -153,5 +138,5 @@ cronjob(action='create',
 )
 ```
 
-> ⚠️ 定时任务创建后告知用户：「已创建 4 个定时任务——下载进度(15m)、自动追剧(10:00)、公开种检查(30m)、CookieCloud同步或Cookie保活(视配置而定)。随时可以说『暂停XX任务』来停止。」
-> CookieCloud 同步和 Cookie 保活互斥：配置了 `COOKIE_CLOUD_HOST` 则只创建同步任务（每4h），未配置则只创建保活任务（每天06:00）。Agent 创建时应检查 `secrets.env` 中是否有 `COOKIE_CLOUD_HOST` 来决定创建哪个。实际同时运行的定时任务始终为 4 个。
+> ⚠️ 定时任务创建后告知用户：「已创建 3 个定时任务——下载进度(15m，含公开种自动清理)、自动追剧(10:00)、CookieCloud同步或Cookie保活(视配置而定)。随时可以说『暂停XX任务』来停止。」
+> CookieCloud 同步和 Cookie 保活互斥：配置了 `COOKIE_CLOUD_HOST` 则只创建同步任务（每4h），未配置则只创建保活任务（每天06:00）。Agent 创建时应检查 `secrets.env` 中是否有 `COOKIE_CLOUD_HOST` 来决定创建哪个。实际同时运行的定时任务始终为 3 个。

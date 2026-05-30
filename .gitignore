@@ -22,8 +22,10 @@ secrets.env
 .DS_Store
 Thumbs.db
 
-# 本地配置（不提交）
+# State files (not committed)
 *.local.json
+pt_notify_state.json
+pt_wishlist_pending.json
 user-preferences.md
 pt_wishlist.json
 pt_downloaded.json

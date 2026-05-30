@@ -1,0 +1,18 @@
+{
+  "description": "通知状态追踪 — 控制死种提醒频率，防止重复通知刷屏",
+  "dead_torrents": {
+    "<hash>": {
+      "name": "Dead.Torrent.2024",
+      "tags": "pttime",
+      "size_gb": 5.2,
+      "days_stalled": 14,
+      "first_seen": "2026-05-28T10:00:00",
+      "last_notified": "2026-05-30T16:00:00",
+      "notify_count": 3
+    }
+  },
+  "notify_config": {
+    "dead_interval_hours": 6,
+    "dead_max_reminders": 20
+  }
+}

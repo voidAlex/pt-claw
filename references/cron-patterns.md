@@ -14,23 +14,50 @@
 
 ### 正确执行流程（cron job 用）
 
+`_cron_check.py` 合并了进度检查 + 公开种清理 + 死种频率控制，一次执行完成全部检查：
+
 ```
 1. 脚本自动从 secrets.env 读取 QBITTORRENT_* 连接信息
 2. Python 脚本用 urllib.request 登录 qB → 获取所有 torrents
 3. 读 pt_completed_last.txt → 构建 known_hashes 集合
-4. 筛选 progress==1.0 且 hash 不在 known_hashes 中的 → new_completed
-5. 筛选 progress==0.0 且 added_on 超过7天的 → dead
-6. 报告 new_completed（去重：同内容多文件只报一次）→ 更新 pt_completed_last.txt
-7. 报告 dead → 不更新 tracker
-8. 两者都没有 → 回复 `[SILENT]`（仅此标记，无其他内容）
+4. 读 pt_notify_state.json → 加载死种通知状态（频率控制）
+5. 筛选 progress==1.0 且 hash 不在 known_hashes 中的 → new_completed
+   - 公开磁链（sukebei/javbus 标签）且已完成 → 自动备份+移除（不通知用户）
+   - 公开种占比超 20% 时跳过清理（安全防线）
+6. 筛选 progress==0 + stalledDL + 7天+ → dead
+   - 首次发现 → 立即通知
+   - 已知死种 → 检查距上次通知是否超 6h + 未达 max_reminders(20) → 决定是否再次提醒
+7. 清理已恢复的死种记录（不在当前 dead 列表中的旧记录）
+8. 更新 pt_completed_last.txt（追加新 hash）
+9. 更新 pt_notify_state.json（保存通知计数和时间戳）
+10. 输出 JSON:
+    - 无事件 → {"silent": true}
+    - 有事件 → {"notifications": [...], "silenced": {"dead": N}, "stats": {...}}
 ```
+
+### 通知类型
+
+| type | icon | 说明 |
+|------|------|------|
+| `completion` | ✅ | 新完成的下载（去重后） |
+| `dead_reminder` | 💀 | 死种告警，含 `remind_count` 和 `action_hint` |
+| `auto_cleaned` | 🧹 | 已自动备份并移除的公开磁链 |
+
+### 死种通知频率控制
+
+`pt_notify_state.json`（schema 见 `templates/pt_notify_state.example.json`）追踪每个死种的通知状态：
+
+- **首次发现**：立即通知，`notify_count=1`
+- **后续提醒**：距 `last_notified` 超过 `dead_interval_hours`（默认 6h）且 `notify_count < dead_max_reminders`（默认 20）时再次提醒
+- **自动清理**：死种恢复下载或被删除后，记录自动移除
 
 ### 关键约束
 
 - **不能手写 `curl` 访问 qB**：tirith 会拦截所有含原始 IP / HTTP / 私有网络的 curl 命令
-- **必须用 Python `urllib.request`**：skill 脚本（`qb_monitor.py` 等）内部已封装，不走 shell 扫描
+- **必须用 Python `urllib.request`**：skill 脚本（`_cron_check.py` 等）内部已封装，不走 shell 扫描
 - **必须去重报告**：同一内容可能有多个 hash（不同 tracker、不同编码版本），只报一次主名称
 - **更新 tracker 时追加所有新 hash**（含重复的），确保下次不再误报
+- **`pt_notify_state.json` 不要删除**：丢失会导致通知计数重置，用户会被重复提醒
 
 ### 参考实现
 
@@ -44,13 +71,18 @@ _env_cache = None
 def _load_env_file(): ...
 def _env(name, default=""): ...
 
+# 通知状态管理（pt_notify_state.json）
+def _load_state(): ...     # dead_torrents + notify_config
+def _save_state(state): ... # fcntl 锁写入
+
 # 登录 qB → 获取全部种子
 # 读 pt_completed_last.txt → known_hashes 集合
 # progress >= 1.0 且 hash 不在 known → new_completions
-# progress == 0 + stalledDL + 7天+ → dead_torrents
+# progress == 0 + stalledDL + 7天+ → dead（频率控制：6h间隔，最多20次）
+# 公开磁链(sukebei/javbus)已完成 → 自动备份+移除（占比>20%跳过）
 # 去重：strip [prefix] 后取前40字符比较
-# 写回：append 新 hash 到 pt_completed_last.txt
-# 输出 JSON: {known_count, total_torrents, new_completions, dead_torrents}
+# 写回：append 新 hash 到 pt_completed_last.txt，更新 pt_notify_state.json
+# 输出 JSON: {"notifications": [...], "silent": false} 或 {"silent": true}
 ```
 
 去重报告逻辑（cron prompt 层使用）：
