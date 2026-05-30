@@ -340,8 +340,15 @@ def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
     req.add_header("Accept", "application/json")
     req.add_header("User-Agent", "Mozilla/5.0")
 
+    # M-Team API needs proxy for domestic IPs (403 otherwise)
+    proxy = _env("PT_PROXY")
+    _handlers = []
+    if proxy:
+        _handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    _opener = urllib.request.build_opener(*_handlers)
+
     try:
-        resp = urllib.request.urlopen(req, timeout=15)
+        resp = _opener.open(req, timeout=15)
         data = json.loads(resp.read())
     except Exception as e:
         return [{"error": str(e), "site": site["name"], "site_id": "mteam"}]
@@ -386,7 +393,7 @@ def _search_mteam_api(site: dict, query: str, limit: int) -> list[dict]:
                 token_req = urllib.request.Request(token_url, data=b'', method="POST")
                 token_req.add_header("x-api-key", api_token)
                 token_req.add_header("User-Agent", "Mozilla/5.0")
-                token_resp = urllib.request.urlopen(token_req, timeout=8)
+                token_resp = _opener.open(token_req, timeout=8)
                 token_data = json.loads(token_resp.read())
                 if str(token_data.get("code")) == "0":
                     dl_url = token_data.get("data", "")

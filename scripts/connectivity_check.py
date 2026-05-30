@@ -118,7 +118,7 @@ def test_mteam():
         req = urllib.request.Request(
             "https://api.m-team.cc/api/torrent/search",
             data=body,
-            headers={"x-api-key": key, "Content-Type": "application/json"},
+            headers={"x-api-key": key, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
         )
         proxy = _env("PT_PROXY")
         handlers = []
