@@ -88,13 +88,15 @@ class QBit:
     def __init__(self, url: str, user: str, password: str):
         self.url = url.rstrip("/")
         self.jar = {}
+        self._opener = urllib.request.build_opener()
         self._login(user, password)
 
     def _login(self, user: str, password: str):
         data = urllib.parse.urlencode({"username": user, "password": password}).encode()
         req = urllib.request.Request(f"{self.url}/api/v2/auth/login", data=data)
+        req.add_header("User-Agent", "Hermes/1.0")
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with self._opener.open(req, timeout=10) as resp:
                 for h in resp.headers.get_all("Set-Cookie", []):
                     if "SID=" in h:
                         self.jar["SID"] = h.split("SID=")[1].split(";")[0]
@@ -103,9 +105,19 @@ class QBit:
 
     def _get(self, endpoint: str):
         req = urllib.request.Request(f"{self.url}/api/v2/{endpoint}")
+        req.add_header("User-Agent", "Hermes/1.0")
         if "SID" in self.jar:
             req.add_header("Cookie", f"SID={self.jar['SID']}")
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with self._opener.open(req, timeout=15) as resp:
+            return json.loads(resp.read())
+
+    def _post(self, endpoint: str, data: dict) -> str:
+        body = urllib.parse.urlencode(data).encode()
+        req = urllib.request.Request(f"{self.url}/api/v2/{endpoint}", data=body)
+        req.add_header("User-Agent", "Hermes/1.0")
+        if "SID" in self.jar:
+            req.add_header("Cookie", f"SID={self.jar['SID']}")
+        with self._opener.open(req, timeout=15) as resp:
             return json.loads(resp.read())
 
     def _post(self, endpoint: str, data: dict) -> str:
