@@ -56,14 +56,14 @@ grep -oP 'torrents|torrentname|data-row|torrent-search|api/v1' /tmp/<site>_searc
 
 **无需重写代码，只需在 `pt_search.py` 中注册新站点**：
 ```python
-# 在 SITES 字典中添加
+# 在 SITES 字典中添加（参照 pt_search.py SITES dict）
 SITES["new_site"] = {
     "name": "新站名",
     "url": "https://<site>",
-    "parser": "nexusphp_classic",  # 或 "nexusphp_pttime"
-    "search_path": "torrents.php",  # 搜索页路径
-    "search_param": "search",       # 搜索参数名
-    "needs_proxy": True,            # 是否需要代理
+    "parser": "nexusphp",
+    "search": "/torrents.php?search={query}&notnewword=1",
+    "needs_proxy": True,
+    "categories": {},
 }
 ```
 

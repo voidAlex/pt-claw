@@ -15,11 +15,9 @@
 ### 1. 导出 qB 种子列表
 
 ```bash
-source secrets.env
-curl -s -c /tmp/qb_cookies.txt -X POST "$QBITTORRENT_URL/api/v2/auth/login" \
-  --data-urlencode "username=$QBITTORRENT_USER" \
-  --data-urlencode "password=$QBITTORRENT_PASS" > /dev/null
-curl -s -b /tmp/qb_cookies.txt "$QBITTORRENT_URL/api/v2/torrents/info" > /tmp/qb_torrents.json
+# ⚠️ 不要用 source secrets.env（Cookie 值含 =，bash source 会误解析）
+# 用 python 脚本代替，它们内部用 _load_env_file() 正确解析
+python3 scripts/qb_monitor.py --full --json > /tmp/qb_torrents.json
 ```
 
 ### 2. 扫描媒体目录

@@ -26,7 +26,7 @@
 
 ---
 
-#### Sukebei Nyaa（首选）
+#### Sukebei Nyaa（备选）
 
 **直接用脚本**：`python3 scripts/sukebei_search.py <CODE> --limit 10`，返回 JSON（seeders/leechers/size/magnet/score）。不要手动 HTML 解析——脚本已处理 RSS、去重、广告过滤、评分排序。
 ```xml

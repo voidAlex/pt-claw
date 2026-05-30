@@ -1,5 +1,11 @@
 # Cron 下载进度检查 — 执行模式参考
 
+## ⚠️ 关键：不要用 `qb_monitor.py --tracker`
+
+`qb_monitor.py --tracker` 的 `_read_tracker()` 内部执行 `int(f.read().strip())`，期望 tracker 文件是**单个 epoch 时间戳整数**。`pt_completed_last.txt` 存储的是 **hash 列表**（每行一个 40 字符 hex），两者格式不兼容。混用会导致 `_read_tracker()` 抛 `ValueError` 退回 epoch 0，cutoff 变成 1970-01-01，**每次 cron 都展示全部完成记录**。
+
+正确做法：cron job 用 `qb_monitor.py --full` 拿原始数据，自己读 hash 列表做集合对比。
+
 ## 背景
 
 `pt_completed_last.txt` 存储的是**已通知过的 torrent hash 列表**（每行一个 40 字符 hex），不是 epoch 时间戳。`qb_monitor.py --tracker` 期望的是 epoch 时间戳格式，所以两者不兼容。
@@ -14,7 +20,7 @@
 5. 筛选 progress==0.0 且 added_on 超过7天的 → dead
 6. 报告 new_completed（去重：同内容多文件只报一次）→ 更新 pt_completed_last.txt
 7. 报告 dead → 不更新 tracker
-8. 两者都没有 → 回复 "。"（纯文本句号，绝不用 [SILENT]——[SILENT] 会静默整条消息，与新事件摘要互斥）
+8. 两者都没有 → 回复 `[SILENT]`（三个字符，无其他内容。符合主 SKILL.md v2.5 静默规范）
 ```
 
 ## 关键约束
