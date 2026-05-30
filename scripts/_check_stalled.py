@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Check stalled torrent ages — quick diagnostic."""
-import os, urllib.request, urllib.parse, json, http.cookiejar
+import os, sys, urllib.request, urllib.parse, json, http.cookiejar
 from datetime import datetime, timezone
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,12 +32,12 @@ def _env(name, default=""):
 cj = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 opener.addheaders = [("User-Agent", "Hermes/1.0")]
-qb = _env("QBITTORRENT_URL")
+qb = _env("QBITTORRENT_URL").rstrip("/")
 if not qb:
     print("Error: QBITTORRENT_URL not configured"); sys.exit(1)
-login_data = f'username={urllib.parse.quote(_env("QBITTORRENT_USER"))}&password={urllib.parse.quote(_env("QBITTORRENT_PASS"))}'.encode()
-opener.open(f'{qb}/api/v2/auth/login', data=login_data)
-resp = opener.open(f'{qb}/api/v2/torrents/info')
+login_data = urllib.parse.urlencode({"username": _env("QBITTORRENT_USER"), "password": _env("QBITTORRENT_PASS")}).encode()
+opener.open(f'{qb}/api/v2/auth/login', data=login_data, timeout=10)
+resp = opener.open(f'{qb}/api/v2/torrents/info', timeout=30)
 torrents = json.loads(resp.read())
 now = datetime.now(timezone.utc)
 

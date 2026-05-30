@@ -154,7 +154,7 @@ if __name__ == "__main__":
                     print(f"  category: {entry['category']}")
                     print(f"  tags: {entry['tags']}")
                     print(f"  torrent: {torrent_file}")
-                    print(f"\n  To restore: qb_add.py '{torrent_file}' --category '{entry['category']}' --save-path '{entry['save_path']}' --tags '{entry['tags']}'")
+                    print(f"\n  To restore: qb_add.py '{torrent_file}' --category '{entry['category']}' --path '{entry['save_path']}' --tags '{entry['tags']}'")
                 else:
                     print(f"Metadata only (no .torrent): {entry['name'][:60]}")
                 break
