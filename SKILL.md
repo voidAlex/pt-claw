@@ -82,6 +82,8 @@ metadata:
 | [references/cron-adult-chase.md](references/cron-adult-chase.md) | Cron 成人追剧高效模式 | 成人追剧 cron |
 | [references/jf-actor-count.md](references/jf-actor-count.md) | JF 演员片库统计 | 「谁最多」查询 |
 | [references/orphan-media-scan.md](references/orphan-media-scan.md) | 磁盘孤儿媒体扫描 | 手动恢复 |
+| [references/javbus-api.md](references/javbus-api.md) | javbus-api 端点 + 部署 + 响应格式 | JavBus 集成或排错 |
+| [references/qbittorrent-setup.md](references/qbittorrent-setup.md) | qBittorrent Web API + 环境变量 + 分类 | qB 配置或 API 调试 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
 
 ## Supported PT Sites
