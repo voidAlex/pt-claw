@@ -1,6 +1,6 @@
 {
   "movies": [
-    {"title": "流浪地球3", "year": 2027, "quality": "4K", "codec": "HEVC"}
+    {"title": "流浪地球3", "year": 2027, "quality": "4K", "codec": "HEVC", "note": "导演郭帆"}
   ],
   "actors": [
     {"name": "Christopher Nolan", "type": "director"},

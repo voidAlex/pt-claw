@@ -36,6 +36,7 @@
 ## 环境要求
 
 - Python 3.10+
+- `cryptography`（CookieCloud 同步需要：`pip install cryptography`）
 - qBittorrent Web UI 已开启
 - PT 站 Cookie（存于 `secrets.env`）
 - M-Team API Key（可选，API 搜索需要）
@@ -53,6 +54,7 @@
 | `qb_monitor.py` | qB 全功能查询（状态/过滤/删除） |
 | `qb_public_cleanup.py` | 公开磁链自动清理 |
 | `qb_restore.py` | 删种恢复（从备份还原到 qB） |
+| `qb_backup.py` | 删种前自动备份元数据 |
 | `sukebei_search.py` | Sukebei 公开磁链搜索 |
 | `javbus_magnet.py` | JavBus 磁链爬取 |
 | `javbus_star.py` | 演员片单交叉对比（javbus-api → JF + 历史） |

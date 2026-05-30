@@ -40,13 +40,13 @@ dpkg -l python3-cryptography >/dev/null 2>&1 || sudo apt-get install -y python3-
 **2. 创建数据文件：**
 
 ```bash
-# 下载历史（不存在则创建空文件）
+# 下载历史（不存在则创建，schema 见 templates/pt_downloaded.example.json）
 test -f pt_downloaded.json || echo '{"description":"下载历史 — 防止用户手动删除后定时任务重复下载","items":[]}' > pt_downloaded.json
 
 # 完成通知跟踪（不存在则创建）
 test -f pt_completed_last.txt || touch pt_completed_last.txt
 
-# 关注列表（不存在则创建空模板）
+# 关注列表（不存在则创建，schema 见 templates/pt_wishlist.example.json）
 test -f pt_wishlist.json || echo '{"movies":[],"actors":[],"fanhao":[]}' > pt_wishlist.json
 ```
 
@@ -82,7 +82,7 @@ cronjob(action='create',
    - 公开磁链（sukebei/javbus 标签）完成后自动调 qb_public_cleanup.py 停止做种保留文件
 2. 超7天0%死种 → 通知「💀 xxx 已死种N天，回复「删」清理」
    - ⚠️ 不要自动删除，等用户确认
-3. 都没有 → 整个回复只有三个字符：[SILENT]
+3. 都没有 → 整个回复仅：[SILENT]
 
 脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
     skills=["pt-claw"],

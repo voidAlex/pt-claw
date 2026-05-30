@@ -1,4 +1,12 @@
 {
   "description": "下载历史 — 防止用户手动删除后定时任务重复下载",
-  "items": []
+  "items": [
+    {
+      "code": "MIMK-267",
+      "title": "示例标题",
+      "added_at": "2025-01-15T10:30:00",
+      "source": "sukebei",
+      "status": "downloaded"
+    }
+  ]
 }
