@@ -229,6 +229,14 @@ python3 scripts/connectivity_check.py --json        # JSON 格式输出
 
 `needs_proxy=True` 站点走代理访问；`needs_proxy=False` 站点先直连，失败自动代理重试。`--keepalive` 模式访问各站首页刷新 session，cookie 失败时自动触发 CookieCloud 同步。
 
+### _check_stalled.py — 死种诊断
+
+```bash
+python3 scripts/_check_stalled.py    # 列出所有停滞种子
+```
+
+诊断脚本，列出 qBittorrent 中停滞超过一定时间且进度极低的种子（进度 <10%、状态 `stalledDL`）。输出格式：`种子名 | 进度% | 大小 | 天数 | tags`。与 `_cron_check.py` 的区别：`_cron_check.py` 是 cron 用的综合检查（含完成通知+死种告警+公开种清理），`_check_stalled.py` 是纯诊断工具，适合手动排查下载卡住的问题。
+
 ### cookie_sync.py — CookieCloud Cookie 同步（可选）
 
 ```bash
