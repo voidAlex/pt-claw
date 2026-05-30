@@ -19,7 +19,7 @@ import base64, hashlib, json, os, re, sys
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 
-from _common import _env
+from _common import _env, ENV_FILE
 
 
 def _decrypt_cookiecloud(uuid, encrypted, password):

@@ -10,7 +10,7 @@ metadata:
     related_skills: []
 ---
 
-# PT Downloader — 对话式资源搜索与下载
+# pt-claw — PT 多站搜索下载与 qBittorrent 管理
 
 ## Overview
 
@@ -95,13 +95,13 @@ metadata:
 | [references/scripts-guide.md](references/scripts-guide.md) | 全部脚本用法速查（命令示例 + 参数说明） | 需要运行脚本时 |
 | [references/first-time-setup.md](references/first-time-setup.md) | 首次配置清单 + 初始化流程 + cron 创建 | 用户首次使用或重新配置 |
 | [references/qb-operations.md](references/qb-operations.md) | qB 推送两步法 + 公开种清理 + 灾难恢复 + NAS 路径映射 | 推送下载、恢复种子、路径问题 |
-| [references/jf-integration.md](references/jf-integration.md) | Jellyfin + javbus-api + 演员统计 + 关注列表 + 追剧 + 去重 | 涉及 JF/追剧/成人内容/演员查询 |
-| [references/cron-patterns.md](references/cron-patterns.md) | Cron 下载进度检查 + 成人追剧高效链路 | cron 定时任务配置或调试 |
+| [references/jf-integration.md](references/jf-integration.md) | Jellyfin 连接配置 + 去重 + 追剧 + 关注列表 | 涉及 JF/追剧/去重 |
+| [references/cron-progress-check.md](references/cron-progress-check.md) | Cron 进度检查 + 公开种清理 + 死种告警 | cron 进度监控配置或调试 |
+| [references/adult-content.md](references/adult-content.md) | javbus-api + 成人区搜索 + 公开磁链 + 成人追剧链路 | 成人内容搜索/追剧/磁链 |
 | [references/pt-boost.md](references/pt-boost.md) | PT 刷流配置 + 执行逻辑 | 刷流保号 |
 | [references/new-site-adaptation.md](references/new-site-adaptation.md) | 新增 PT 站适配 5 步流程 | 用户要添加新站 |
 | [references/mteam-api.md](references/mteam-api.md) | 馒头 API 端点 + 认证 + genDlToken | 涉及 M-Team |
 | [references/diagnostic-network.md](references/diagnostic-network.md) | Cookie/代理/IP绑定诊断 + 代理变更检查清单 | 连接 403 或代理迁移时 |
-| [references/adult-section-search.md](references/adult-section-search.md) | PTTime/M-Team 成人区搜索参数 | 成人内容搜索 |
 | [references/media-maintenance.md](references/media-maintenance.md) | 媒体库重复检测 + 磁盘孤儿扫描 | 清理重复下载或手动恢复 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
 | [references/pitfalls.md](references/pitfalls.md) | 32 条常见陷阱（致命/严重/注意/脚本纪律） | 执行下载/删种前回顾 |
@@ -268,9 +268,13 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 详见 [references/pt-boost.md](references/pt-boost.md)：配置 schema（`pt_boost.json`）、每日执行逻辑（清理→新增）、cron 创建。
 
-## Jellyfin 集成 + javbus-api（可选）
+## Jellyfin 集成（可选）
 
-详见 [references/jf-integration.md](references/jf-integration.md)：片库去重、关注列表（`pt_wishlist.json`）、每日追剧 cron、javbus-api 端点、成人内容公开源回退链路。
+详见 [references/jf-integration.md](references/jf-integration.md)：连接配置、片库去重、关注列表（`pt_wishlist.json`）、每日追剧 cron。
+
+## 成人内容（可选）
+
+详见 [references/adult-content.md](references/adult-content.md)：javbus-api 部署与磁链获取、PTTime/M-Team/PTSkit 成人区搜索、公开磁链源与筛选、Cron 成人追剧链路。
 
 ## 新增 PT 站
 
