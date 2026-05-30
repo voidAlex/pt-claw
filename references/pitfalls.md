@@ -67,6 +67,10 @@
 
 **25. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
 
+**25a. TTG 表头列索引脆弱**：`_parse_ttg()` 用硬编码列位置取字段——`tds[6]` 取 size、`tds[7]` 取 completed、`tds[8]` 取 seeders/leechers。TTG (TBSource) 表头结构可能随站点升级变化，新增或重排一列就全部错位。正确做法：解析 `table#torrent_table` 的 `<th>` 表头行，按列名文本（「大小」/「Size」、「完成」/「Completed」、「做种/下载」/「S/L」）建立 name→index 映射；找不到表头时回退硬编码索引。
+
+**25b. JavBus 爬取正则绑定页面结构**：`javbus_magnet.py` 的 `search_scrape()` 直接用正则从 HTML 提取关键数据——`var gid = (\d+)`、`class="bigImage"`、`https://pics.dmm.co.jp`。JS 变量命名/CSS class/CDN 域名任一变化都会导致解析静默失败。应放宽正则容错（支持无空格赋值、多值 class、不硬编码 CDN），并检测 CAPTCHA 拦截或重定向。
+
 ## 脚本纪律
 
 **26. javbus-api 磁链获取需两步**：`javbus_magnet.py --api` 返回的是影片详情（含 gid/uc），不是磁链。正确流程：① `GET /api/movies/{番号}` 获取 gid 和 uc；② `GET /api/magnets/{番号}?gid=X&uc=Y` 获取结构化磁链。一步到位命令：

@@ -61,56 +61,76 @@ def search_scrape(code: str) -> dict:
 
     # Step 1: get page + gid
     html = _fetch(f"https://www.javbus.com/{code}", proxy)
-    gid_match = re.search(r'var gid = (\d+)', html)
-    uc_match = re.search(r'var uc = (\d+)', html)
+
+    # Detect CAPTCHA or redirect before parsing
+    if not html or len(html) < 200:
+        return {"error": f"Empty or blocked response for: {code}", "source": "javbus-scrape"}
+    if re.search(r'验证码|captcha|recaptcha', html, re.IGNORECASE):
+        return {"error": "CAPTCHA detected, try again later", "source": "javbus-scrape"}
+    if re.search(r'<title>[^<]*(302|403|404|redirect)[^<]*</title>', html, re.IGNORECASE):
+        return {"error": f"Page redirected or blocked: {code}", "source": "javbus-scrape"}
+
+    # Support var/let/const + flexible whitespace around =
+    gid_match = re.search(r'(?:var|let|const)\s+gid\s*=\s*(\d+)', html)
+    uc_match = re.search(r'(?:var|let|const)\s+uc\s*=\s*(\d+)', html)
     if not gid_match:
         return {"error": f"Movie not found: {code}", "source": "javbus-scrape"}
 
     gid = gid_match.group(1)
     uc = uc_match.group(1) if uc_match else "0"
 
-    # Cover
-    cover_match = re.search(r'class="bigImage"[^>]*href="([^"]+)"', html)
+    # Cover: match bigImage in multi-value class attribute
+    cover_match = re.search(
+        r'class=["\'][^"\']*bigImage[^"\']*["\'][^>]*href=["\']([^"\']+)["\']',
+        html, re.IGNORECASE)
     cover = cover_match.group(1) if cover_match else ""
 
-    # Samples (preview images)
-    samples = re.findall(r'https://pics\.dmm\.co\.jp[^"]+\.jpg', html)
+    # Samples: match image URLs without hardcoding CDN domain
+    samples = re.findall(
+        r'https?://[^"<>\s]+/(?:pics|digital|samples)/[^"<>\s]+\.jpg',
+        html)
 
     # Step 2: Ajax magnets
     ajax_url = (
         f"https://www.javbus.com/ajax/uncledatoolsbyajax.php"
         f"?gid={gid}&lang=zh&img=https://pics.javbus.com/cover/xxx.jpg&uc={uc}"
     )
-    html = _fetch(ajax_url, proxy, referer=f"https://www.javbus.com/{code}")
+    ajax_html = _fetch(ajax_url, proxy, referer=f"https://www.javbus.com/{code}")
 
     # Step 3: extract + deduplicate magnets
     seen = set()
     magnets = []
     for m in re.finditer(
-        r'magnet:\?xt=urn:btih:([a-f0-9A-F]{40})(?:&dn=([^&\'\"\]]+))?', html
-    ):
+        r'magnet:\?xt=urn:btih:([a-fA-F0-9]{40}|[A-Z2-7]{32})'
+        r'(?:&dn=([^&\'"<>\s\]]+))?',
+        ajax_html):
         ih = m.group(1).upper()
         if ih in seen:
             continue
         dn = urllib.parse.unquote(m.group(2) or "")
         if _is_spam(dn):
             continue
-        seen.add(ih.upper())
+        seen.add(ih)
 
         # Try to extract size from nearby text
         size_match = re.search(
-            r'(\d+\.?\d*)\s*(GB|MB)', html[m.end(): m.end() + 300]
+            r'(\d+\.?\d*)\s*(GB|MB)', ajax_html[m.end(): m.end() + 300]
         )
         size = size_match.group(0) if size_match else "?"
 
         # Check for HD / subtitle flags
-        after = html[m.end(): m.end() + 300]
+        after = ajax_html[m.end(): m.end() + 300]
         is_hd = "高清" in after or "HD" in after
         has_sub = "字幕" in after or "subtitle" in after.lower()
 
+        # Reconstruct clean magnet link with decoded dn
+        magnet_link = f"magnet:?xt=urn:btih:{ih}"
+        if dn:
+            magnet_link += f"&dn={urllib.parse.quote(dn)}"
+
         magnets.append({
-            "title": dn,
-            "link": m.group(0),
+            "title": dn if dn else "",
+            "link": magnet_link,
             "size": size,
             "isHD": is_hd,
             "hasSubtitle": has_sub,

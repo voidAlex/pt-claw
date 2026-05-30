@@ -147,7 +147,7 @@ metadata:
 
 | 关键词特征 | 内容类型 | 搜索路由 |
 |-----------|---------|---------|
-| 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → **先检查 `user-preferences.md` 成人 `enabled`**；未启用则拒绝并提示；已启用 → PTTime `adults.php` + M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
+| 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → **先检查 `user-preferences.md` 成人 `enabled`**；未启用则拒绝并提示；已启用 → PTTime `torrents.php?search=`（⚠️ `adults.php?searchstr=` 已失效） + M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
 | 演员/导演名 | 影视/成人 | → **先查元数据源获取完整作品列表**，再逐部搜 PT |
 | 电影/剧集名 | 影视 | → 全 15 站常规搜索 |
 | 片库统计/演员排行 | JF查询 | → JF `fields=People` 分页计数 |
@@ -276,6 +276,8 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 详见 [references/adult-content.md](references/adult-content.md)：javbus-api 部署与磁链获取、PTTime/M-Team/PTSkit 成人区搜索、公开磁链源与筛选、Cron 成人追剧链路。
 
+> ⚠️ **PTTime 成人区搜索已失效**：`adults.php?searchstr=` 参数被站点忽略，返回全量列表。`pt_search.py --adult` 已改用 `torrents.php?search=` 替代。详见 pitfalls #14a。
+
 ## 新增 PT 站
 
 详见 [references/new-site-adaptation.md](references/new-site-adaptation.md)：5 步适配流程（信息收集→平台识别→解析器→验证→文档更新）+ 适配检查清单。
@@ -290,7 +292,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ## Common Pitfalls
 
-致命级 6 条（代理/公开种/去重/静默/确认闸门/M-Team禁Cookie）+ 严重级 7 条 + 注意级 12 条 + 脚本纪律 7 条。详见 [references/pitfalls.md](references/pitfalls.md)。
+致命级 6 条（代理/公开种/去重/静默/确认闸门/M-Team禁Cookie）+ 严重级 7 条 + 注意级 14 条（含 TTG 列索引脆弱和 JavBus 正则绑定页面结构）+ 脚本纪律 7 条。共 34 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
 Agent 每次执行下载/删种前必须回顾致命级 1-6 条。
 
