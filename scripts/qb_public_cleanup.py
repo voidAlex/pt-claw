@@ -21,12 +21,6 @@ _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 from qb_backup import backup_from_torrents
 
-PUBLIC_TAGS = {"sukebei", "javbus"}
-MAX_DELETE_PER_RUN = 50
-MAX_PUBLIC_RATIO = 0.20
-DRY_RUN = _env("QB_CLEANUP_DRY_RUN") == "1"
-CHECK_MODE = "--check" in sys.argv
-
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 _env_cache = None
 
@@ -51,6 +45,13 @@ def _env(key, default=""):
         _load_env_file()
         val = _env_cache.get(key, default)
     return val
+
+
+PUBLIC_TAGS = {"sukebei", "javbus"}
+MAX_DELETE_PER_RUN = 50
+MAX_PUBLIC_RATIO = 0.20
+DRY_RUN = _env("QB_CLEANUP_DRY_RUN") == "1"
+CHECK_MODE = "--check" in sys.argv
 
 
 def main():

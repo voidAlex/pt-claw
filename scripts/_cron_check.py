@@ -90,6 +90,9 @@ def _save_state(state):
 qb_url = _env("QBITTORRENT_URL").rstrip("/")
 qb_user = _env("QBITTORRENT_USER")
 qb_pass = _env("QBITTORRENT_PASS")
+if not qb_url:
+    print(json.dumps({"error": "QBITTORRENT_URL not configured"}))
+    sys.exit(1)
 
 cj = CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
