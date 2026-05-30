@@ -165,7 +165,56 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
                 item["download_url"] = ""
             results.append(item)
 
+    else:
+        # Cookie-based NexusPHP sites — use pt_search.py subprocess
+        keyword = site_cfg.get("search_keyword", "") or ""
+        if not keyword:
+            return [{"error": f"search_keyword not set for {site_id}", "source": site_id}]
+        max_results = site_cfg.get("max_results", 50)
+        search_script = os.path.join(_skill_dir, "pt_search.py")
+        r = subprocess.run(
+            ["python3", search_script, site_id, keyword, "--limit", str(max_results)],
+            capture_output=True, text=True, timeout=60,
+        )
+        try:
+            items = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            return [{"error": f"{site_id} search parse error", "source": site_id}]
+
+        for item in items:
+            if "error" in item:
+                continue
+            promo = item.get("promo", "")
+            if promo not in ("Free", "2xFree"):
+                continue
+            if site_cfg.get("exclude_hr", True) and "HR" in item.get("title", ""):
+                continue
+            size_bytes = item.get("size_bytes", 0)
+            if size_bytes == 0:
+                # size_bytes may be 0 for classic parser — try parsing size string
+                size_str = item.get("size", "")
+                size_bytes = _parse_size(size_str)
+            size_gb = size_bytes / (1024**3)
+            if size_gb < site_cfg.get("min_size_gb", 0) or size_gb > site_cfg.get("max_size_gb", 9999):
+                continue
+            if item.get("seeders", 0) < site_cfg.get("min_seeders", 0):
+                continue
+            if not item.get("download_url"):
+                continue
+            results.append(item)
+
     return results
+
+
+def _parse_size(size_str: str) -> int:
+    """Parse human-readable size string like '4.37 GB' to bytes."""
+    m = re.match(r'([\d.]+)\s*(TB|GB|MB|KB|B)', size_str, re.IGNORECASE)
+    if not m:
+        return 0
+    val = float(m.group(1))
+    unit = m.group(2).upper()
+    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    return int(val * multipliers.get(unit, 1))
 
 
 def cleanup_aged(cfg: dict, qb: QBit, dry_run: bool = False) -> list[dict]:
