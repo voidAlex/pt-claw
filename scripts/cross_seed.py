@@ -31,169 +31,33 @@ import urllib.parse
 import urllib.request
 from http.cookiejar import CookieJar
 
-from _common import _env, _env_matching, _fmt_size, _load_env_file
+from _common import _env, _fmt_size, _load_env_file
 from _proxy import using_proxy
 from _search_cache import cache_get, cache_put
+
+# Single source of truth — pt_search.SITES is the canonical registry
+from pt_search import SITES as _PT_SITES, load_cookies as _load_cookies
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 TASKS_FILE = os.path.join(_skill_dir, "cross_seed_tasks.json")
 
 
-# ── Bencode parser ─────────────────────────────────────────────
+# ── Site map (derived from pt_search.SITES) ────────────────────
 
-def _bencode_decode(data: bytes, pos: int = 0) -> tuple:
-    ch = data[pos:pos + 1]
-    if ch == b"i":
-        end = data.index(b"e", pos)
-        return int(data[pos + 1:end]), end + 1
-    elif ch == b"l":
-        result = []
-        pos += 1
-        while data[pos:pos + 1] != b"e":
-            item, pos = _bencode_decode(data, pos)
-            result.append(item)
-        return result, pos + 1
-    elif ch == b"d":
-        result = {}
-        pos += 1
-        while data[pos:pos + 1] != b"e":
-            key, pos = _bencode_decode(data, pos)
-            val, pos = _bencode_decode(data, pos)
-            result[key] = val
-        return result, pos + 1
-    elif ch.isdigit():
-        colon = data.index(b":", pos)
-        length = int(data[pos:colon])
-        start = colon + 1
-        return data[start:start + length], start + length
-    else:
-        raise ValueError(f"Invalid bencode at pos {pos}: {ch!r}")
+def _build_site_map() -> dict:
+    # Excludes mteam (uses API download), keeps url + needs_proxy
+    site_map = {}
+    for sid, cfg in _PT_SITES.items():
+        if sid == "mteam":
+            continue
+        site_map[sid] = {
+            "url": cfg["url"],
+            "needs_proxy": cfg.get("needs_proxy", False),
+        }
+    return site_map
 
 
-def _bencode_decode_with_raw(data: bytes, pos: int = 0) -> tuple:
-    """Decode bencoded value, also returning its raw bytes."""
-    start = pos
-    ch = data[pos:pos + 1]
-    if ch == b"i":
-        end = data.index(b"e", pos)
-        return int(data[pos + 1:end]), end + 1, data[start:end + 1]
-    elif ch == b"l":
-        result = []
-        pos += 1
-        raw_parts = [b"l"]
-        while data[pos:pos + 1] != b"e":
-            item, pos, raw = _bencode_decode_with_raw(data, pos)
-            result.append(item)
-            raw_parts.append(raw)
-        raw_parts.append(b"e")
-        return result, pos + 1, b"".join(raw_parts)
-    elif ch == b"d":
-        result = {}
-        pos += 1
-        raw_parts = [b"d"]
-        while data[pos:pos + 1] != b"e":
-            key, pos, kr = _bencode_decode_with_raw(data, pos)
-            val, pos, vr = _bencode_decode_with_raw(data, pos)
-            result[key] = val
-            raw_parts.extend([kr, vr])
-        raw_parts.append(b"e")
-        return result, pos + 1, b"".join(raw_parts)
-    elif ch.isdigit():
-        colon = data.index(b":", pos)
-        length = int(data[pos:colon])
-        s = colon + 1
-        end = s + length
-        return data[s:end], end, data[start:end]
-    else:
-        raise ValueError(f"Invalid bencode at pos {pos}: {ch!r}")
-
-
-def _decode_str(v) -> str:
-    if isinstance(v, bytes):
-        try:
-            return v.decode("utf-8")
-        except UnicodeDecodeError:
-            return v.decode("latin-1")
-    return str(v)
-
-
-def parse_torrent(data: bytes) -> dict:
-    decoded, _, _ = _bencode_decode_with_raw(data)
-    if not isinstance(decoded, dict):
-        raise ValueError("Torrent file root is not a dict")
-
-    info_key = b"info"
-    if info_key not in decoded:
-        raise ValueError("No 'info' dict in torrent")
-
-    raw_info = decoded[info_key]
-    if not isinstance(raw_info, dict):
-        raise ValueError("'info' is not a dict")
-
-    # info_hash = SHA1 of the RAW bencoded info dict (NOT re-encoded)
-    # Re-encoding would sort keys, changing the hash
-    info_prefix = b"4:info"
-    info_start = data.index(info_prefix) + len(info_prefix)
-    # Re-decode from info_start to get the end position of the info dict
-    _, info_end, info_raw_bytes = _bencode_decode_with_raw(data, info_start)
-    info_hash = hashlib.sha1(info_raw_bytes).hexdigest().upper()
-
-    str_info = {}
-    for k, v in raw_info.items():
-        key = _decode_str(k) if isinstance(k, bytes) else k
-        str_info[key] = v
-
-    name = _decode_str(str_info.get("name", ""))
-
-    files = []
-    if "length" in str_info:
-        total_length = int(str_info["length"])
-        files.append({"path": name, "length": total_length})
-    elif "files" in str_info:
-        total_length = 0
-        for f in str_info["files"]:
-            path_parts = f.get(b"path", f.get("path", []))
-            path_str = "/".join(_decode_str(p) for p in path_parts)
-            flen = int(f.get(b"length", f.get("length", 0)))
-            total_length += flen
-            files.append({"path": path_str, "length": flen})
-    else:
-        total_length = 0
-
-    return {
-        "info_hash": info_hash,
-        "name": name,
-        "length": total_length,
-        "files": sorted(files, key=lambda f: f["path"]),
-    }
-
-
-# ── Torrent download ───────────────────────────────────────────
-
-def _load_cookies() -> dict[str, str]:
-    cookies = {}
-    for key, val in _env_matching("PT_COOKIE_").items():
-        site_id = key[len("PT_COOKIE_"):].lower()
-        cookies[site_id] = val
-    return cookies
-
-
-_SITE_MAP = {
-    "1ptba": {"url": "https://1ptba.com", "needs_proxy": False},
-    "btschool": {"url": "https://pt.btschool.club", "needs_proxy": True},
-    "carpt": {"url": "https://carpt.net", "needs_proxy": True},
-    "hdfans": {"url": "https://hdfans.org", "needs_proxy": False},
-    "pttime": {"url": "https://www.pttime.org", "needs_proxy": False},
-    "soulvoice": {"url": "https://pt.soulvoice.club", "needs_proxy": True},
-    "zmpt": {"url": "https://zmpt.cc", "needs_proxy": True},
-    "ptskit": {"url": "https://www.ptskit.org", "needs_proxy": True},
-    "pthome": {"url": "https://pthome.org", "needs_proxy": True},
-    "hdsky": {"url": "https://hdsky.me", "needs_proxy": True},
-    "hdhome": {"url": "https://hdhome.org", "needs_proxy": True},
-    "audiences": {"url": "https://audiences.me", "needs_proxy": True},
-    "keepfrds": {"url": "https://pt.keepfrds.com", "needs_proxy": True},
-    "ttg": {"url": "https://totheglory.im", "needs_proxy": True},
-}
+_SITE_MAP = _build_site_map()
 
 
 def download_torrent(download_url: str, site: str = "") -> bytes:

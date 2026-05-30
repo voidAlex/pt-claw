@@ -336,6 +336,23 @@ def _fetch_mteam_profile(api_key):
         unread = int(msg_data.get("count", 0))
         result["unread_messages"] = unread
 
+    # 4. Bonus rate (per-hour earnings, seeding bonus points)
+    bonus_resp = _api_post("/tracker/mybonus", api_key)
+    if str(bonus_resp.get("code")) == "0":
+        bonus_data = bonus_resp.get("data", {})
+        bph = bonus_data.get("bonusPerHour") or bonus_data.get("perHour")
+        if bph is not None:
+            try:
+                result["bonus_per_hour"] = float(bph)
+            except (TypeError, ValueError):
+                result["bonus_per_hour"] = bph
+        sb = bonus_data.get("seedingPoints") or bonus_data.get("seeding_bonus")
+        if sb is not None:
+            try:
+                result["seeding_bonus"] = float(sb)
+            except (TypeError, ValueError):
+                result["seeding_bonus"] = sb
+
     return result
 
 

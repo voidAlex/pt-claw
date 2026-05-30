@@ -22,6 +22,7 @@ import time
 
 _CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pt_search_cache.json")
 _TTL = 300
+_MAX_ENTRIES = 500
 
 
 def _load_cache() -> dict:
@@ -43,6 +44,17 @@ def _cache_key(site_id: str, query: str) -> str:
     return f"{site_id}:{query}"
 
 
+def _evict(cache: dict):
+    now = time.time()
+    expired = [k for k, v in cache.items() if now - v.get("ts", 0) > _TTL * 2]
+    for k in expired:
+        del cache[k]
+    if len(cache) > _MAX_ENTRIES:
+        sorted_keys = sorted(cache.keys(), key=lambda k: cache[k].get("ts", 0))
+        for k in sorted_keys[:len(cache) - _MAX_ENTRIES]:
+            del cache[k]
+
+
 def cache_get(site_id: str, query: str, ttl: int = _TTL) -> list | None:
     cache = _load_cache()
     key = _cache_key(site_id, query)
@@ -58,11 +70,7 @@ def cache_put(site_id: str, query: str, data: list):
     cache = _load_cache()
     key = _cache_key(site_id, query)
     cache[key] = {"ts": time.time(), "data": data}
-    # Evict expired entries
-    now = time.time()
-    expired = [k for k, v in cache.items() if now - v.get("ts", 0) > _TTL * 2]
-    for k in expired:
-        del cache[k]
+    _evict(cache)
     _save_cache(cache)
 
 
