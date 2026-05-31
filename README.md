@@ -2,11 +2,11 @@
 
 多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
 
-对话式搜索 15 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
+对话式搜索 115 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
 
 ## 功能
 
-- **15 站支持**：M-Team (API)、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦、PTSkit、PTHome、HDSky、HDHome、Audiences、KeepFriends、ToTheGlory
+- **115 站支持（15 核心 + 100 扩展）**：核心 → M-Team (API)、PTTime、BTSchool、CarPT、HDFans、1PTBar、SoulVoice、织梦、PTSkit、PTHome、HDSky、HDHome、Audiences、KeepFriends、ToTheGlory；扩展 → PTer(猫站)、HDArea、CHDBits、OurBits、HDDolby、HDKylin、HDTime、HDU、HhanClub(憨憨)、海胆、天使、春天(CMCT)、TCCF(ET8)、TLF(吐鲁番)、JoyHD、北洋、葡萄(SJTU)、北邮人(BYRBT)、蝴蝶(HUDBT)、南洋PT、龟站(KamePT) 等 100 站
 - **双引擎搜索**：Cookie 直连站点 + M-Team REST API
 - **智能去重**：下载历史记录 + Jellyfin 片库感知，删了的内容不会重复下载
 - **自动回退**：PT 做种不足时自动回退到公开磁链

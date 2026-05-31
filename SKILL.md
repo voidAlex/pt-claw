@@ -1,6 +1,6 @@
 ---
 name: pt-claw
-description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。15站支持，纯脚本无外部依赖。"
+  description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。115站支持(15核心+100扩展)，纯脚本无外部依赖。"
 version: 3.0.2
 author: Hermes Agent
 license: MIT
@@ -14,7 +14,7 @@ metadata:
 
 ## Overview
 
-通过对话搜索 15 个 PT 站资源、推送到 qBittorrent 下载、完成后通知。纯脚本实现，无 Prowlarr/Jackett 依赖。
+通过对话搜索 115 个 PT 站资源、推送到 qBittorrent 下载、完成后通知。纯脚本实现，无 Prowlarr/Jackett 依赖。
 
 **核心链路**：
 ```
@@ -28,7 +28,7 @@ metadata:
 - 只有用户明确说「下」「下载」「all」等确认词后才推送到 qBittorrent
 - 此规则适用于**所有场景**：手动搜索、演员追剧、自动追剧，无一例外
 
-**15 站支持**：PTTime · M-Team(馒头) · BTSchool · CarPT · HDFans · 1PTBar · SoulVoice · 织梦 · PTSkit · PTHome · HDSky · HDHome · Audiences(观众) · KeepFriends(朋友) · ToTheGlory(TTG)
+**115 站支持（15 核心 + 100 扩展）**：核心站 → PTTime · M-Team(馒头) · BTSchool · CarPT · HDFans · 1PTBar · SoulVoice · 织梦 · PTSkit · PTHome · HDSky · HDHome · Audiences(观众) · KeepFriends(朋友) · ToTheGlory(TTG)；扩展站 → PTer(猫站) · HDArea · CHDBits · OurBits · HDDolby · HDKylin · HDTime · HDU · HhanClub(憨憨) · 海胆 · 天使 · 春天(CMCT) · TCCF(ET8) · TLF(吐鲁番) · JoyHD · 北洋 · 葡萄(SJTU) · 北邮人(BYRBT) · 蝴蝶(HUDBT) · 南洋PT · 龟站(KamePT) 等 100 站
 
 ## When to Use
 
@@ -41,7 +41,7 @@ metadata:
 | 搜索/下载 | 搜、搜索、下载、下、找个资源、有没有、求片 |
 | qBittorrent | qb、qB、qbit、下载进度、下载状态、做种、种子、删种、暂停、恢复、死种 |
 | 辅种 | 辅种、cross seed、检查辅种、哪些站能辅、批量辅种、全站辅种 |
-| PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦、ptskit、拾刻、pthome、铂金家、hdsky、天雪、hdhome、家园、audiences、观众、keepfrds、朋友、ttg、套套哥、听听歌、totheglory |
+| PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦、ptskit、拾刻、pthome、铂金家、hdsky、天雪、hdhome、家园、audiences、观众、keepfrds、朋友、ttg、套套哥、听听歌、totheglory、pter、猫站、hdarea、chdbits、彩虹岛、ourbits、我堡、hddolby、高清杜比、hdkylin、麒麟、hdtime、hdupt、好多油、hhanclub、憨憨、海胆、hdcity、天使、springsunday、春天、cmct、tccf、et8、tlfbits、吐鲁番、joyhd、tjupt、北洋、sjtu、葡萄、byrbt、北邮人、hudbt、蝴蝶、nanyangpt、南洋、kamept、龟站、rousi、肉丝、opencd、皇后、ourbits、烧包、唐门 |
 | 番号/成人 | 番号、车牌、jav、JAV、成人、sukebei、javbus、nyaa |
 | 定时任务 | 定时任务、cron、追剧、刷流、下载通知 |
 | 关注/收藏 | 关注、取消关注、关注列表、wishlist |
@@ -67,7 +67,7 @@ metadata:
 
 | 脚本 | 用途 |
 |------|------|
-| `pt_search.py` | 多站搜索（15 站 NexusPHP + M-Team API） |
+| `pt_search.py` | 多站搜索（115 站 NexusPHP + M-Team API） |
 | `qb_add.py` | 添加种子到 qBittorrent |
 | `qb_monitor.py` | qB 状态/过滤/删除/死种诊断 |
 | `cross_seed.py` | 多站辅种验证与推送 |
@@ -104,10 +104,12 @@ metadata:
 | [references/diagnostic-network.md](references/diagnostic-network.md) | Cookie/代理/IP绑定诊断 + 代理变更检查清单 | 连接 403 或代理迁移时 |
 | [references/media-maintenance.md](references/media-maintenance.md) | 媒体库重复检测 + 磁盘孤儿扫描 | 清理重复下载或手动恢复 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
-| [references/pitfalls.md](references/pitfalls.md) | 32 条常见陷阱（致命/严重/注意/脚本纪律） | 执行下载/删种前回顾 |
+| [references/pitfalls.md](references/pitfalls.md) | 常见陷阱（致命/严重/注意/脚本纪律） | 执行下载/删种前回顾 |
 | [references/env-reference.md](references/env-reference.md) | 完整环境变量清单 + 配置模板 | 配置或排查环境问题 |
 
 ## Supported PT Sites
+
+### Core 15 Sites
 
 | 站点 | 接入 | 成人区 | 代理 | 备注 |
 |------|------|--------|------|------|
@@ -126,6 +128,113 @@ metadata:
 | Audiences (观众) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP |
 | KeepFriends (朋友) | Cookie | 无 | ✅ `needs_proxy` | NexusPHP，Category 419 可能含成人内容 |
 | ToTheGlory (TTG) | Cookie | 无 | ✅ `needs_proxy` | TBSource 自定义解析器，`/browse.php` 搜索，分类嵌入搜索字符串 |
+
+### Extended 100 Sites (NexusPHP)
+
+所有扩展站均为 Cookie + NexusPHP 模式，只需配置 `PT_COOKIE_<SITEID>` 即可使用。
+
+| 站点 ID | 名称 | URL | 代理 | 分类 |
+|---------|------|-----|------|------|
+| `pter` | PTer(猫站) | pterclub.net | ✅ | 影视, 综合 |
+| `hdarea` | HDArea | hdarea.club | ✅ | 影视, 综合 |
+| `chdbits` | CHDBits | ptchdbits.co | ✅ | 影视, 综合 |
+| `ourbits` | OurBits | ourbits.club | ✅ | 影视, 动漫, 纪录片, 综艺 |
+| `hddolby` | HDDolby | hddolby.com | ✅ | 影视, 综合 |
+| `hdkylin` | HDKylin(麒麟) | hdkyl.in | ✅ | 综合, 电影, 电视剧, 纪录片 |
+| `hdtime` | HDTime | hdtime.org | ✅ | 影视, 综合 |
+| `hdupt` | HDU(好多油) | hdupt.com | ✅ | 影视, 综合 |
+| `hhanclub` | 憨憨 | hhanclub.net | ✅ | 电影, 电视剧 |
+| `haidan` | 海胆 | haidan.cc | ✅ | 电影, 电视剧, 影视, 综合 |
+| `hdcity` | 天使 | hdcity.city | ✅ | 综合, 影视 |
+| `springsunday` | 春天(CMCT) | springsunday.net | ✅ | 影视, 音乐, 综合 |
+| `tccf` | TCCF(ET8) | et8.org | ✅ | 影视, 综合, 学习 |
+| `tlfbits` | TLF(吐鲁番) | eastgame.org | ✅ | 影视, 综合 |
+| `joyhd` | JoyHD | joyhd.net | ✅ | 影视, 综合 |
+| `kufei` | 库非 | kufei.org | ✅ | 影视, 综合 |
+| `sunnypt` | 阳光 | sunnypt.top | ✅ | 影视, 综合 |
+| `sbpt` | SBPT | sbpt.link | ✅ | 影视, 综合 |
+| `discfan` | 碟粉 | discfan.net | ✅ | 影视, 综合 |
+| `ultrahd` | UltraHD | ultrahd.net | ✅ | 电影, 电视剧, 综艺, 纪录片, 动漫 |
+| `dstudio` | DepthStudio | dstudio.me | ✅ | 影视, 综合 |
+| `dubhe` | 天枢 | dubhe.site | ✅ | 综合, 影视 |
+| `luckpt` | LuckPT | luckpt.de | ✅ | 影视, 综合, 音乐 |
+| `cspt` | 财神 | cspt.top | ✅ | 综合, 影视 |
+| `cbg` | 藏宝阁 | cangbao.ge | ✅ | 综合, 影视 |
+| `cyanbug` | 大青虫 | cyanbug.net | ✅ | 综合, 影视 |
+| `kunlun` | 昆仑 | yhpp.cc | ✅ | 综合, 影视 |
+| `ptlgs` | PTLGS(劳改所) | ptlgs.org | ✅ | 综合, 影视 |
+| `ptzone` | PTZone | ptzone.xyz | ✅ | 影视, 综合 |
+| `ptsbao` | 烧包 | ptsbao.club | ✅ | 影视, 综合 |
+| `ptgtk` | PTGTK | gtkpw.xyz | ✅ | 综合, 影视 |
+| `yinguskg` | 樱花 | ying.us.kg | ✅ | 综合, 影视 |
+| `raingfh` | 雨 | raingfh.top | ✅ | 综合, 影视 |
+| `xingyunge` | 星陨阁 | xingyungept.org | ✅ | 综合, 影视, 国漫 |
+| `muxuege` | 慕雪阁 | muxuege.org | ✅ | 综合 |
+| `longpt` | 龙PT | longpt.org | ✅ | 综合, 影视, 动漫, 有声书 |
+| `tmpt` | 唐门 | tmpt.top | ✅ | 综合, 影视 |
+| `tangpt` | 躺平 | tangpt.top | ✅ | 综合 |
+| `lajidui` | 垃圾堆 | lajidui.top | ✅ | 综合, 影视综艺, 游戏软件, 电子书 |
+| `sewerpt` | 下水道 | sewerpt.com | ✅ | 冷门, 低分, 粤语, 影视 |
+| `retroflix` | RetroFlix | retroflix.net | ✅ | 影视, 综合 |
+| `torrenthub` | TorrentHub | torrenthub.club | ✅ | 影视, 教育, 音乐 |
+| `piggo` | Piggo | piggo.me | ✅ | 影视, 综合, 少儿 |
+| `ubits` | UBits(U堡) | ubits.club | ✅ | 影视 |
+| `dragonhd` | 龍之家 | dragonhd.xyz | ✅ | 综合, 影视 |
+| `novahd` | NovaHD(星云) | novahd.top | ✅ | 综合 |
+| `wintersakura` | 冬樱 | wintersakura.net | ✅ | 电影, 电视剧 |
+| `okpt` | OKPT | okpt.net | ✅ | - |
+| `crabpt` | 蟹黄堡 | crabpt.vip | ✅ | - |
+| `pandapt` | 熊猫 | pandapt.net | ✅ | - |
+| `mypt` | MyPT | mypt.cc | ✅ | 综合 |
+| `oshenpt` | 奥申 | oshen.win | ✅ | 综合, 音乐 |
+| `itzmx` | PT分享站 | itzmx.com | ✅ | 综合 |
+| `march` | 三月传媒 | duckboobee.org | ✅ | WEB, 综合 |
+| `13city` | 13城 | 13city.org | ✅ | 影视, 综合 |
+| `52movie` | 52Movie | 52movie.top | ✅ | 综合 |
+| `52pt` | 52PT | 52pt.site | ✅ | 高清, 电影, 电视剧 |
+| `hdclone` | HDClone | hdclone.top | ✅ | - |
+| `hdvideo` | HDVideo | hdvideo.top | ✅ | - |
+| `hdbao` | HDBao | hdbao.cc | ✅ | - |
+| `cdy` | 传道院 | cdy.skin | ✅ | 综合 |
+| `rousi` | 肉丝 | rousi.zip | ✅ | 影视, 综合, 成人 |
+| `tjupt` | 北洋 | tjupt.org | ❌ | 教育网, 影视, 综合 |
+| `sjtu` | 葡萄(SJTU) | sjtu.edu.cn | ❌ | 教育网, 影视, 综合 |
+| `byrbt` | 北邮人(BYRBT) | byr.pt | ❌ | 教育网, 影视, 综合 |
+| `hudbt` | 蝴蝶(HUDBT) | hust.edu.cn | ❌ | 教育网, 影视, 综合 |
+| `nanyangpt` | 南洋PT | nanyangpt.com | ❌ | 教育网, 影视, 综合 |
+| `hitpt` | 百川PT | hitpt.com | ❌ | 教育网, 影视, 综合 |
+| `nexushd` | NexusHD | nexushd.org | ❌ | 教育网 |
+| `rs` | 睿思 | xidian.edu.cn | ❌ | 教育网, 影视, 综合 |
+| `opencd` | 皇后(音乐) | open.cd | ✅ | 音乐 |
+| `musopia` | 音乐乌托邦 | musopia.vip | ✅ | 音乐 |
+| `kamept` | 龟站 | kamept.com | ✅ | 成人, COS, 动漫, 音乐, 影视 |
+| `nicept` | NicePT | nicept.net | ✅ | 成人 |
+| `afun` | Afun | ptlover.cc | ✅ | 综合, 电影, 电视剧, 纪录片, 成人 |
+| `ilolicon` | 爱萝莉 | xloli.cc | ✅ | 萝莉, 动漫, 成人, 综合, 影视 |
+| `ptfans` | PTFans | ptfans.cc | ✅ | 影视, 综合, 成人 |
+| `ptlao` | PTLAO | ptlao.top | ✅ | 成人, 综合 |
+| `kelu` | Kelu | kelu.one | ✅ | 成人 |
+| `tu88` | TU88 | tu88.men | ✅ | 漫画, 图集, 绘本, 成人 |
+| `siqi` | 思齐 | si-qi.xyz | ✅ | 图书 |
+| `xingtan` | 杏坛 | xingtan.one | ✅ | 医学, 电子书, 学术 |
+| `hxpt` | 好学 | hxpt.org | ✅ | 学习 |
+| `htpt` | 海棠 | htpt.cc | ✅ | 曲艺, 小品, 有声小说 |
+| `momentpt` | 瞬间 | momentpt.top | ✅ | 摄影, 图片, 艺术 |
+| `zrpt` | ZRPT | zrpt.cc | ✅ | 纪录片, 自然, 教育 |
+| `ggpt` | GGPT | gamegamept.com | ✅ | 游戏 |
+| `tey` | 太乙 | tey.cc | ✅ | 电视剧, 韩剧 |
+| `freefarm` | 自由农场 | 0ff.cc | ✅ | 电视剧, 韩剧, 日剧 |
+| `playletpt` | PlayLet | playletpt.xyz | ✅ | 短剧 |
+| `agsvpt` | AGSVPT(末日种子库) | agsvpt.cn | ✅ | 综合, 短剧, 影视 |
+| `ptneko` | 超科学喵 | ptneko.com | ✅ | - |
+| `ptcafe` | 咖啡 | ptcafe.club | ✅ | - |
+| `njtupt` | 浦园 | njtupt.top | ✅ | - |
+| `alingpt` | alingPT | aling.de | ✅ | - |
+| `azusa` | 梓喵 | azusa.wiki | ✅ | 漫画, 轻小说, Galgame, 画集 |
+| `baozi` | 包子 | t-baozi.cc | ✅ | 综合 |
+| `railgunpt` | RailgunPT | bilibili.download | ✅ | 综合 |
+| `lemonhdnet` | 柠檬不甜 | lemonhd.net | ✅ | 综合 |
+| `u2` | U2(幼儿园) | u2.dmhy.org | ✅ | 影视, 动漫 |
 
 ### M-Team API 要点
 
@@ -147,9 +256,9 @@ metadata:
 
 | 关键词特征 | 内容类型 | 搜索路由 |
 |-----------|---------|---------|
-| 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → **先检查 `user-preferences.md` 成人 `enabled`**；未启用则拒绝并提示；已启用 → PTTime `adults.php` + M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
+| 番号模式（如 `SSIS-448`、`SONE-833`） | JAV 成人 | → **先检查 `user-preferences.md` 成人 `enabled`**；未启用则拒绝并提示；已启用 → PTTime `torrents.php`（**adults.php 已失效**）+ M-Team API adult → 做种不足→ JavBus(首选) → Sukebei |
 | 演员/导演名 | 影视/成人 | → **先查元数据源获取完整作品列表**，再逐部搜 PT |
-| 电影/剧集名 | 影视 | → 全 15 站常规搜索 |
+| 电影/剧集名 | 影视 | → 全 115 站常规搜索 |
 | 片库统计/演员排行 | JF查询 | → JF `fields=People` 分页计数 |
 
 **⚠️ 元数据优先原则**：搜索演员/导演时，不要直接在 PT 站搜索。PT 站的演员标签经常不完整或误标。
@@ -244,6 +353,56 @@ echo -e "CODE1\nCODE2" | python3 scripts/download_history.py filter  # 批量
 | HDSky | `hdsky` | HDHome | `hdhome` |
 | Audiences | `audiences` | KeepFriends | `keepfrds` |
 | ToTheGlory | `ttg` | Sukebei | `sukebei` |
+| 13城 | `13city` | 52Movie | `52movie` |
+| 52PT | `52pt` | Afun | `afun` |
+| AGSVPT | `agsvpt` | alingPT | `alingpt` |
+| 梓喵 | `azusa` | 包子 | `baozi` |
+| 北邮人 | `byrbt` | 藏宝阁 | `cbg` |
+| 传道院 | `cdy` | CHDBits | `chdbits` |
+| 蟹黄堡 | `crabpt` | 财神 | `cspt` |
+| 大青虫 | `cyanbug` | 碟粉 | `discfan` |
+| 龍之家 | `dragonhd` | DepthStudio | `dstudio` |
+| 天枢 | `dubhe` | 自由农场 | `freefarm` |
+| GGPT | `ggpt` | 海胆 | `haidan` |
+| HDArea | `hdarea` | HDBao | `hdbao` |
+| 天使 | `hdcity` | HDClone | `hdclone` |
+| HDDolby | `hddolby` | HDKylin | `hdkylin` |
+| HDTime | `hdtime` | HDU | `hdupt` |
+| HDVideo | `hdvideo` | 憨憨 | `hhanclub` |
+| 百川PT | `hitpt` | 海棠 | `htpt` |
+| 蝴蝶 | `hudbt` | 好学 | `hxpt` |
+| 爱萝莉 | `ilolicon` | PT分享站 | `itzmx` |
+| JoyHD | `joyhd` | 龟站 | `kamept` |
+| Kelu | `kelu` | 库非 | `kufei` |
+| 昆仑 | `kunlun` | 垃圾堆 | `lajidui` |
+| 柠檬不甜 | `lemonhdnet` | 龙PT | `longpt` |
+| LuckPT | `luckpt` | 三月传媒 | `march` |
+| 瞬间 | `momentpt` | 音乐乌托邦 | `musopia` |
+| 慕雪阁 | `muxuege` | MyPT | `mypt` |
+| 南洋PT | `nanyangpt` | NexusHD | `nexushd` |
+| NicePT | `nicept` | 浦园 | `njtupt` |
+| NovaHD | `novahd` | OKPT | `okpt` |
+| 皇后 | `opencd` | 奥申 | `oshenpt` |
+| OurBits | `ourbits` | 熊猫 | `pandapt` |
+| Piggo | `piggo` | PlayLet | `playletpt` |
+| 咖啡 | `ptcafe` | PTer | `pter` |
+| PTFans | `ptfans` | PTGTK | `ptgtk` |
+| PTLAO | `ptlao` | PTLGS | `ptlgs` |
+| 超科学喵 | `ptneko` | 烧包 | `ptsbao` |
+| PTZone | `ptzone` | RailgunPT | `railgunpt` |
+| 雨 | `raingfh` | RetroFlix | `retroflix` |
+| 肉丝 | `rousi` | 睿思 | `rs` |
+| SBPT | `sbpt` | 下水道 | `sewerpt` |
+| 思齐 | `siqi` | 葡萄 | `sjtu` |
+| 春天 | `springsunday` | 阳光 | `sunnypt` |
+| 躺平 | `tangpt` | TCCF | `tccf` |
+| 太乙 | `tey` | 北洋 | `tjupt` |
+| TLF | `tlfbits` | 唐门 | `tmpt` |
+| TorrentHub | `torrenthub` | TU88 | `tu88` |
+| U2 | `u2` | UBits | `ubits` |
+| UltraHD | `ultrahd` | 冬樱 | `wintersakura` |
+| 杏坛 | `xingtan` | 星陨阁 | `xingyunge` |
+| 樱花 | `yinguskg` | ZRPT | `zrpt` |
 
 推送成功后必须记录下载历史：
 ```bash
