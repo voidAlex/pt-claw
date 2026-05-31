@@ -20,7 +20,6 @@ Usage:
     status, body, elapsed = fetch(url, data=json.dumps(payload).encode(),
                                   headers={"Content-Type": "application/json"})
 """
-import logging
 import socket
 import ssl
 import time
@@ -28,7 +27,9 @@ import urllib.parse
 
 import urllib3
 
-logger = logging.getLogger("pt-claw._http")
+from _logger import get_logger
+
+logger = get_logger("_http")
 
 # Suppress urllib3 warning about unverified HTTPS (self-signed NAS certs etc.)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

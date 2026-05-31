@@ -155,6 +155,15 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
         except json.JSONDecodeError:
             return [{"error": f"{site_id} search parse error", "source": site_id}]
 
+        # pt_search.py returns a list; defensive check for unexpected dict
+        if isinstance(items, dict):
+            if "error" in items:
+                return [{"error": f"{site_id}: {items['error']}", "source": site_id}]
+            items = items.get("results", [items])
+
+        if not isinstance(items, list):
+            return [{"error": f"{site_id} unexpected search format", "source": site_id}]
+
         for item in items:
             if "error" in item:
                 continue

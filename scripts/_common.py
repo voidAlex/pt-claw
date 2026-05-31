@@ -60,7 +60,7 @@ def _env_matching(prefix):
 
 def _fmt_size(size_bytes):
     if size_bytes == 0:
-        return ""
+        return "0 B"
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if size_bytes < 1024:
             return f"{size_bytes:.1f} {unit}"

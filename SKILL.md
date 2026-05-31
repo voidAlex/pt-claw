@@ -60,6 +60,7 @@ metadata:
 | 「首次配置」「初始化」 | → [references/first-time-setup.md](references/first-time-setup.md) |
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
 | 「辅种」「哪些站能辅」「cross seed」 | → `cross_seed.py` — 多站辅种验证与推送 |
+| 「这个链接下载」「详情页推送」 | → `pt_download.py` — 详情页 URL 直接下载推送 qB |
 
 ## 脚本清单
 
@@ -68,6 +69,7 @@ metadata:
 | 脚本 | 用途 |
 |------|------|
 | `pt_search.py` | 多站搜索（115 站 NexusPHP + M-Team API） |
+| `pt_download.py` | 详情页 URL 直接下载推送 qB（通用所有站） |
 | `qb_add.py` | 添加种子到 qBittorrent |
 | `qb_monitor.py` | qB 状态/过滤/删除/死种诊断 |
 | `cross_seed.py` | 多站辅种验证与推送 |

@@ -4,6 +4,8 @@
 
 所有脚本位于 `scripts/` 目录，配置文件路径见脚注¹。
 
+**目录**：[pt_search](#pt_searchpy--多站搜索115-站含馒头-api) · [pt_download](#pt_downloadpy--详情页直接下载推送通用所有-pt-站) · [qb_add](#qb_addpy--添加到-qbittorrent含站点标签--文件选择) · [_cron_check](#_cron_checkpy--cron-进度检查合并完成通知--死种频率控制--公开种清理) · [download_history](#download_historypy--下载历史追踪) · [qb_monitor](#qb_monitorpy--qbittorrent-全功能查询) · [javbus_star](#javbus_starypy--演员片单交叉对比) · [qb_snapshot](#qb_snapshotpy--删种备份与恢复) · [jf_query](#jf_querypy--jellyfin-查询) · [javbus_magnet](#javbus_magnetpy--javbus-磁链获取) · [sukebei_search](#sukebei_searchpy--sukebei-nyaa-rss-搜索) · [mteam_api](#mteam_apypy--m-team-api-客户端) · [connectivity_check](#connectivity_checkpy--全服务连接测试) · [cookie_sync](#cookie_syncpy--cookiecloud-cookie-同步可选) · [site_profile](#site_profilepy--多站用户信息查询) · [cross_seed](#cross_seedpy--多站辅种验证与推送) · [pt_ratio_boost](#pt_ratio_boostpy--freeleech-自动辅种刷流保号) · [env_check.sh](#env_checksh--环境变量完整性检查)
+
 ### pt_search.py — 多站搜索（115 站，含馒头 API）
 
 ```bash
@@ -24,6 +26,29 @@ python3 scripts/pt_search.py "" --site pttime --adult --actor "浅野心" --limi
 - **M-Team**: **仅限 REST API**（`x-api-key` 认证，`MTEAM_API_KEY` 环境变量）。**禁止使用 Cookie 登录——会封号。** 搜索 ✅，下载 ✅（genDlToken）
 - **其他 14 站**: Cookie 直连或代理（从 `PT_COOKIE_<SITE>` 环境变量读取，`needs_proxy` 站点自动走 `PT_PROXY`）
 - **BTSchool/CarPT/SoulVoice/织梦**: NexusPHP 站，cookie 绑定登录 IP，必须走与浏览器相同出口的代理才能用
+
+### pt_download.py — 详情页直接下载推送（通用所有 PT 站）
+
+从 PT 站详情页 URL 提取种子、下载 .torrent 文件、推送 qB。自动识别站点（域名匹配 SITES 注册表），支持全部 115+ 站。
+
+```bash
+# 单个详情页
+python3 scripts/pt_download.py "https://pt.btschool.club/details.php?id=172580" --tags btschool
+
+# M-Team 详情页（走 API genDlToken）
+python3 scripts/pt_download.py "https://kp.m-team.cc/detail/12345" --tags mteam --category "电影"
+
+# 多个详情页批量
+python3 scripts/pt_download.py url1 url2 url3 --tags batch --category "电影"
+
+# 仅查看信息不下载
+python3 scripts/pt_download.py "https://pt.btschool.club/details.php?id=172580" --check
+
+# 指定保存路径
+python3 scripts/pt_download.py "https://www.pttime.org/details.php?id=99999" --tags pttime --save-path /media/downloads
+```
+
+**支持的 URL 格式**：`details.php?id=X`（NexusPHP）· `detail/X`（M-Team）· 任意含 `?id=X` 参数的 PT 详情页
 
 ### qb_add.py — 添加到 qBittorrent（含站点标签 + 文件选择）
 

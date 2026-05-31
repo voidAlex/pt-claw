@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Cron progress check: new completions, dead torrents, public auto-cleanup."""
-import json, os, re, sys, fcntl, urllib.parse, urllib.request
+import json, os, re, sys, fcntl, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone, timedelta
 
 from _common import _env, PUBLIC_TAGS, MAX_DELETE_PER_RUN, MAX_PUBLIC_RATIO, COMPLETED_STATES
@@ -72,8 +72,13 @@ def main():
         print(json.dumps({"error": str(e)}))
         sys.exit(1)
 
-    with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
-        torrents = json.loads(r.read())
+    try:
+        with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
+            torrents = json.loads(r.read())
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+        log.error("failed to fetch torrents from qB: %s", e)
+        print(json.dumps({"error": f"qBittorrent connection failed: {e}"}))
+        sys.exit(1)
     log.info("fetched %d torrents from qBittorrent", len(torrents))
 
     known_hashes = set()
