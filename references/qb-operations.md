@@ -36,6 +36,10 @@ Agent 在 Step 4 推送下载时，先调此 API 获取真实分类列表，再�
 | `/api/v2/torrents/info` | GET | 查询种子状态 |
 | `/api/v2/torrents/delete` | POST | 删除种子 |
 
+## qBittorrent API 认证
+
+qB Web API v5+ 强制 CSRF 保护，禁止 Basic Auth。详见 [references/qb-session-auth.md](references/qb-session-auth.md)。
+
 ## 推送两步法
 
 ### 问题

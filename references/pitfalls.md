@@ -2,7 +2,9 @@
 
 ## 致命级
 
-**1. 代理用 `PT_PROXY`，禁止用 `HTTP_PROXY`**：`HTTP_PROXY` 会让 Agent 自身 API 走代理，挂了直接失联。脚本按站点 `needs_proxy` 标记自动应用 `PT_PROXY`。
+**1. bash `source secrets.env` 会因 cookie 特殊字符报错**：Cookie 值含 `==`、`;`、`=` 等字符时，`source` 会触发 bash 解析错误（如 `sl-session=xxx==: 未找到命令`）。**永远用 Python `_load_env_file()` 读取环境变量**，不要 source。手动调试时用 Python 单行脚本。
+
+**2. PTTime 成人区搜索不生效（`adults.php?searchstr=` 不过滤）**：
 
 **2. 公开磁链只看标签不看 tracker**：唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 有四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份。
 
@@ -89,3 +91,5 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 **31. `write_file` 替换敏感值**：写 `secrets.env` 用 `printf >>`。
 
 **32. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [privacy-audit-checklist.md](privacy-audit-checklist.md)。
+
+**33. 新增脚本的 Cookie 检测必须复用 `_is_login_page()`**：`_common.py` 提供了 `_is_login_page(html)` 公共函数，通过提取 `<title>` 标签内容检测登录页面。禁止在新脚本中使用 `'登录' in html[:N]` 之类的粗暴匹配——会把导航栏「快捷登录」等文字误判为 Cookie 过期。所有 Cookie 有效性检测统一走这个函数。

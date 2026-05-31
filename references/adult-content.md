@@ -20,12 +20,23 @@ docker compose -f ~/javbus-api/docker-compose.yml up -d
 
 | 端点 | 功能 | 返回 |
 |------|------|------|
-| `GET /api/movies/{番号}` | 影片详情 | 封面、预览截图(≤20张)、演员、导演、标签、gid、uc |
+| `GET /api/movies/{番号}` | 影片详情 | 封面、预览截图(≤20张)、演员(`stars[].id`+`name`)、导演、标签、gid、uc |
 | `GET /api/magnets/{番号}?gid=X&uc=Y` | 磁链列表 | hash、大小(bytes)、HD/字幕标记、日期 |
-| `GET /api/movies/search?keyword=xxx` | 关键词搜索 | 番号+标题+封面+标签 |
-| `GET /api/stars/{starId}` | 演员详情 | 演员名、作品列表、头像 |
+| `GET /api/movies/search?keyword=xxx` | 关键词搜索 | 番号+标题+封面+标签。⚠️ 演员名搜索常返回空，用 star 筛选代替 |
+| `GET /api/movies?filterType=star&filterValue={starId}&magnet=all&page=N` | 按演员筛选影片 | `movies[].id`=番号, `title`, `date`, `img`；分页见 `pagination` |
+| `GET /api/stars/{starId}` | 演员详情 | 演员名、作品列表、头像（部分部署可能 404，回退到 filterType=star） |
 
 磁链排序：`sortBy=size|date` + `sortOrder=desc|asc`
+
+**演员列表 `movies[].id` 字段即为番号**（如 `SNOS-237`），无需逐个请求详情页拿 code。标题含番号的也用此字段取。
+
+### Star ID 发现
+
+javbus-api 无独立演员搜索端点（`/api/stars/search` 返回 404）。获取 star ID 方法：
+
+1. **从作品反查**：已知演员任一作品 → `GET /api/movies/{CODE}` → `stars[0].id`
+2. **从网页搜索**：访问 `https://www.javbus.com/searchstar?keyword=xxx` → URL 含 star ID
+3. **已缓存 ID**：浅野こころ=`119g`，彩月七緒=`11wm`
 
 ### 磁链获取是两步操作
 
@@ -144,6 +155,16 @@ javbus-api 获取片单
 ### 演员名歧义
 
 「浅野心」可能指 浅野こころ 或 浅野心愛。策略：javbus-api 搜名获取所有匹配 → 按作品数判断主次 → 全部纳入候选 → JF + 下载历史去重。
+
+### javbus_star.py 代理依赖（Cron 陷阱）
+
+`javbus_star.py` 内部通过 `PT_PROXY` 访问 javbus-api（即使 API 在 localhost:8922 也走代理），代理不可达时报错：
+```
+Network error searching for star: ('Unable to connect to proxy', ...)
+```
+**Cron 回退方案**：绕过 `javbus_star.py`，直接用 `urllib` 调 javbus-api（localhost 直连不走代理）：
+1. 已知 star ID → `GET /api/movies?filterType=star&filterValue={id}&magnet=all`
+2. 未知 star ID → 先取任意已知作品 `/api/movies/{CODE}` → 从 `stars[0].id` 获取 → 回步骤 1
 
 ### qB 批量推送注意
 
