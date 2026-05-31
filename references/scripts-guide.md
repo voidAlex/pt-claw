@@ -84,6 +84,15 @@ python3 scripts/download_history.py add --code MIMK-267 --title "xxx" --source s
 python3 scripts/download_history.py check --code MIMK-267
 # → {"exists": true, "code": "MIMK-267"}
 
+# 标记为已完成（cron 调用）
+python3 scripts/download_history.py complete --code MIMK-267
+
+# 按种子 hash 标记完成（匹配 code 或 name）
+python3 scripts/download_history.py complete-by-hash --hash abc123 --name "ROYD-318"
+
+# 辅种记录（跨站来源标记）
+python3 scripts/download_history.py cross-seed --code MIMK-267 --title "xxx" --source pttime --original-source mteam
+
 # 批量过滤：从 stdin 读 code 列表，只输出未下载过的
 echo -e "MIMK-267\nNEW-001" | python3 scripts/download_history.py filter
 # → NEW-001
@@ -332,3 +341,11 @@ python3 scripts/pt_ratio_boost.py cleanup --check
 从 `pt_boost.json` 读取配置，按站点搜索 Freeleech / 2x上传 等促销种子，自动添加到 qBittorrent 做种。支持促销标签识别（参考 MoviePilot 的 6 种促销类型）、大小/做种数过滤、做种天数上限。过期种子自动备份后移除（通过 `qb_snapshot.py`）。
 
 配置 schema 和详细用法见 [references/pt-boost.md](pt-boost.md)。
+
+### env_check.sh — 环境变量完整性检查
+
+```bash
+bash scripts/env_check.sh
+```
+
+检查 `secrets.env` 中所有必需和可选环境变量是否已配置：qBittorrent（必需）、M-Team API Key（可选）、Jellyfin（可选）、PT_PROXY（可选但推荐）、15 个核心站 PT Cookie、CookieCloud（可选）、javbus-api（可选）。仅检查变量是否存在，不验证连接——连接验证用 `connectivity_check.py`。

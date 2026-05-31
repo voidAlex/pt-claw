@@ -243,7 +243,7 @@ echo -e "CODE1\nCODE2" | python3 scripts/download_history.py filter  # 批量
 
 **🏷️ 站点标签（必须！）**：
 
-核心站标签速查：`mteam` / `pttime` / `btschool` / `carpt` / `hdfans` / `1ptba` / `soulvoice` / `zmpt` / `ptskit` / `pthome` / `hdsky` / `hdhome` / `audiences` / `keepfrds` / `ttg` / `sukebei`
+核心站标签速查：`mteam` / `pttime` / `btschool` / `carpt` / `hdfans` / `1ptba` / `soulvoice` / `zmpt` / `ptskit` / `pthome` / `hdsky` / `hdhome` / `audiences` / `keepfrds` / `ttg` / `sukebei` / `javbus`
 
 完整 115 站标签映射见 [references/site-tags.md](references/site-tags.md)。标签 = 站点 ID（小写）。
 
@@ -292,9 +292,9 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ## Common Pitfalls
 
-致命级 6 条（代理/公开种/去重/静默/确认闸门/M-Team禁Cookie）+ 严重级 7 条 + 注意级 12 条 + 脚本纪律 7 条。详见 [references/pitfalls.md](references/pitfalls.md)。
+致命级 7 条 + 严重级 7 条 + 注意级 17 条（含子条目）+ 脚本纪律 10 条，共 41 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
-Agent 每次执行下载/删种前必须回顾致命级 1-6 条。
+Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 
 ## 环境变量
 

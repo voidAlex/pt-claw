@@ -27,8 +27,12 @@ DEFAULT_HISTORY = {
 def _load() -> dict:
     if not os.path.exists(HISTORY_PATH):
         return dict(DEFAULT_HISTORY)
-    with open(HISTORY_PATH) as f:
-        return json.load(f)
+    try:
+        with open(HISTORY_PATH) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        # Corrupted file — reset to default
+        return dict(DEFAULT_HISTORY)
 
 
 def _save(data: dict) -> None:

@@ -14,6 +14,7 @@
 | HDSky | `hdsky` | HDHome | `hdhome` |
 | Audiences | `audiences` | KeepFriends | `keepfrds` |
 | ToTheGlory | `ttg` | Sukebei | `sukebei` |
+| JavBus | `javbus` |
 
 ## 扩展站
 

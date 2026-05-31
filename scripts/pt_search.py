@@ -1211,17 +1211,17 @@ def _parse_nexusphp(html: str, site: dict, site_id: str,
     """
     results = []
 
-    # Find all <tr data=TID> start positions
+    # Find all <tr data=TID> or <tr data="TID"> start positions
     title_starts = [(m.start(), m.group(1), m.group(2))
                     for m in re.finditer(
-                        r'<tr\s+data=(\d+)\b[^>]*>(.*?)</tr>',
+                        r'<tr\s+data=["\']?(\d+)\b["\']?[^>]*>(.*?)</tr>',
                         html, re.DOTALL)]
 
     for idx, (start, torrent_id, title_html) in enumerate(title_starts):
         # The stats block is from the title row's closing </tr>
         # to the next <tr data=...> start (or end of HTML)
         title_row_end = start + len(re.search(
-            r'<tr\s+data=' + torrent_id + r'\b[^>]*>.*?</tr>',
+            r'<tr\s+data=["\']?' + torrent_id + r'\b["\']?[^>]*>.*?</tr>',
             html[start:], re.DOTALL).group(0))
         
         if idx + 1 < len(title_starts):

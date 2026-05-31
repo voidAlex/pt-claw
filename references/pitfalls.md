@@ -4,7 +4,7 @@
 
 **1. bash `source secrets.env` 会因 cookie 特殊字符报错**：Cookie 值含 `==`、`;`、`=` 等字符时，`source` 会触发 bash 解析错误（如 `sl-session=xxx==: 未找到命令`）。**永远用 Python `_load_env_file()` 读取环境变量**，不要 source。手动调试时用 Python 单行脚本。
 
-**2. PTTime 成人区搜索用 `adults.php`**：PTTime 成人区搜索必须走 `/adults.php?search=...&search_area=1&incldead=1`，不能用 `torrents.php`（常规搜索不覆盖成人内容）。`pt_search.py --adult` 已正确路由到 `adults.php`，不要改回 `torrents.php`。
+**2. PTTime 成人区搜索必须走 `adults.php`**：PTTime 成人内容只能通过 `/adults.php?search=...&search_area=1&incldead=1` 搜索（参数名是 `search`，不是 `searchstr`）。常规 `torrents.php` 不覆盖成人内容。`pt_search.py --adult` 已正确路由到 `adults.php`。不要改用 `torrents.php`。
 
 **3. 公开磁链只看标签不看 tracker**：唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 有四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份。
 
@@ -18,67 +18,65 @@
 
 ## 严重级
 
-**7. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302 ④**国内 IP 直连 403，必须走 PT_PROXY**。`mteam_api.py` 和 `pt_search.py` 在 `PT_PROXY` 未设置时直接报错，不会静默直连。
+**8. M-Team API**：①限速 403（1000次/24h）②下线 405 ③DNS 302 ④**国内 IP 直连 403，必须走 PT_PROXY**。`mteam_api.py` 和 `pt_search.py` 在 `PT_PROXY` 未设置时直接报错，不会静默直连。
 
-**8. qB URL 推送静默失败**：PT 站 download.php 需 Cookie，qB 没有。两步法见 [qb-operations.md](qb-operations.md)。
+**9. qB URL 推送静默失败**：PT 站 download.php 需 Cookie，qB 没有。两步法见 [qb-operations.md](qb-operations.md)。
 
-**9. JF 已有 ≠ 重复**：比 `DateCreated` vs qB `added_on` 时间戳。JF 晚于 qB = 正常入库。
+**10. JF 已有 ≠ 重复**：比 `DateCreated` vs qB `added_on` 时间戳。JF 晚于 qB = 正常入库。
 
-**10. API key 必须写 `secrets.env`**：不依赖 memory。用 `printf >>` 追加。
+**11. API key 必须写 `secrets.env`**：不依赖 memory。用 `printf >>` 追加。
 
-**11. PT 恢复种子结构不匹配**：本地 .torrent → snatchlist → 搜索下载。导入后验证命中已有文件。
+**12. PT 恢复种子结构不匹配**：本地 .torrent → snatchlist → 搜索下载。导入后验证命中已有文件。
 
-**12. wishlist 厂牌排除同步**：用户说「XXX 厂牌不要」→ 立即更新 `exclude_prefixes`。
+**13. wishlist 厂牌排除同步**：用户说「XXX 厂牌不要」→ 立即更新 `exclude_prefixes`。
 
-**13. 同名多版本分组展示**：电影/动画/剧集分别列出，让用户选。
+**14. 同名多版本分组展示**：电影/动画/剧集分别列出，让用户选。
 
 ## 注意级
 
-**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime 用 `adults.php?search=...&search_area=1&incldead=1`、M-Team 成人区（`mode: "adult"`）、PTSkit `/special.php`、做种不足→javbus-api + Sukebei。
+**15. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime 用 `adults.php?search=...&search_area=1&incldead=1`、M-Team 成人区（`mode: "adult"`）、PTSkit `/special.php`、做种不足→javbus-api + Sukebei。
 
-**15. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
+**16. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
 
-**16. 日本演员用日文汉字**：「七緒」能搜，「七绪」0 结果。先用番号反查获取原名。
+**17. 日本演员用日文汉字**：「七緒」能搜，「七绪」0 结果。先用番号反查获取原名。
 
-**17. JF/javbus-api 中文 URL 编码**：`--data-urlencode` 或 `urllib.parse.quote()`。
+**18. JF/javbus-api 中文 URL 编码**：`--data-urlencode` 或 `urllib.parse.quote()`。
 
-**18. 公开磁链**：JavBus > Sukebei（磁链多/去码/AI）、`--list-files`→用户确认→`--select-files`、`--max-video` 兜底、下完删种保文件、卡死换不同 hash。
+**19. 公开磁链**：JavBus > Sukebei（磁链多/去码/AI）、`--list-files`→用户确认→`--select-files`、`--max-video` 兜底、下完删种保文件、卡死换不同 hash。
 
-**18b. JavBus 磁链获取需两步**：`javbus_magnet.py --api` 返回的是电影详情（封面/演员/gid/uc），不是磁链列表。获取磁链的正确流程：
+**19b. JavBus 磁链获取需两步**：`javbus_magnet.py --api` 返回的是电影详情（封面/演员/gid/uc），不是磁链列表。获取磁链的正确流程：
 1. `GET /api/movies/{code}` → 提取 `gid` 和 `uc`
 2. `GET /api/magnets/{code}?gid=X&uc=Y` → 获取结构化磁链列表（含大小/HD/字幕标记）
-不要只调 `javbus_magnet.py` 就以为拿到了磁链——需要手动走第二步。
-
-**19. 三重去重**：下载历史 → JF 搜索 → JF `DateCreated` vs qB `added_on`。
-
-**20. 搜老剧多关键词**：中文通用标题 + 季别名 + 英文名+季号。
-
-**21. Cookie 403 ≠ 过期**：NexusPHP `c_secure_*` cookie 绑定登录 IP。直连 403 → 走代理重试（代理出口 IP 需和浏览器一致），代理也 403 → 才判过期。详见 [diagnostic-network.md](diagnostic-network.md)。
-
-**22. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
-
-**23. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。完整步骤见 [diagnostic-network.md](diagnostic-network.md)。
-
-**24. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
-
-**25. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
-
-**25a. PTTime 成人搜索用 `adults.php`**：PTTime 成人区搜索必须走 `/adults.php?search=...&search_area=1&incldead=1`，不能用 `torrents.php`（常规搜索不覆盖成人内容）。`pt_search.py --adult` 已正确路由。注意参数名是 `search`（不是 `searchstr`）。不要改回 `torrents.php`。
-
-**25b. Cookie 过期检测只看 `<title>` 标签**：之前检测 `'登录' in html[:2000]` 会把导航栏的「快捷登录」文字误判为过期。已改为提取 `<title>` 标签内容再检测（`_common._is_login_page()`）。涉及文件：`pt_search.py`、`site_profile.py`、`connectivity_check.py`。不要改回 `html[:N]` 方式。
-
-**25c. TTG 列索引从表头动态解析**：TTG 页面列顺序可能变化，硬编码索引（6/7/8）不可靠。已改为解析 `<th>` 表头行建立 名称→索引 映射（匹配 大小/Size、完成/Completed、做种-下载/S-L），仅在表头未找到时回退到硬编码默认值。
-
-**25d. JavBus 爬取健壮性**：`javbus_magnet.py` 的 `search_scrape` 已加固：① gid/uc 正则支持 `var/let/const` + 灵活空白 ② bigImage 匹配多值 class 属性 ③ 样例图匹配任意 CDN 域名（不限 pics.dmm.co.jp）④ 磁链支持 base32 hash ⑤ 爬取前检测 CAPTCHA/Cloudflare/重定向。遇到「Movie not found」时先检查是否被 CAPTCHA 拦截。
-
-## 脚本纪律
-
-**26. javbus-api 磁链获取需两步**：`javbus_magnet.py --api` 返回的是影片详情（含 gid/uc），不是磁链。正确流程：① `GET /api/movies/{番号}` 获取 gid 和 uc；② `GET /api/magnets/{番号}?gid=X&uc=Y` 获取结构化磁链。一步到位命令：
+一步到位命令：
 ```bash
 gid=$(curl -s "http://localhost:8922/api/movies/$CODE" | python3 -c "import sys,json; print(json.load(sys.stdin)['gid'])")
 uc=$(curl -s "http://localhost:8922/api/movies/$CODE" | python3 -c "import sys,json; print(json.load(sys.stdin)['uc'])")
 curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 ```
+
+**20. 三重去重**：下载历史 → JF 搜索 → JF `DateCreated` vs qB `added_on`。
+
+**21. 搜老剧多关键词**：中文通用标题 + 季别名 + 英文名+季号。
+
+**22. Cookie 403 ≠ 过期**：NexusPHP `c_secure_*` cookie 绑定登录 IP。直连 403 → 走代理重试（代理出口 IP 需和浏览器一致），代理也 403 → 才判过期。详见 [diagnostic-network.md](diagnostic-network.md)。
+
+**23. PTTime Cloudflare 拦截**：browser_navigate 抓或等冷却。
+
+**24. PT_PROXY 变更需同步 javbus-api**：修改 `secrets.env` 中 `PT_PROXY` 后，javbus-api 的 Docker 容器仍使用旧代理。需同步更新 `docker-compose.yml` 中 `HTTP_PROXY`/`HTTPS_PROXY` 并重建容器。路径：`~/javbus-api/docker-compose.yml`。完整步骤见 [diagnostic-network.md](diagnostic-network.md)。
+
+**25. `connectivity_check.py` 消耗 M-Team 配额**：`test_mteam()` 每次调 `POST /torrent/search {"keyword":"test"}`，消耗 1000次/24h 配额。频繁调用（如 cron 每次跑）会导致 API 限速 403。诊断流程：先查是否频繁调了 `connectivity_check.py`，而非直接怀疑 API key。
+
+**26. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
+
+**26a. PTTime 成人搜索用 `adults.php`**：PTTime 成人区搜索必须走 `/adults.php?search=...&search_area=1&incldead=1`，不能用 `torrents.php`（常规搜索不覆盖成人内容）。`pt_search.py --adult` 已正确路由。注意参数名是 `search`（不是 `searchstr`）。不要改回 `torrents.php`。
+
+**26b. Cookie 过期检测只看 `<title>` 标签**：之前检测 `'登录' in html[:2000]` 会把导航栏的「快捷登录」文字误判为过期。已改为提取 `<title>` 标签内容再检测（`_common._is_login_page()`）。涉及文件：`pt_search.py`、`site_profile.py`、`connectivity_check.py`。不要改回 `html[:N]` 方式。
+
+**26c. TTG 列索引从表头动态解析**：TTG 页面列顺序可能变化，硬编码索引（6/7/8）不可靠。已改为解析 `<th>` 表头行建立 名称→索引 映射（匹配 大小/Size、完成/Completed、做种-下载/S-L），仅在表头未找到时回退到硬编码默认值。
+
+**26d. JavBus 爬取健壮性**：`javbus_magnet.py` 的 `search_scrape` 已加固：① gid/uc 正则支持 `var/let/const` + 灵活空白 ② bigImage 匹配多值 class 属性 ③ 样例图匹配任意 CDN 域名（不限 pics.dmm.co.jp）④ 磁链支持 base32 hash ⑤ 爬取前检测 CAPTCHA/Cloudflare/重定向。遇到「Movie not found」时先检查是否被 CAPTCHA 拦截。
+
+## 脚本纪律
 
 **27. qb_add.py 磁链推送超时回退**：`qb_add.py --stdin` 的 `max_video` 模式会等待元数据取回，对慢磁链可能超时。超时时回退到直接 qB API 推送：`curl -b <cookie> -X POST '<qb_url>/api/v2/torrents/add' --data-urlencode 'urls=<magnet>'`，然后补 `setCategory` + `setLocation` + `addTags`。
 

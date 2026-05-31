@@ -57,6 +57,101 @@ def _build_site_map() -> dict:
 _SITE_MAP = _build_site_map()
 
 
+# ── Bencode parser (for .torrent file parsing) ──────────────────
+
+def _bdecode(data: bytes, pos: int = 0) -> tuple:
+    """Decode a bencoded value, returning (value, new_pos)."""
+    ch = data[pos:pos+1]
+    if ch == b'd':
+        pos += 1
+        d = {}
+        while data[pos:pos+1] != b'e':
+            key, pos = _bdecode(data, pos)
+            val, pos = _bdecode(data, pos)
+            d[key] = val
+        return d, pos + 1
+    elif ch == b'l':
+        pos += 1
+        lst = []
+        while data[pos:pos+1] != b'e':
+            val, pos = _bdecode(data, pos)
+            lst.append(val)
+        return lst, pos + 1
+    elif ch == b'i':
+        end = data.index(b'e', pos)
+        return int(data[pos+1:end]), end + 1
+    elif ch in (b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9'):
+        colon = data.index(b':', pos)
+        length = int(data[pos:colon])
+        start = colon + 1
+        return data[start:start+length], start + length
+    else:
+        raise ValueError(f"Invalid bencode at pos {pos}: {ch!r}")
+
+
+def parse_torrent(raw: bytes) -> dict:
+    """Parse a .torrent file and return info_hash, name, length, files.
+
+    Returns dict with:
+        info_hash: str (40-char hex SHA1 of bencoded info dict)
+        name: str (torrent name)
+        length: int (total size in bytes)
+        files: list[dict] with 'path' and 'length' keys
+    """
+    decoded, _ = _bdecode(raw)
+
+    info = decoded[b'info']
+    info_bencoded = _bencode(info)
+    import hashlib as _hl
+    info_hash = _hl.sha1(info_bencoded).hexdigest()
+
+    name = info.get(b'name', b'').decode('utf-8', errors='replace')
+
+    files = []
+    if b'files' in info:
+        total = 0
+        for f in info[b'files']:
+            path_parts = [p.decode('utf-8', errors='replace') for p in f[b'path']]
+            fpath = '/'.join(path_parts)
+            flen = f[b'length']
+            total += flen
+            files.append({"path": fpath, "length": flen})
+        length = total
+    else:
+        length = info.get(b'length', 0)
+        files.append({"path": name, "length": length})
+
+    return {
+        "info_hash": info_hash,
+        "name": name,
+        "length": length,
+        "files": files,
+    }
+
+
+def _bencode(val) -> bytes:
+    """Encode a value back to bencode format."""
+    if isinstance(val, dict):
+        parts = [b'd']
+        for k in sorted(val.keys()):
+            parts.append(_bencode(k))
+            parts.append(_bencode(val[k]))
+        parts.append(b'e')
+        return b''.join(parts)
+    elif isinstance(val, list):
+        parts = [b'l']
+        for v in val:
+            parts.append(_bencode(v))
+        parts.append(b'e')
+        return b''.join(parts)
+    elif isinstance(val, int):
+        return b'i' + str(val).encode() + b'e'
+    elif isinstance(val, (bytes, bytearray)):
+        return str(len(val)).encode() + b':' + bytes(val)
+    else:
+        raise TypeError(f"Cannot bencode {type(val)}")
+
+
 def download_torrent(download_url: str, site: str = "") -> bytes:
     if site == "mteam":
         return _download_mteam(download_url)
