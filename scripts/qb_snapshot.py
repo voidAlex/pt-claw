@@ -90,6 +90,8 @@ def backup_from_torrents(torrents, reason=""):
     entries = []
     for t in torrents:
         info_hash = t.get("hash", "")
+        progress = t.get("progress", 0)
+        tstate = t.get("state", "")
         entry = {
             "hash": info_hash,
             "name": t.get("name", ""),
@@ -98,6 +100,9 @@ def backup_from_torrents(torrents, reason=""):
             "tags": t.get("tags", ""),
             "size": t.get("size", 0),
             "added_on": t.get("added_on", 0),
+            "progress": round(progress, 4),
+            "state": tstate,
+            "was_completed": progress >= 1.0 or tstate in ("uploading", "stalledUP", "queuedUP", "forcedUP"),
             "reason": reason,
         }
         torrent_path = _download_torrent(opener, qb_url, info_hash)
