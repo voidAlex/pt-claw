@@ -4,18 +4,18 @@ Add torrents to qBittorrent via Web API with file selection support.
 
 Usage:
     python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei
-    python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-video
     python3 qb_add.py --stdin                              # read from stdin (JSON)
     python3 qb_add.py --from-search "query" --index 0      # search then add by index
 
 Public magnet file selection (two-step):
     python3 qb_add.py "magnet:?..." --tags sukebei --list-files
+    → shows ALL files + recommended (largest video + code-matching extras)
     python3 qb_add.py --select-files <hash> --keep 0,3,5
 """
 
 import json, os, re, sys, time, urllib.request, urllib.parse
 
-from _common import _env, AD_KEYWORDS as _AD_KEYWORDS
+from _common import _env
 from _logger import get_logger
 from _qb_session import get_session as _get_session, qb_request as _qb_api_request, reset as _reset_session
 
@@ -70,146 +70,6 @@ def add_tags(hashes: str | list[str], tags: str | list[str]) -> dict:
                        data={"hashes": hashes, "tags": tags})
 
 
-def _select_main_video(info_hash: str, code: str = "", timeout: int = 30) -> dict:
-    """For a paused torrent, identify the main video file, skip everything else, then resume.
-
-    Heuristic (in priority order):
-    1. Files containing the search code (e.g. "MIMK-267") → largest among them
-    2. Largest video file, EXCLUDING those with ad/sample keywords
-    3. If no video found at all, keep the single largest file
-    """
-    AD_KEYWORDS = list(_AD_KEYWORDS) + ["ad", "promo", "试看", "demo"]
-
-    # Wait for metadata
-    deadline = time.time() + timeout
-    files = []
-    while time.time() < deadline:
-        files = qb_request(f"/api/v2/torrents/files?hash={info_hash}")
-        if isinstance(files, list) and len(files) > 0:
-            break
-        if "error" in files:
-            time.sleep(2)
-            continue
-        time.sleep(2)
-
-    if not isinstance(files, list) or len(files) == 0:
-        qb_request("/api/v2/torrents/resume", method="POST", data={"hashes": info_hash})
-        return {"video_file": None, "skipped_count": 0, "kept_count": 0, "warning": "metadata timeout"}
-
-    # Annotate with index
-    for i, f in enumerate(files):
-        f["_index"] = i
-
-    VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".wmv", ".mov", ".ts", ".m2ts", ".webm", ".flv"}
-    video_files = [f for f in files if os.path.splitext(f.get("name", "").lower())[1] in VIDEO_EXTS]
-    non_video = [f for f in files if f not in video_files]
-
-    def _is_ad(f):
-        name = f.get("name", "").lower()
-        return any(kw in name for kw in AD_KEYWORDS)
-
-    main = None
-
-    # Priority 1: file matching the code
-    if code and video_files:
-        code_matches = [f for f in video_files if code.lower() in f.get("name", "").lower()]
-        if code_matches:
-            main = max(code_matches, key=lambda f: f.get("size", 0))
-
-    # Priority 2: largest non-ad video
-    if main is None and video_files:
-        clean = [f for f in video_files if not _is_ad(f)]
-        if clean:
-            main = max(clean, key=lambda f: f.get("size", 0))
-        else:
-            # All videos look like ads — still pick largest but warn
-            main = max(video_files, key=lambda f: f.get("size", 0))
-
-    # Priority 3: largest file of any kind
-    if main is None:
-        main = max(files, key=lambda f: f.get("size", 0))
-
-    # Also keep matching subtitle files
-    keep_indices = {main["_index"]}
-    if main:
-        base_name = os.path.splitext(main["name"])[0]
-        for f in non_video:
-            fname = f.get("name", "")
-            _, fext = os.path.splitext(fname.lower())
-            if fext in {".srt", ".ass", ".ssa", ".sub", ".idx"}:
-                sub_base = os.path.splitext(fname)[0]
-                if sub_base.startswith(base_name) or base_name in sub_base:
-                    keep_indices.add(f["_index"])
-
-    # Skip all non-kept files
-    skip_indices = [i for i in range(len(files)) if i not in keep_indices]
-    if skip_indices:
-        qb_request("/api/v2/torrents/filePrio", method="POST",
-                   data={"hash": info_hash,
-                         "id": "|".join(str(i) for i in skip_indices),
-                         "priority": "0"})
-
-    qb_request("/api/v2/torrents/resume", method="POST", data={"hashes": info_hash})
-
-    return {
-        "video_file": main.get("name") if main else None,
-        "video_size_mb": round(main.get("size", 0) / 1048576, 1) if main else 0,
-        "skipped_count": len(skip_indices),
-        "kept_count": len(keep_indices),
-    }
-
-
-def list_files(info_hash: str, timeout: int = 60) -> dict:
-    """List all files in a paused torrent. Used with --list-files for public magnets.
-
-    Returns JSON with file list: index, name, size, extension, is_video, is_subtitle.
-    Torrent stays paused after listing — caller must use --select-files or --resume.
-    """
-    VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".wmv", ".mov", ".ts", ".m2ts", ".webm", ".flv"}
-    SUB_EXTS = {".srt", ".ass", ".ssa", ".sub", ".idx"}
-
-    deadline = time.time() + timeout
-    files = []
-    while time.time() < deadline:
-        files = qb_request(f"/api/v2/torrents/files?hash={info_hash}")
-        if isinstance(files, list) and len(files) > 0 and files[0].get("size", 0) > 0:
-            break
-        if isinstance(files, dict) and "error" in files:
-            return files
-        time.sleep(2)
-
-    if not isinstance(files, list) or len(files) == 0:
-        return {"error": "metadata timeout — torrent may have no peers"}
-
-    result = []
-    for i, f in enumerate(files):
-        name = f.get("name", "")
-        _, ext = os.path.splitext(name.lower())
-        size_bytes = f.get("size", 0)
-        result.append({
-            "index": i,
-            "name": name,
-            "size_bytes": size_bytes,
-            "size_mb": round(size_bytes / 1048576, 1),
-            "ext": ext,
-            "is_video": ext in VIDEO_EXTS,
-            "is_subtitle": ext in SUB_EXTS,
-        })
-
-    torrent_info = qb_request(f"/api/v2/torrents/info?hashes={info_hash}")
-    torrent_name = ""
-    if isinstance(torrent_info, list) and torrent_info:
-        torrent_name = torrent_info[0].get("name", "")
-
-    return {
-        "info_hash": info_hash,
-        "torrent_name": torrent_name,
-        "total_files": len(result),
-        "files": result,
-        "next_step": f"Select files to keep, then: python3 qb_add.py --select-files {info_hash} --keep 0,3,5",
-    }
-
-
 def select_files(info_hash: str, keep_indices: list[int]) -> dict:
     """Skip all files NOT in keep_indices, then resume the torrent.
 
@@ -250,8 +110,8 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
                 max_video: bool = False, code: str = "") -> dict:
     """Add a torrent by magnet link or URL, then apply tags.
 
-    If max_video=True, torrent is added paused, non-video files are skipped,
-    then resumed.
+    If max_video=True, torrent is added paused, then the largest video file
+    + code-matching extras are auto-selected before resuming.
     """
     data = {"urls": url_or_magnet}
     if save_path:
@@ -269,13 +129,11 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         return result
 
     log.info("adding torrent url=%s category=%s tags=%s max_video=%s", url_or_magnet[:80], category, tags, max_video)
-    msg = f"Added: {url_or_magnet[:80]}..."
-    result = {"success": True, "message": msg}
+    result = {"success": True}
 
     # ── Get info hash ──────────────────────────────────────
     info_hash = _extract_hash_from_magnet(url_or_magnet)
     if not info_hash:
-        # Torrent URL — poll
         url_basename = url_or_magnet.rsplit("/", 1)[-1].rsplit("?", 1)[0]
         pattern = url_basename.rsplit(".", 1)[0] if "." in url_basename else url_basename
         if len(pattern) > 3:
@@ -286,22 +144,32 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         result["info_hash"] = info_hash
         log.info("torrent identified hash=%s", info_hash)
 
-    # ── Video-only filtering ──────────────────────────────
+    # ── Max-video: use list_files recommendation to auto-select ──
     if max_video and info_hash:
-        log.info("max-video selection hash=%s code=%s", info_hash, code)
+        log.info("max-video hash=%s code=%s", info_hash, code)
         try:
-            filt = _select_main_video(info_hash, code=code)
-            if filt.get("video_file"):
-                result["max_video"] = filt
-                log.info("max-video selected file=%s skipped=%d", filt["video_file"], filt["skipped_count"])
-            elif filt.get("warning"):
-                result["video_warning"] = filt["warning"]
-                log.warning("max-video warning hash=%s warning=%s", info_hash, filt["warning"])
+            listing = list_files(info_hash, code=code, timeout=60)
+            files = listing.get("files", [])
+            rec = listing.get("recommended", {})
+            main = rec.get("main", {})
+            extras = rec.get("extras", [])
+            keep = [main["index"]] if main else []
+            keep += [e["index"] for e in extras]
+            if keep and files:
+                sel_result = select_files(info_hash, keep)
+                result["max_video"] = {
+                    "selected_main": main.get("name"),
+                    "selected_extras": [e["name"] for e in extras],
+                    "skipped": sel_result.get("skipped_files", 0),
+                }
+                log.info("max-video auto-selected main=%s extras=%d skipped=%d",
+                         main.get("name"), len(extras), sel_result.get("skipped_files", 0))
+            else:
+                qb_request("/api/v2/torrents/resume", method="POST", data={"hashes": info_hash})
+                result["max_video"] = {"warning": "no video files found, resumed all"}
         except Exception as e:
             result["video_error"] = str(e)
             log.error("max-video failed hash=%s error=%s", info_hash, e)
-            # Resume anyway so torrent isn't stuck
-            qb_request("/api/v2/torrents/resume", method="POST", data={"hashes": info_hash})
 
     # ── Apply tags ──────────────────────────────────────────
     if tags and isinstance(tags, list) and len(tags) > 0 and info_hash:
@@ -328,6 +196,7 @@ def main():
     category = None
     tags = []
     max_video = "--max-video" in sys.argv
+    code = ""
 
     for i, a in enumerate(sys.argv[1:]):
         if a == "--path" and i + 1 < len(sys.argv) - 1:
@@ -336,6 +205,8 @@ def main():
             category = sys.argv[i + 2]
         elif a == "--tags" and i + 1 < len(sys.argv) - 1:
             tags = [t.strip() for t in sys.argv[i + 2].split(",") if t.strip()]
+        elif a == "--code" and i + 1 < len(sys.argv) - 1:
+            code = sys.argv[i + 2]
 
     # ── --retag mode (add tags to existing torrents) ──────────
     if "--retag" in sys.argv:
@@ -419,7 +290,7 @@ def main():
         if tags:
             add_tags(info_hash, tags)
 
-        result = list_files(info_hash)
+        result = list_files(info_hash, code=code)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
 
@@ -440,7 +311,7 @@ def main():
         cat = data.get("category", category)
         tgs = data.get("tags", tags)
         vo = data.get("max_video") or data.get("video_only", max_video)
-        code = data.get("code", "")
+        code = data.get("code", code)
         if isinstance(tgs, str):
             tgs = [t.strip() for t in tgs.split(",") if t.strip()]
 
@@ -475,7 +346,7 @@ def main():
             sys.exit(1)
         url = items[idx]["download_url"]
         result = add_torrent(url, save_path=save_path, category=category,
-                           tags=tags, max_video=max_video)
+                           tags=tags, max_video=max_video, code=code)
         result["added_title"] = items[idx]["title"]
         print(json.dumps(result, ensure_ascii=False))
         return
@@ -487,7 +358,7 @@ def main():
 
     url = args[0]
     result = add_torrent(url, save_path=save_path, category=category,
-                       tags=tags, max_video=max_video)
+                       tags=tags, max_video=max_video, code=code)
     print(json.dumps(result, ensure_ascii=False))
 
 

@@ -58,8 +58,8 @@ python3 scripts/qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --list-
 # 用户确认后，选择要下载的文件
 python3 scripts/qb_add.py --select-files <HASH> --keep=0,3,5
 
-# 公开磁链 — 自动选最大视频文件（批量场景兜底）
-python3 scripts/qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-video
+# 公开磁链 — 自动选最大视频 + 番号匹配文件（兜底）
+python3 scripts/qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-video --code MIDE-990
 
 # PT 种子不需要文件选择（PT 站一般只有正片）
 python3 scripts/qb_add.py "https://pt.example.com/download.php?id=123" --category "电影" --tags pttime
@@ -73,12 +73,9 @@ echo '{"magnet": "...", "category": "<分类名>", "save_path": "<路径>", "tag
 2. Agent 展示文件列表给用户确认要下哪些
 3. `--select-files <HASH> --keep=0,3,5`：跳过未选文件 → 恢复下载
 
-**`--max-video` 自动模式（兜底）**：添加种子暂停 → 等元数据 → 三级策略选正片：
-1. 文件名含番号（如 `MIMK-267`）→ 取最大的匹配文件
-2. 排除含广告关键词的文件（ad/sample/preview/广告/宣传/预告等）→ 取最大的
-3. 兜底取最大视频文件
+**`--max-video` 自动模式（兜底）**：添加种子暂停 → 等元数据 → 用 `list_files` 推荐逻辑自动选最大视频 + 番号匹配的额外文件（字幕等）→ 跳过其余 → 恢复下载。通过 `--code MIDE-990` 传入番号可辅助文件名匹配。
 
-stdin JSON 传 `"code": "MIMK-267"` 可辅助精确匹配。字幕文件（.srt/.ass）同名校验后保留。PT 站种子不需要此参数（PT 资源干净）。
+Agent 应优先用 `--list-files` 让用户确认，`--max-video` 仅批量场景兜底。
 
 ### _cron_check.py — Cron 进度检查（合并：完成通知 + 死种频率控制 + 公开种清理）
 
