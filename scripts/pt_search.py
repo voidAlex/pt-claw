@@ -1008,7 +1008,7 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
                  "site": site["name"], "site_id": site_id}]
 
     if adult and site_id == "pttime":
-        search_path = f"/torrents.php?search={urllib.parse.quote(query)}&notnewword=1"
+        search_path = f"/adults.php?search={urllib.parse.quote(query)}&search_area=1&incldead=1&spstate=0"
     elif adult and "adult_search" in site:
         search_path = site["adult_search"].format(query=urllib.parse.quote(query))
     else:
