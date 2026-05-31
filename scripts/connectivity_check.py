@@ -189,7 +189,7 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy, search_path=None):
     for use_proxy in attempts:
         try:
             status, body, elapsed = fetch(url, headers=headers, proxy=use_proxy,
-                                          warmup=(use_proxy is not None))
+                                          warmup=(use_proxy is not None), timeout=8)
             if _is_login_page(body):
                 _result(name, "fail", f"cookie expired (login page returned)", elapsed)
                 return
@@ -254,7 +254,8 @@ def _keepalive_site(name, base_url, cookie_var, needs_proxy):
         try:
             status, body, elapsed = fetch(url, headers={"Cookie": cookie},
                                           proxy=use_proxy,
-                                          warmup=(use_proxy is not None))
+                                          warmup=(use_proxy is not None),
+                                          timeout=8)
             if _is_login_page(body):
                 print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
                 return False
