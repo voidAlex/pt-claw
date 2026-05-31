@@ -116,31 +116,60 @@ COMPLETED_STATES = {"pausedUP", "uploading", "forcedUP", "stalledUP"}
 
 # Spam filter for public magnet sources (sukebei, javbus)
 AD_KEYWORDS = [
+    # Social media / contact spam
     "加群", "QQ", "微信", "tg", "广告", "推广", "福利", "免费", "导航",
+    "telegram", "二维码", "扫码", "关注", "点赞", "订阅", "私信",
+    "交流群", "VIP", "会员", "独家",
+    # Pack/collection spam
     "合集", "大合集", "まとめ", "pack", "collection", "全作品",
+    # Preview/sample spam
     "预告", "宣传片", "sample", "trailer", "预览",
+    # English trust spam
+    "no virus", "verified", "clean", "fast download", "high speed",
+    # Watermark bait
+    "无水印", "去水印", "原版", "无毒",
+    # URL spam (detected separately below)
 ]
-PREFERRED_TAGS = [
-    "FHDC", "HD", "4K", "中文字幕", "H265", "HEVC", "uncensored",
-    "破解", "無碼", "Reducing Mosaic", "破坏版", "破壊版", "RM", "leak",
-    "无码", "字幕", "-C", "-ch",
-]
+# PREFERRED_TAGS: weighted scoring for magnet quality ranking
+TAG_WEIGHTS = {
+    "4K": 3, "FHDC": 3,
+    "中文字幕": 2, "字幕": 2, "H265": 2, "HEVC": 2,
+    "uncensored": 2, "破解": 2, "無碼": 2, "无码": 2,
+    "leak": 2, "Reducing Mosaic": 2, "破坏版": 2, "破壊版": 2,
+    "HD": 1, "RM": 1, "-C": 1, "-ch": 1,
+}
+NEGATIVE_TAGS = ["CAM", "TS", "CAMRIP", "HDCAM", "HDTC", "HDTS", "SCR"]
+NEGATIVE_WEIGHT = -2
 
 
 def _is_spam(title):
+    t = title.strip().lower()
+    if not t:
+        return False
+    # Pure hex hash
+    if re.match(r'^[a-f0-9]{40}$', t, re.I):
+        return True
+    # Keyword matching — use word boundary for short keywords to avoid false positives
+    short_kw = {"tg", "QQ", "VIP"}
     for kw in AD_KEYWORDS:
-        if kw.lower() in title.lower():
+        kwl = kw.lower()
+        if kw in short_kw:
+            if re.search(rf'\b{re.escape(kwl)}\b', t):
+                return True
+        elif kwl in t:
             return True
-    if re.match(r'^[a-f0-9]{40}$', title.strip(), re.I):
+    # URL patterns
+    if re.search(r'https?://|www\.|\.com\b|\.cn\b|t\.me/', t, re.I):
         return True
     return False
 
 
 def _magnet_score(title):
-    s = 0
-    for tag in PREFERRED_TAGS:
-        if tag.lower() in title.lower():
-            s += 1
+    t = title.lower()
+    s = sum(w for tag, w in TAG_WEIGHTS.items() if tag.lower() in t)
+    for tag in NEGATIVE_TAGS:
+        if tag.lower() in t:
+            s += NEGATIVE_WEIGHT
     return s
 
 

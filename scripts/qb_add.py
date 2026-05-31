@@ -15,7 +15,7 @@ Public magnet file selection (two-step):
 
 import json, os, re, sys, time, urllib.request, urllib.parse
 
-from _common import _env
+from _common import _env, AD_KEYWORDS as _AD_KEYWORDS
 from _logger import get_logger
 from _qb_session import get_session as _get_session, qb_request as _qb_api_request, reset as _reset_session
 
@@ -78,8 +78,7 @@ def _select_main_video(info_hash: str, code: str = "", timeout: int = 30) -> dic
     2. Largest video file, EXCLUDING those with ad/sample keywords
     3. If no video found at all, keep the single largest file
     """
-    AD_KEYWORDS = ["广告", "ad", "sample", "preview", "trailer", "promo",
-                    "推广", "宣传", "预告", "试看", "预览", "demo"]
+    AD_KEYWORDS = list(_AD_KEYWORDS) + ["ad", "promo", "试看", "demo"]
 
     # Wait for metadata
     deadline = time.time() + timeout

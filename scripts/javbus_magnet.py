@@ -35,15 +35,32 @@ def search_api(code: str, api_url: str) -> dict:
     gid = detail["gid"]
     uc = detail.get("uc", "0")
 
-    # Step 2: magnets + filter
+    # Step 2: magnets + filter + dedup + sort
     magnet_url = f"{base}/api/magnets/{urllib.parse.quote(code)}?gid={gid}&uc={uc}&sortBy=size&sortOrder=desc"
     raw_magnets = _get_json(magnet_url) or []
-    magnets = [
-        m for m in raw_magnets
-        if not _is_spam(m.get("title", ""))
-    ]
-    for m in magnets:
-        m["score"] = _score(m.get("title", ""))
+    seen = set()
+    magnets = []
+    for m in raw_magnets:
+        title = m.get("title", "")
+        if _is_spam(title):
+            continue
+        # Dedup by magnet link hash
+        link = m.get("link", "")
+        ih = ""
+        m2 = re.search(r'btih:([a-fA-F0-9]{40})', link)
+        if m2:
+            ih = m2.group(1).upper()
+        elif "magnet" not in link and "btih" not in link and link:
+            # Non-magnet link — use the link itself as key
+            ih = link
+        else:
+            ih = title  # fallback
+        if ih in seen:
+            continue
+        seen.add(ih)
+        m["score"] = _score(title)
+        magnets.append(m)
+    magnets.sort(key=lambda m: -m.get("score", 0))
 
     return {
         "code": code,
@@ -129,6 +146,8 @@ def search_scrape(code: str) -> dict:
             "hasSubtitle": has_sub,
             "score": _score(dn),
         })
+
+    magnets.sort(key=lambda m: -m.get("score", 0))
 
     return {
         "code": code,
