@@ -35,3 +35,6 @@ pt_completed_last.txt
 pt_search_cache.json
 cross_seed_tasks.json
 torrent_backups/
+
+# Logs
+logs/

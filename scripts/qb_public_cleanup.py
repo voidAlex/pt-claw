@@ -16,7 +16,9 @@ import json, os, sys, urllib.parse, urllib.request
 from datetime import datetime, timezone
 
 from _common import _env, PUBLIC_TAGS, MAX_DELETE_PER_RUN, MAX_PUBLIC_RATIO
+from _logger import get_logger
 from _qb_session import get_session
+log = get_logger("qb_public_cleanup")
 DRY_RUN = _env("QB_CLEANUP_DRY_RUN") == "1"
 CHECK_MODE = "--check" in sys.argv
 
@@ -52,9 +54,11 @@ def main():
             public_torrents.append(t)
 
     public_count = len(public_torrents)
+    log.info("public detection total=%d public=%d", total_count, public_count)
 
     # ---- SAFEGUARD 1: Public ratio check ----
     if total_count > 0 and public_count / total_count > MAX_PUBLIC_RATIO:
+        log.warning("safeguard: public ratio too high total=%d public=%d ratio=%.3f", total_count, public_count, public_count / total_count)
         print(json.dumps({
             "error": "SAFEGUARD: public ratio too high — possible misclassification",
             "total_torrents": total_count,
@@ -89,6 +93,7 @@ def main():
 
     # ---- SAFEGUARD 2: Max delete cap ----
     if len(completed_to_delete) > MAX_DELETE_PER_RUN:
+        log.warning("safeguard: delete cap exceeded count=%d max=%d", len(completed_to_delete), MAX_DELETE_PER_RUN)
         if _check:
             # Check mode: show capped list
             to_delete_now = completed_to_delete[:MAX_DELETE_PER_RUN]
@@ -156,6 +161,7 @@ def main():
 
     # ---- Backup before delete ----
     if to_delete_now:
+        log.info("backing up before delete count=%d", len(to_delete_now))
         backup_from_torrents(to_delete_now, reason="public_cleanup")
 
     # Delete (keep files)
@@ -166,6 +172,7 @@ def main():
         try:
             data = urllib.parse.urlencode({"hashes": h, "deleteFiles": "false"}).encode()
             opener.open(f"{qb_url}/api/v2/torrents/delete", data=data, timeout=10)
+            log.info("deleted public torrent hash=%s name=%s tags=%s", h[:12], t["name"][:60], t.get("tags", ""))
             deleted.append({
                 "hash": h[:12],
                 "name": t["name"][:80],
@@ -173,6 +180,7 @@ def main():
                 "tags": t.get("tags", ""),
             })
         except Exception as e:
+            log.error("delete failed hash=%s name=%s error=%s", h[:12], t["name"][:60], e)
             failed.append({"hash": h[:12], "name": t["name"][:80], "error": str(e)})
 
     result = {
@@ -190,6 +198,7 @@ def main():
     if failed:
         result["failed"] = failed
 
+    log.info("cleanup completed deleted=%d dead=%d failed=%d check=%s", len(deleted), len(dead_to_report), len(failed), _check)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

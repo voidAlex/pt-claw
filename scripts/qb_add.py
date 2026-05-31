@@ -16,7 +16,10 @@ Public magnet file selection (two-step):
 import json, os, re, sys, time, urllib.request, urllib.parse
 
 from _common import _env
+from _logger import get_logger
 from _qb_session import get_session as _get_session, qb_request as _qb_api_request, reset as _reset_session
+
+log = get_logger("qb_add")
 
 
 # Re-export for backward compat with scripts that import from qb_add
@@ -261,8 +264,10 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
 
     result = qb_request("/api/v2/torrents/add", method="POST", data=data)
     if "error" in result:
+        log.error("add torrent failed url=%s error=%s", url_or_magnet[:80], result["error"])
         return result
 
+    log.info("adding torrent url=%s category=%s tags=%s max_video=%s", url_or_magnet[:80], category, tags, max_video)
     msg = f"Added: {url_or_magnet[:80]}..."
     result = {"success": True, "message": msg}
 
@@ -278,17 +283,22 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
 
     if info_hash:
         result["info_hash"] = info_hash
+        log.info("torrent identified hash=%s", info_hash)
 
     # ── Video-only filtering ──────────────────────────────
     if max_video and info_hash:
+        log.info("max-video selection hash=%s code=%s", info_hash, code)
         try:
             filt = _select_main_video(info_hash, code=code)
             if filt.get("video_file"):
                 result["max_video"] = filt
+                log.info("max-video selected file=%s skipped=%d", filt["video_file"], filt["skipped_count"])
             elif filt.get("warning"):
                 result["video_warning"] = filt["warning"]
+                log.warning("max-video warning hash=%s warning=%s", info_hash, filt["warning"])
         except Exception as e:
             result["video_error"] = str(e)
+            log.error("max-video failed hash=%s error=%s", info_hash, e)
             # Resume anyway so torrent isn't stuck
             qb_request("/api/v2/torrents/resume", method="POST", data={"hashes": info_hash})
 
@@ -297,8 +307,10 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         tag_result = add_tags(info_hash, tags)
         if "error" not in tag_result:
             result["tags_added"] = tags
+            log.info("tags applied hash=%s tags=%s", info_hash, tags)
         else:
             result["tag_error"] = tag_result["error"]
+            log.warning("tag failed hash=%s tags=%s error=%s", info_hash, tags, tag_result["error"])
 
     return result
 

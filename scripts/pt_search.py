@@ -23,7 +23,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from _common import _load_env_file, _env, _fmt_size, _env_matching, _is_login_page
 from _http import fetch
+from _logger import get_logger
 from _search_cache import cache_get, cache_put
+
+log = get_logger("pt_search")
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
 
@@ -1004,6 +1007,7 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
     cookie_str = cookies.get(site_id, "")
 
     if not cookie_str:
+        log.warning("no cookie for site=%s site_id=%s", site["name"], site_id)
         return [{"error": f"No cookie configured for {site['name']}",
                  "site": site["name"], "site_id": site_id}]
 
@@ -1016,6 +1020,7 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
     full_url = f"{site['url']}{search_path}"
 
     proxy = _env("PT_PROXY") if site.get("needs_proxy") else None
+    log.info("searching site=%s query=%s proxy=%s", site_id, query, bool(proxy))
     try:
         status, html, elapsed = fetch(
             full_url,
@@ -1024,10 +1029,13 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
             warmup=(proxy is not None),
         )
     except Exception as e:
+        log.error("fetch failed site=%s url=%s error=%s", site_id, full_url, e)
         return [{"error": str(e), "site": site["name"], "site_id": site_id}]
 
-    # Detect if we got a login page instead of results (check <title> only to avoid nav false positives)
+    log.info("fetched site=%s status=%d elapsed=%.1fs", site_id, status, elapsed)
+
     if _is_login_page(html):
+        log.warning("login page detected site=%s — cookie expired", site_id)
         return [{"error": "Cookie expired — re-login needed",
                  "site": site["name"], "site_id": site_id}]
 
@@ -1141,6 +1149,7 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
             break
 
     if not results:
+        log.warning("no results parsed (classic) site=%s site_id=%s", site["name"], site_id)
         return [{"error": "No results found", "site": site["name"], "site_id": site_id}]
     results.sort(key=lambda r: r["seeders"], reverse=True)
     return results[:limit]
@@ -1148,6 +1157,7 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
 
 def _search_mteam_api(site: dict, query: str, limit: int, adult: bool = False) -> list[dict]:
     """Search M-Team via REST API. Delegates to mteam_api module."""
+    log.info("mteam_api search query=%s limit=%d adult=%s", query, limit, adult)
     api_token = site.get("api_token", "")
     if not api_token:
         return [{"error": "No API token configured",
@@ -1198,6 +1208,7 @@ def _search_mteam_api(site: dict, query: str, limit: int, adult: bool = False) -
                  "site_id": "mteam"}]
 
     results.sort(key=lambda r: r["seeders"], reverse=True)
+    log.info("mteam_api results count=%d query=%s", len(results[:limit]), query)
     return results[:limit]
 
 
@@ -1295,6 +1306,7 @@ def _parse_nexusphp(html: str, site: dict, site_id: str,
             break
 
     if not results:
+        log.warning("no results parsed site=%s site_id=%s", site["name"], site_id)
         return [{"error": "No results found", "site": site["name"],
                  "site_id": site_id}]
 
@@ -1505,6 +1517,9 @@ def main():
     actor = flags.get("actor", "")
     no_cache = "no-cache" in flags
 
+    log.info("invoked query=%s sites=%d limit=%d adult=%s actor=%s",
+             query, len(target_sites), limit, adult, actor)
+
     if adult and actor and "pttime" in target_sites:
         s = target_sites["pttime"]
         search_path = f"/adults.php?search={urllib.parse.quote(actor)}&search_area=1&incldead=1"
@@ -1523,6 +1538,7 @@ def main():
                 warmup=(proxy is not None),
             )
         except Exception as e:
+            log.error("PTTime actor search failed error=%s", e)
             print(json.dumps({"error": str(e), "site": "PTTime"}))
             sys.exit(1)
         results = _parse_nexusphp(html, s, "pttime", limit)
@@ -1584,6 +1600,7 @@ def main():
                         else:
                             all_results.append(item)
                 except Exception as e:
+                    log.error("site %s failed error=%s", sid, e)
                     errors.append({"error": str(e), "site": SITES[sid]["name"],
                                    "site_id": sid})
 

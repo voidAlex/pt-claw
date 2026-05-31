@@ -27,7 +27,10 @@ from datetime import datetime, timedelta, timezone
 from collections import Counter, defaultdict
 
 from _common import _env, _fmt_size, _fmt_speed, parse_arg, flag_present
+from _logger import get_logger
 from _qb_session import get_session, qb_request
+
+log = get_logger("qb_monitor")
 
 # Import backup module
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
@@ -108,14 +111,17 @@ def main():
     if codes_filter:
         codes = [c.strip().upper() for c in codes_filter.split(",")]
         torrents = [t for t in torrents if any(c in t['name'].upper() for c in codes)]
+        log.info("filter by codes=%s matched=%d", codes_filter, len(torrents))
 
     if tags_filter:
         wanted_tags = set(t.strip() for t in tags_filter.split(","))
         torrents = [t for t in torrents if wanted_tags & set(t.get('tags','').split(','))]
+        log.info("filter by tags=%s matched=%d", tags_filter, len(torrents))
 
     if states_filter:
         wanted_states = set(s.strip() for s in states_filter.split(","))
         torrents = [t for t in torrents if t['state'] in wanted_states]
+        log.info("filter by states=%s matched=%d", states_filter, len(torrents))
 
     # --- Delete mode ---
     if flag_present(args, "--delete"):
@@ -137,6 +143,7 @@ def main():
 
         # --check: preview only, don't delete
         if flag_present(args, "--check"):
+            log.info("delete check mode count=%d", len(hashes))
             print(json.dumps({
                 "check_mode": True,
                 "would_delete": len(hashes),
@@ -154,6 +161,7 @@ def main():
         # Backup before delete
         backup_from_torrents(torrents, reason="manual_delete")
         
+        log.info("deleting torrents count=%d hashes=%s reason=manual_delete", len(hashes), ",".join(h[:8] for h in hashes))
         opener, qb_url = get_session()
         data = urllib.parse.urlencode({"hashes": "|".join(hashes), "deleteFiles": "false"}).encode()
         req = urllib.request.Request(f"{qb_url}/api/v2/torrents/delete", data=data)
@@ -164,12 +172,16 @@ def main():
 
     # --- Stalled diagnosis mode ---
     if flag_present(args, "--stalled"):
+        stalled_count = 0
         for t in torrents:
             pct = t['progress'] * 100
             if pct < 10 and t['state'] == 'stalledDL':
                 added = datetime.fromtimestamp(t['added_on'], tz=timezone.utc)
                 days = (now - added).days
+                stalled_count += 1
+                log.info("stalled diagnosis hash=%s name=%s pct=%.0f age_days=%d tags=%s", t["hash"][:12], t["name"][:60], pct, days, t.get("tags", ""))
                 print(f'{t["name"]} | {pct:.0f}% | {t["size"]/1e9:.1f}GB | {days}d old | tags={t["tags"]}')
+        log.info("stalled diagnosis total_stalled=%d", stalled_count)
         sys.exit(0)
 
     # --- Full status mode ---

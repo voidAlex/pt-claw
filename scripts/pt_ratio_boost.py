@@ -13,7 +13,10 @@ Config: <skill-dir>/pt_boost.json (template: templates/pt_boost.example.json)
 import json, os, re, sys, time, urllib.request, urllib.parse, subprocess
 
 from _common import _env, _fmt_size, _parse_size
+from _logger import get_logger
 from _qb_session import get_session, qb_request as _qb_api_req
+
+log = get_logger("pt_ratio_boost")
 
 MAX_DELETE_PER_RUN = 50
 
@@ -89,6 +92,7 @@ class QBit:
 
 def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dict]:
     """Search a PT site for freeleech torrents matching boost criteria."""
+    log.info("search_freeleech site=%s keyword=%s", site_id, site_cfg.get("search_keyword", ""))
     results = []
 
     if site_id == "mteam":
@@ -191,6 +195,7 @@ def cleanup_aged(cfg: dict, qb: QBit, dry_run: bool = False) -> list[dict]:
             to_delete.append(t)
 
     if len(to_delete) > MAX_DELETE_PER_RUN:
+        log.error("cleanup safeguard triggered to_delete=%d max=%d", len(to_delete), MAX_DELETE_PER_RUN)
         print(json.dumps({
             "error": "SAFEGUARD: delete cap exceeded",
             "to_delete": len(to_delete),
@@ -221,6 +226,7 @@ def cleanup_aged(cfg: dict, qb: QBit, dry_run: bool = False) -> list[dict]:
         hashes = [t["hash"] for t in to_delete]
         backup_from_torrents(to_delete, reason="boost_aged")
         qb.delete_torrents(hashes, delete_files=g.get("delete_files", True))
+        log.info("cleanup_aged deleted=%d max_seed_days=%d", len(to_delete), g["max_seed_days"])
         print(f"🧹 清理 {len(to_delete)} 个过期种子 (>{g['max_seed_days']}天)")
 
     return to_delete
@@ -259,6 +265,7 @@ def cleanup_dead(cfg: dict, qb: QBit, dry_run: bool = False) -> list[dict]:
     if to_delete:
         backup_from_torrents(to_delete, reason="boost_dead")
         qb.delete_torrents([t["hash"] for t in to_delete], delete_files=g.get("delete_files", True))
+        log.warning("cleanup_dead deleted=%d dead_seed_hours=%d", len(to_delete), dead_hours)
         print(f"💀 清理 {len(to_delete)} 个死种 (stalledDL >{dead_hours}h)")
 
     return to_delete
@@ -271,6 +278,7 @@ def add_new(cfg: dict, qb: QBit) -> list[dict]:
     slots = g["max_torrents"] - len(current)
     add_limit = cfg.get("per_run_add_limit", 5)
     if slots <= 0:
+        log.info("add_new skipped — at max capacity max=%d", g["max_torrents"])
         print(f"📦 已达上限 {g['max_torrents']}，跳过新增")
         return []
 
@@ -279,6 +287,7 @@ def add_new(cfg: dict, qb: QBit) -> list[dict]:
         if len(added) >= min(slots, add_limit):
             break
         results = search_freeleech(site_id, site_cfg, g)
+        log.info("site=%s freeleech results=%d", site_id, len(results))
         for item in results:
             if len(added) >= min(slots, add_limit):
                 break
@@ -288,8 +297,11 @@ def add_new(cfg: dict, qb: QBit) -> list[dict]:
             ok = qb.add_torrent(dl_url, g["boost_category"], g["boost_save_path"])
             if ok:
                 added.append(item)
+                log.info("added boost torrent title=%s site=%s", item.get("title", "?")[:60], site_id)
                 print(f"➕ {item.get('title', '?')[:60]} ({item.get('size', '?')})")
 
+    if added:
+        log.info("add_new done total_added=%d", len(added))
     return added
 
 
@@ -349,10 +361,12 @@ def main():
     dry_run = "--check" in sys.argv
 
     if cmd == "cleanup":
+        log.info("boost cleanup started dry_run=%s", dry_run)
         cleanup_aged(cfg, qb, dry_run=dry_run)
     elif cmd == "status":
         show_status(cfg, qb)
     elif cmd == "run":
+        log.info("boost run started dry_run=%s", dry_run)
         if dry_run:
             print(json.dumps({"check_mode": True, "message": "run --check: preview only"}, ensure_ascii=False))
             cleanup_aged(cfg, qb, dry_run=True)

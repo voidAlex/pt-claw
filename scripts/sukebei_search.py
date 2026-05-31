@@ -14,6 +14,9 @@ from xml.etree import ElementTree as ET
 
 from _common import _env, _is_spam as is_spam, _magnet_score as score
 from _http import fetch
+from _logger import get_logger
+
+log = get_logger("sukebei_search")
 
 SUKEBEI_RSS = "https://sukebei.nyaa.si/?page=rss"
 NYAA_NS = "https://sukebei.nyaa.si/xmlns/nyaa"
@@ -23,6 +26,8 @@ def search(code: str, limit: int = 20) -> list[dict]:
     """Search Sukebei Nyaa RSS for a JAV code. Returns deduplicated results."""
     url = f"{SUKEBEI_RSS}&q={urllib.parse.quote(code)}"
     proxy = _env("PT_PROXY")
+
+    log.info("searching code=%s limit=%d", code, limit)
 
     try:
         status, body, elapsed = fetch(url, proxy=proxy)
@@ -64,6 +69,7 @@ def search(code: str, limit: int = 20) -> list[dict]:
 
     # Sort: seeders desc, score desc
     results.sort(key=lambda r: (-r["seeders"], -r["score"]))
+    log.info("search done code=%s results=%d", code, len(results[:limit]))
     return results[:limit]
 
 

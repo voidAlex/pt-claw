@@ -22,6 +22,9 @@ sys.path.insert(0, _skill_dir)
 
 from _common import _env, _load_env_file, _is_login_page
 from _http import fetch
+from _logger import get_logger
+
+log = get_logger("connectivity_check")
 
 results = []
 
@@ -34,6 +37,7 @@ def _result(name, status, detail="", latency_ms=0):
     icon = {"ok": "✅", "warn": "⚠️", "fail": "❌", "skip": "⏭️"}[status]
     extra = f" ({latency_ms:.0f}ms)" if latency_ms else ""
     print(f"  {icon} {name}: {detail}{extra}")
+    log.info("service test name=%s status=%s latency_ms=%s detail=%s", name, status, round(latency_ms) if latency_ms else 0, detail[:80])
 
 
 def test_qbittorrent():
@@ -278,6 +282,7 @@ def keepalive_sites(filter_site=None):
     except ImportError:
         print("⚠️  Cannot import SITES from pt_search.py")
         return
+    log.info("keepalive started site_filter=%s", filter_site or "all")
     print("PT site keepalive (accessing index page to refresh session)")
     print("-" * 50)
     failed = []
@@ -296,8 +301,10 @@ def keepalive_sites(filter_site=None):
             failed.append(site_id)
     print("-" * 50)
     if not failed:
+        log.info("keepalive all sites OK")
         print("All sites keepalive OK")
     else:
+        log.warning("keepalive failed sites=%s", ", ".join(failed))
         print(f"⚠️  {len(failed)} site(s) failed: {', '.join(failed)}")
         cc_host = _env("COOKIE_CLOUD_HOST", "")
         if cc_host:

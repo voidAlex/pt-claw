@@ -14,6 +14,9 @@ import json, os, sys, re, urllib.parse
 
 from _common import _env
 from _http import fetch_json
+from _logger import get_logger
+
+log = get_logger("javbus_star")
 
 JAVBUS_API = (_env("JAVBUS_API_URL") or "http://localhost:8922").rstrip("/")
 
@@ -65,6 +68,7 @@ def main():
 
     if not star_id:
         star_name = args[0]
+        log.info("resolving star name=%s", star_name)
         # Search javbus-api for the actress
         try:
             results = javbus_get(f"/api/movies/search?keyword={urllib.parse.quote(star_name)}&page=1")
@@ -87,6 +91,8 @@ def main():
             sys.exit(1)
         star_id = stars[0]["id"]
         star_name = stars[0]["name"]
+
+    log.info("querying star name=%s id=%s", star_name, star_id)
 
     # Paginate through all movies by this star
     all_films = {}
@@ -137,6 +143,8 @@ def main():
 
     if top_n and missing:
         missing = missing[:top_n]
+
+    log.info("star query done name=%s total=%d existing=%d missing=%d", star_name or star_id, len(all_films), len(existing), len(missing))
 
     result = {
         "star": {"id": star_id, "name": star_name or star_id},

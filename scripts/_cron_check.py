@@ -4,7 +4,10 @@ import json, os, re, sys, fcntl, urllib.parse, urllib.request
 from datetime import datetime, timezone, timedelta
 
 from _common import _env, PUBLIC_TAGS, MAX_DELETE_PER_RUN, MAX_PUBLIC_RATIO, COMPLETED_STATES
+from _logger import get_logger
 from _qb_session import get_session
+
+log = get_logger("_cron_check")
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
@@ -61,14 +64,17 @@ def _save_state(state):
 
 
 def main():
+    log.info("cron check started")
     try:
         opener, qb_url = get_session()
     except RuntimeError as e:
+        log.error("qb session failed: %s", e)
         print(json.dumps({"error": str(e)}))
         sys.exit(1)
 
     with opener.open(f"{qb_url}/api/v2/torrents/info", timeout=30) as r:
         torrents = json.loads(r.read())
+    log.info("fetched %d torrents from qBittorrent", len(torrents))
 
     known_hashes = set()
     if os.path.exists(TRACKER_FILE):
@@ -147,8 +153,12 @@ def main():
     to_remove = [h for h in state["dead_torrents"] if h not in dead_all]
     for h in to_remove:
         del state["dead_torrents"][h]
+    if to_remove:
+        log.info("cleaned up %d resolved dead torrent entries", len(to_remove))
 
     silenced_dead = len(dead_all) - len(dead_to_notify)
+    if dead_all:
+        log.warning("dead torrents total=%d notifying=%d silenced=%d", len(dead_all), len(dead_to_notify), silenced_dead)
 
     seen_names = set()
     unique_completions = []
@@ -159,6 +169,7 @@ def main():
             unique_completions.append(c)
 
     if unique_completions:
+        log.info("new completions count=%d", len(unique_completions))
         with open(TRACKER_FILE, "a") as f:
             for c in unique_completions:
                 f.write(c["hash"] + "\n")
@@ -171,6 +182,7 @@ def main():
 
     auto_cleaned = []
     if completed_public:
+        log.info("public cleanup candidates count=%d", len(completed_public))
         total_count = len(torrents)
         public_count = sum(
             1 for t in torrents
@@ -219,6 +231,7 @@ def main():
     notifications = []
 
     if unique_completions:
+        log.info("completion notification count=%d", len(unique_completions))
         notifications.append({
             "type": "completion",
             "icon": "✅",
@@ -226,6 +239,7 @@ def main():
         })
 
     if dead_to_notify:
+        log.warning("dead torrent notification count=%d", len(dead_to_notify))
         notifications.append({
             "type": "dead_reminder",
             "icon": "💀",
@@ -245,6 +259,7 @@ def main():
         })
 
     if auto_cleaned:
+        log.info("auto cleaned public torrents count=%d", len(auto_cleaned))
         notifications.append({
             "type": "auto_cleaned",
             "icon": "🧹",
@@ -255,6 +270,7 @@ def main():
     has_content = bool(unique_completions or dead_to_notify or auto_cleaned)
 
     if not has_content:
+        log.info("cron check silent — no notifications")
         print(json.dumps({"silent": True}, ensure_ascii=False))
     else:
         result = {
@@ -268,6 +284,7 @@ def main():
             },
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
+    log.info("cron check finished total=%d downloading=%d seeding=%d", len(torrents), downloading, seeding)
 
 
 if __name__ == "__main__":

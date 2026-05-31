@@ -3,6 +3,9 @@ import json, os, urllib.request, urllib.parse, urllib.error
 from http.cookiejar import CookieJar
 
 from _common import _env
+from _logger import get_logger
+
+log = get_logger("qb_session")
 
 _opener = None
 _url = None
@@ -27,9 +30,12 @@ def get_session():
     login_data = urllib.parse.urlencode({"username": qb_user, "password": qb_pass}).encode()
     try:
         _opener.open(f"{_url}/api/v2/auth/login", login_data, timeout=10)
+        log.info("qBittorrent login success url=%s", _url)
     except urllib.error.HTTPError as e:
         if e.code == 403:
+            log.error("qBittorrent login failed url=%s status=403", _url)
             raise RuntimeError("qBittorrent login failed — check credentials")
+        log.error("qBittorrent login error url=%s status=%s", _url, e.code)
         raise
     return _opener, _url
 
@@ -62,5 +68,6 @@ def qb_request(endpoint, method="GET", data=None, timeout=30):
 def reset():
     """Reset cached session (use after credential changes)."""
     global _opener, _url
+    log.info("session reset")
     _opener = None
     _url = None

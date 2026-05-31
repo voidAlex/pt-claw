@@ -86,6 +86,12 @@ metadata:
 | `jf_query.py` | Jellyfin 查询 |
 | `env_check.sh` | 环境变量检查 |
 
+所有脚本通过 `_logger.py` 统一写入 `logs/pt-claw.log`（RotatingFileHandler，10MB × 5 份 = 最大 50MB）。每次调用自动分配 8 字符 `call_id`，贯穿整个调用链。排障时查看日志：
+```bash
+grep "call_id" logs/pt-claw.log | tail -50    # 最近调用
+grep "ERROR" logs/pt-claw.log | tail -20       # 最近错误
+```
+
 ## 参考文档
 
 脚本用法、配置流程、集成细节全部在 reference 文件中，按需读取：
@@ -109,6 +115,8 @@ metadata:
 | [references/site-tags.md](references/site-tags.md) | 115 站完整标签映射 | 推送下载时查找标签 |
 | [references/extended-sites.md](references/extended-sites.md) | 扩展 100 站完整列表（URL/代理/分类） | 查看扩展站详情或配置 Cookie |
 | [references/env-reference.md](references/env-reference.md) | 完整环境变量清单 + 配置模板 | 配置或排查环境问题 |
+
+日志路径：`logs/pt-claw.log`（自动轮换，最多 50MB）。
 
 ## Supported PT Sites
 

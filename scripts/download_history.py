@@ -16,6 +16,10 @@ Usage:
 import json, os, sys, argparse
 from datetime import datetime, timezone
 
+from _logger import get_logger
+
+log = get_logger("download_history")
+
 HISTORY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
 
 DEFAULT_HISTORY = {
@@ -56,6 +60,7 @@ def cmd_add(code: str, title: str, source: str = "unknown",
     data = _load()
     existing = {i["code"] for i in data["items"]}
     if code in existing:
+        log.info("add skipped code=%s reason=already_exists", code)
         print(json.dumps({"status": "skipped", "reason": f"{code} already in history"}))
         return
     item = {
@@ -71,6 +76,7 @@ def cmd_add(code: str, title: str, source: str = "unknown",
         item["cross_seed_from"] = cross_seed_from
     data["items"].append(item)
     _save(data)
+    log.info("added code=%s source=%s", code, source)
     print(json.dumps({"status": "added", "code": code}))
 
 
@@ -79,15 +85,18 @@ def cmd_complete(code: str) -> None:
     data = _load()
     item, idx = _find_item(data, code)
     if item is None:
+        log.info("complete skipped code=%s reason=not_found", code)
         print(json.dumps({"status": "not_found", "code": code}))
         return
     if "completed_at" in item:
+        log.info("complete skipped code=%s reason=already_completed", code)
         print(json.dumps({"status": "already_completed", "code": code}))
         return
     item["completed_at"] = datetime.now(timezone.utc).isoformat()
     item["status"] = "completed"
     data["items"][idx] = item
     _save(data)
+    log.info("completed code=%s", code)
     print(json.dumps({"status": "completed", "code": code}))
 
 
@@ -113,6 +122,7 @@ def cmd_complete_by_hash(info_hash: str, name: str = "") -> None:
             updated += 1
     if updated:
         _save(data)
+    log.info("complete_by_hash hash=%s updated=%d", h, updated)
     print(json.dumps({"status": "updated", "count": updated, "hash": h}))
 
 
@@ -120,17 +130,22 @@ def cmd_check(code: str) -> None:
     """Check if a code exists in history."""
     data = _load()
     codes = {i["code"] for i in data["items"]}
-    print(json.dumps({"exists": code in codes, "code": code}))
+    exists = code in codes
+    log.info("check code=%s exists=%s", code, exists)
+    print(json.dumps({"exists": exists, "code": code}))
 
 
 def cmd_filter() -> None:
     """Read codes from stdin, print only those NOT in history."""
     data = _load()
     known = {i["code"] for i in data["items"]}
+    passed = 0
     for line in sys.stdin:
         code = line.strip()
         if code and code not in known:
             print(code)
+            passed += 1
+    log.info("filter total_known=%d passed=%d", len(known), passed)
 
 
 def cmd_list() -> None:
@@ -195,6 +210,7 @@ def main():
         data = _load()
         existing = {i["code"] for i in data["items"]}
         if args.code in existing:
+            log.info("cross_seed skipped code=%s reason=already_exists", args.code)
             print(json.dumps({"status": "skipped", "reason": f"{args.code} already in history"}))
             return
         data["items"].append({
@@ -207,6 +223,7 @@ def main():
             "status": "cross_seeded",
         })
         _save(data)
+        log.info("cross_seed code=%s from=%s", args.code, args.original_source)
         print(json.dumps({"status": "cross_seeded", "code": args.code, "from": args.original_source}))
     else:
         parser.print_help()

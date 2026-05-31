@@ -1,6 +1,10 @@
 """Shared utilities for pt-claw scripts."""
 import os, re, threading
 
+from _logger import get_logger
+
+log = get_logger("_common")
+
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(_skill_dir, "..", "secrets.env")
 _env_cache = None
@@ -23,6 +27,7 @@ def _load_env_file():
                         continue
                     k, v = line.split("=", 1)
                     _env_cache[k.strip()] = v.strip()
+            log.debug("loaded env file path=%s keys=%d", ENV_FILE, len(_env_cache))
 
 
 def _env(key, default=""):

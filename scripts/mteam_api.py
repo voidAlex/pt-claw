@@ -19,6 +19,9 @@ import sys, json, os
 
 from _common import _env, _fmt_size
 from _http import fetch
+from _logger import get_logger
+
+log = get_logger("mteam_api")
 
 API_HOST = "https://api.m-team.cc/api"
 
@@ -55,12 +58,14 @@ def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: in
 
 def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> list[dict]:
     """Search M-Team torrents. Returns list of results."""
+    log.info("mteam search keyword=%s limit=%d adult=%s", keyword, limit, adult)
     req_body = {"keyword": keyword, "pageNumber": 1, "pageSize": min(limit, 25)}
     if adult:
         req_body["mode"] = "adult"
     resp = _api_post("/torrent/search", api_key, req_body)
 
     if str(resp.get("code")) != "0":
+        log.error("mteam search failed code=%s message=%s", resp.get("code"), resp.get("message", "")[:80])
         return [{"error": resp.get("message", "API error"), "source": "mteam"}]
 
     items = resp.get("data", {}).get("data", [])
@@ -130,17 +135,22 @@ def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> 
         })
 
     results.sort(key=lambda r: r["seeders"], reverse=True)
+    log.info("mteam search done results=%d", len(results[:limit]))
     return results[:limit]
 
 
 def get_download_url(torrent_id: str, api_key: str) -> str:
     """Generate a signed download URL for a torrent ID."""
+    log.info("mteam gen_dl_token torrent_id=%s", torrent_id)
     resp = _api_post(f"/torrent/genDlToken?id={torrent_id}", api_key, timeout=10)
 
     if str(resp.get("code")) != "0":
+        log.error("mteam gen_dl_token failed torrent_id=%s code=%s", torrent_id, resp.get("code"))
         return ""
 
-    return resp.get("data", "")
+    url = resp.get("data", "")
+    log.info("mteam gen_dl_token ok torrent_id=%s url_len=%d", torrent_id, len(url))
+    return url
 
 
 def main():

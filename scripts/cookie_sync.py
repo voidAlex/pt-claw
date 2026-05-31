@@ -20,6 +20,9 @@ import base64, hashlib, json, os, re, sys
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 
 from _common import _env, ENV_FILE
+from _logger import get_logger
+
+log = get_logger("cookie_sync")
 
 
 def _decrypt_cookiecloud(uuid, encrypted, password):
@@ -132,6 +135,8 @@ def main():
         if arg == "--site" and i + 1 < len(sys.argv):
             only_site = sys.argv[i + 1]
 
+    log.info("cookie_sync started dry_run=%s site=%s", dry_run, only_site or "all")
+
     host = _env("COOKIE_CLOUD_HOST", "")
     uuid = _env("COOKIE_CLOUD_UUID", "")
     password = _env("COOKIE_CLOUD_PASS", "")
@@ -179,8 +184,10 @@ def main():
         if cookie_str:
             var_name = f"PT_COOKIE_{site_id.upper()}"
             updates[var_name] = cookie_str
+            log.info("extracted cookie site=%s length=%d", site_id, len(cookie_str))
             print(f"  📋 {site_id}: found cookie ({len(cookie_str)} chars)")
         else:
+            log.info("no cookie found site=%s domain=%s", site_id, domain)
             print(f"  ⏭️  {site_id}: no cookie found for {domain}")
 
     if not updates:
@@ -188,6 +195,8 @@ def main():
         sys.exit(0)
 
     _update_secrets_env(updates, dry_run=dry_run)
+
+    log.info("cookie_sync finished updated=%d dry_run=%s", len(updates), dry_run)
 
     print("\n💡 Run `python3 scripts/connectivity_check.py` to verify updated cookies")
 

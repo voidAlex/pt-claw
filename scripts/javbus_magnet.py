@@ -16,6 +16,9 @@ import sys, json, os, re, urllib.parse
 
 from _common import _env, _is_spam, _magnet_score as _score
 from _http import fetch, fetch_json
+from _logger import get_logger
+
+log = get_logger("javbus_magnet")
 
 
 # ── javbus-api client ─────────────────────────────────────────
@@ -171,12 +174,17 @@ def main():
     if "--api" in sys.argv:
         idx = sys.argv.index("--api")
         api_url = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else _env("JAVBUS_API_URL", "http://localhost:8922")
+        log.info("fetching code=%s mode=api url=%s", code, api_url)
         result = search_api(code, api_url)
     elif _env("JAVBUS_API_URL"):
+        log.info("fetching code=%s mode=api url=%s", code, _env("JAVBUS_API_URL"))
         result = search_api(code, _env("JAVBUS_API_URL"))
     else:
+        log.info("fetching code=%s mode=scrape", code)
         result = search_scrape(code)
 
+    magnets = result.get("magnets", [])
+    log.info("result code=%s source=%s magnets=%d", code, result.get("source", ""), len(magnets))
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

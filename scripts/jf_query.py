@@ -17,6 +17,9 @@ from collections import Counter
 
 from _common import _env, parse_arg, flag_present
 from _http import fetch_json
+from _logger import get_logger
+
+log = get_logger("jf_query")
 
 def jf_get(endpoint, server=1):
     url = _env(f"JELLYFIN{server}_URL").rstrip("/")
@@ -44,6 +47,7 @@ def main():
     # --- List modes ---
     if flag_present(args, "--list"):
         list_what = parse_arg(args, "--list", "libs")
+        log.info("list mode what=%s server=%d", list_what, server)
 
         if list_what == "libs":
             libs = jf_get("/Library/VirtualFolders", server)
@@ -98,6 +102,7 @@ def main():
     # --- Search mode ---
     if flag_present(args, "--search"):
         keyword = parse_arg(args, "--search")
+        log.info("search keyword=%s server=%d", keyword, server)
         data = jf_get(f"/Items?searchTerm={urllib.parse.quote(keyword)}&recursive=true&includeItemTypes=Movie", server)
         items = data.get("Items", [])
         result = {"query": keyword, "total": data.get("TotalRecordCount", 0), "items": []}
@@ -112,6 +117,7 @@ def main():
     # --- Check mode ---
     if flag_present(args, "--check"):
         code = parse_arg(args, "--check")
+        log.info("check code=%s server=%d", code, server)
         data = jf_get(f"/Items?searchTerm={urllib.parse.quote(code)}&recursive=true", server)
         result = {"code": code, "found": data.get("TotalRecordCount", 0) > 0, "count": data.get("TotalRecordCount", 0)}
         print(json.dumps(result))

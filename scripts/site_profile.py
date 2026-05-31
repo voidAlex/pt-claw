@@ -12,8 +12,11 @@ import json, os, re, sys, time
 
 from _common import _env, _fmt_size, _env_matching, _load_env_file, _parse_size, _is_login_page
 from _http import fetch
+from _logger import get_logger
 from mteam_api import _api_post
 from pt_search import SITES, load_cookies
+
+log = get_logger("site_profile")
 
 
 def _fetch_page(url, cookie, proxy=None, timeout=15):
@@ -438,6 +441,7 @@ def main():
 
     profiles = {}
     for site_id, site_cfg in target_sites.items():
+        log.info("querying profile site=%s", site_id)
         profiles[site_id] = _fetch_site_profile(site_id, site_cfg, cookies)
 
     print(json.dumps(profiles, ensure_ascii=False, indent=2))

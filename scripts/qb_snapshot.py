@@ -25,7 +25,10 @@ BACKUP_FILE = os.path.join(_skill_root, "pt_deleted_backup.json")
 TORRENT_DIR = os.path.join(_skill_root, "torrent_backups")
 
 from _common import _env
+from _logger import get_logger
 from _qb_session import get_session
+
+log = get_logger("qb_snapshot")
 
 
 def _qb_auth():
@@ -84,8 +87,11 @@ def save(entries):
 def backup_from_torrents(torrents, reason=""):
     opener, qb_url = _qb_auth()
     if not opener:
+        log.error("backup failed: cannot authenticate with qBittorrent")
         print("ERROR: Cannot authenticate with qBittorrent", file=sys.stderr)
         return []
+
+    log.info("backup starting count=%d reason=%s", len(torrents), reason)
 
     entries = []
     for t in torrents:
@@ -113,6 +119,7 @@ def backup_from_torrents(torrents, reason=""):
     if entries:
         save(entries)
         count_with_file = sum(1 for e in entries if e.get("torrent_backup"))
+        log.info("backup completed count=%d with_torrent=%d reason=%s", len(entries), count_with_file, reason)
         print(f"Backed up {len(entries)} torrents ({count_with_file} with .torrent) to {BACKUP_FILE}", file=sys.stderr)
     return entries
 
@@ -233,6 +240,7 @@ def main():
 
     if command == "list":
         data = load()
+        log.info("list backups count=%d", len(data))
         for entry in data[-50:]:
             has_torrent = "YES" if entry.get("torrent_backup") else "no"
             print(f"  {entry.get('deleted_at', '?')[:19]} | "
@@ -245,6 +253,7 @@ def main():
         return
 
     if command == "clear":
+        log.info("clearing all backup records")
         with open(BACKUP_FILE, "w") as f:
             json.dump([], f)
         print("Cleared")
@@ -290,14 +299,17 @@ def main():
             sys.exit(1)
         matching = [t for t in all_torrents if t["hash"].upper().startswith(target_hash.upper())]
         if not matching:
+            log.warning("backup: no torrent found hash=%s", target_hash)
             print(f"No torrent found for hash '{target_hash}'")
             sys.exit(1)
         entries = backup_from_torrents(matching, reason="manual_backup")
+        log.info("backup single hash=%s entries=%d", target_hash, len(entries))
         print(json.dumps([{"hash": e["hash"], "name": e["name"]} for e in entries], ensure_ascii=False, indent=2))
         return
 
     if command == "backup-batch":
         torrents = json.load(sys.stdin)
+        log.info("backup-batch count=%d", len(torrents))
         entries = backup_from_torrents(torrents, reason="manual_delete")
         print(json.dumps({"backed_up": len(entries)}, ensure_ascii=False))
         return
@@ -305,6 +317,7 @@ def main():
     if command in ("restore", "restore-all", "restore-last"):
         opener, qb_url = _qb_auth()
         if not opener:
+            log.error("restore failed: qBittorrent not configured")
             print(json.dumps({"error": "QBITTORRENT_* env vars not set"}))
             sys.exit(1)
         data = load()
@@ -312,6 +325,7 @@ def main():
         if command == "restore-all":
             reason = get_opt("--reason") or ""
             matching = [e for e in data if reason and e.get("reason", "") == reason]
+            log.info("restore-all reason=%s count=%d", reason, len(matching))
             if not matching:
                 print(f"No backups found with reason '{reason}'")
                 return
@@ -321,6 +335,7 @@ def main():
                 if _restore_single(opener, qb_url, entry):
                     ok += 1
                 time.sleep(0.5)
+            log.info("restore-all completed ok=%d total=%d reason=%s", ok, len(matching), reason)
             print(f"\nDone: {ok}/{len(matching)} restored")
             return
 
@@ -329,6 +344,7 @@ def main():
                 print("No backups found")
                 return
             entry = data[-1]
+            log.info("restore-last hash=%s name=%s", entry.get("hash", "")[:12], entry.get("name", "")[:60])
             print(f"Restoring most recently deleted:")
             _restore_single(opener, qb_url, entry)
             return
@@ -344,10 +360,12 @@ def main():
                     found = entry
                     break
             if not found:
+                log.warning("restore: no backup found hash=%s", target_hash)
                 print(f"No backup found for hash '{target_hash}'")
                 print(f"Run 'qb_snapshot.py list' to see available backups")
                 sys.exit(1)
             _restore_single(opener, qb_url, found)
+            log.info("restore single hash=%s name=%s", found.get("hash", "")[:12], found.get("name", "")[:60])
             return
 
     print(__doc__)

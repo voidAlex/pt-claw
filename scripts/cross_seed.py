@@ -29,7 +29,10 @@ import time
 
 from _common import _env, _fmt_size, _load_env_file, _parse_size
 from _http import fetch, fetch_raw
+from _logger import get_logger
 from _search_cache import cache_get, cache_put
+
+log = get_logger("cross_seed")
 
 # Single source of truth — pt_search.SITES is the canonical registry
 from pt_search import SITES as _PT_SITES, load_cookies as _load_cookies
@@ -222,6 +225,7 @@ def verify_torrents(items: list[dict]) -> list[dict]:
     if not items:
         return []
 
+    log.info("verifying %d torrent items", len(items))
     base = items[0]
     all_items = [base] + items[1:]
 
@@ -237,6 +241,7 @@ def verify_torrents(items: list[dict]) -> list[dict]:
     base["verified"] = True
     base["match_type"] = "base"
 
+    verified_count = 0
     for candidate in items[1:]:
         cand_torrent = _fetch_and_parse(candidate)
         if cand_torrent is None:
@@ -250,6 +255,7 @@ def verify_torrents(items: list[dict]) -> list[dict]:
         if cand_torrent["info_hash"] == base_torrent["info_hash"]:
             candidate["verified"] = True
             candidate["match_type"] = "info_hash"
+            verified_count += 1
             continue
 
         # Tier 2: name + length match
@@ -258,13 +264,18 @@ def verify_torrents(items: list[dict]) -> list[dict]:
             result = _compare_files(base_torrent["files"], cand_torrent["files"])
             candidate["verified"] = result == "VERIFIED"
             candidate["match_type"] = "name_size"
+            if candidate["verified"]:
+                verified_count += 1
             continue
 
         # Tier 3: file list comparison
         result = _compare_files(base_torrent["files"], cand_torrent["files"])
         candidate["verified"] = result == "VERIFIED"
         candidate["match_type"] = "files"
+        if candidate["verified"]:
+            verified_count += 1
 
+    log.info("verification done verified=%d total=%d", verified_count + 1, len(all_items))
     return all_items
 
 
@@ -329,6 +340,7 @@ def create_task(title: str, items: list[dict], save_path: str) -> dict:
 
     tasks[task_id] = task
     _save_tasks(tasks)
+    log.info("created task task_id=%s title=%s items=%d verified=%d", task_id, title, len(items), len(verified_items))
     return task
 
 
@@ -627,6 +639,7 @@ def main():
             print(json.dumps({"error": "Input must be a JSON array of search results"}))
             sys.exit(1)
         results = verify_torrents(items)
+        log.info("verify command processed %d items", len(results))
         print(json.dumps(results, ensure_ascii=False, indent=2))
 
     elif cmd == "create-task":
@@ -692,6 +705,7 @@ def main():
             sys.exit(1)
         data = json.loads(r.stdout)
         results = data.get("results", []) if isinstance(data, dict) else data
+        log.info("cross_seed search query=%s results=%d", query, len(results))
         if not results:
             print(json.dumps({"query": query, "verified": 0, "message": "No results found"}))
             return
@@ -712,7 +726,9 @@ def main():
         site_str = parsed["flags"].get("site", "")
         sites = [s.strip() for s in site_str.split(",") if s.strip()] if site_str else None
         limit = int(parsed["flags"].get("limit", "50"))
+        log.info("batch_scan sites=%s limit=%d", sites, limit)
         results = batch_scan(sites=sites, limit=limit)
+        log.info("batch_scan done opportunities=%d", len(results))
         print(json.dumps(results, ensure_ascii=False, indent=2))
 
     else:
