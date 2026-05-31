@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Download history tracker — add, check, list, cross-seed entries in pt_downloaded.json.
+Download history tracker — add, check, complete, list, cross-seed entries in pt_downloaded.json.
 
 Usage:
     python3 download_history.py add --code MIMK-267 --title "xxx" --source sukebei
     python3 download_history.py add --code MIMK-267 --title "xxx" --source pttime --source-site mteam --cross-seed-from "MIMK-267@mteam"
     python3 download_history.py check --code MIMK-267          # returns json: {"exists": true/false}
+    python3 download_history.py complete --code MIMK-267       # mark as completed (cron calls this)
+    python3 download_history.py complete-by-hash --hash abc123 --name "ROYD-318"  # match by hash/name
     python3 download_history.py filter --stdin                  # reads codes from stdin, prints only new ones
     python3 download_history.py list                            # list all entries
     python3 download_history.py cross-seed --code MIMK-267 --title "xxx" --source pttime --original-source mteam
@@ -37,6 +39,13 @@ def _save(data: dict) -> None:
     os.replace(tmp, HISTORY_PATH)
 
 
+def _find_item(data: dict, code: str) -> tuple[dict | None, int]:
+    for i, item in enumerate(data["items"]):
+        if item.get("code") == code:
+            return item, i
+    return None, -1
+
+
 def cmd_add(code: str, title: str, source: str = "unknown",
             source_site: str = "", cross_seed_from: str = "") -> None:
     """Record a new download."""
@@ -61,6 +70,48 @@ def cmd_add(code: str, title: str, source: str = "unknown",
     print(json.dumps({"status": "added", "code": code}))
 
 
+def cmd_complete(code: str) -> None:
+    """Mark a download as completed (called by cron when torrent finishes)."""
+    data = _load()
+    item, idx = _find_item(data, code)
+    if item is None:
+        print(json.dumps({"status": "not_found", "code": code}))
+        return
+    if "completed_at" in item:
+        print(json.dumps({"status": "already_completed", "code": code}))
+        return
+    item["completed_at"] = datetime.now(timezone.utc).isoformat()
+    item["status"] = "completed"
+    data["items"][idx] = item
+    _save(data)
+    print(json.dumps({"status": "completed", "code": code}))
+
+
+def cmd_complete_by_hash(info_hash: str, name: str = "") -> None:
+    """Mark download completed by matching torrent hash against item code/name."""
+    data = _load()
+    h = info_hash.lower()
+    updated = 0
+    for item in data["items"]:
+        if item.get("status") == "completed":
+            continue
+        code = item.get("code", "").lower()
+        title = item.get("title", "").lower()
+        if code and code in h:
+            item["completed_at"] = datetime.now(timezone.utc).isoformat()
+            item["status"] = "completed"
+            item["completed_hash"] = h
+            updated += 1
+        elif name and name.lower().startswith(code):
+            item["completed_at"] = datetime.now(timezone.utc).isoformat()
+            item["status"] = "completed"
+            item["completed_hash"] = h
+            updated += 1
+    if updated:
+        _save(data)
+    print(json.dumps({"status": "updated", "count": updated, "hash": h}))
+
+
 def cmd_check(code: str) -> None:
     """Check if a code exists in history."""
     data = _load()
@@ -83,9 +134,11 @@ def cmd_list() -> None:
     data = _load()
     for item in data["items"]:
         status = item.get("status", "downloaded")
+        completed = item.get("completed_at", "")
+        comp_str = f" ✓{completed[:16]}" if completed else ""
         if status == "cross_seeded":
             status = f"cross_seeded from {item.get('source_site', '?')}"
-        print(f"{item['code']:15s} | {item['added_at'][:19]} | {item['source']:10s} | {item['title'][:60]:60s} | {status}")
+        print(f"{item['code']:15s} | {item['added_at'][:19]} | {item['source']:10s} | {item['title'][:50]:50s} | {status}{comp_str}")
 
 
 def main():
@@ -101,6 +154,13 @@ def main():
 
     p_check = sub.add_parser("check")
     p_check.add_argument("--code", required=True)
+
+    p_complete = sub.add_parser("complete")
+    p_complete.add_argument("--code", required=True)
+
+    p_complete_hash = sub.add_parser("complete-by-hash")
+    p_complete_hash.add_argument("--hash", required=True)
+    p_complete_hash.add_argument("--name", default="")
 
     p_filter = sub.add_parser("filter")
     p_filter.add_argument("--stdin", action="store_true")
@@ -119,6 +179,10 @@ def main():
         cmd_add(args.code, args.title, args.source, args.source_site, args.cross_seed_from)
     elif args.cmd == "check":
         cmd_check(args.code)
+    elif args.cmd == "complete":
+        cmd_complete(args.code)
+    elif args.cmd == "complete-by-hash":
+        cmd_complete_by_hash(args.hash, args.name)
     elif args.cmd == "filter":
         cmd_filter()
     elif args.cmd == "list":
