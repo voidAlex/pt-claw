@@ -4,17 +4,17 @@
 
 **1. bash `source secrets.env` 会因 cookie 特殊字符报错**：Cookie 值含 `==`、`;`、`=` 等字符时，`source` 会触发 bash 解析错误（如 `sl-session=xxx==: 未找到命令`）。**永远用 Python `_load_env_file()` 读取环境变量**，不要 source。手动调试时用 Python 单行脚本。
 
-**2. PTTime 成人区搜索不生效（`adults.php?searchstr=` 不过滤）**：
+**2. PTTime 成人区搜索用 `adults.php`**：PTTime 成人区搜索必须走 `/adults.php?search=...&search_area=1&incldead=1`，不能用 `torrents.php`（常规搜索不覆盖成人内容）。`pt_search.py --adult` 已正确路由到 `adults.php`，不要改回 `torrents.php`。
 
-**2. 公开磁链只看标签不看 tracker**：唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 有四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份。
+**3. 公开磁链只看标签不看 tracker**：唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 有四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份。
 
-**3. 下载历史防重复**：推送成功立即写 `pt_downloaded.json`。去重第一优先——历史中有 = 无条件跳过。
+**4. 下载历史防重复**：推送成功立即写 `pt_downloaded.json`。去重第一优先——历史中有 = 无条件跳过。
 
-**4. `[SILENT]` 不能和内容混用**：含 `[SILENT]` 整条静默。有事件发摘要，互斥。
+**5. `[SILENT]` 不能和内容混用**：含 `[SILENT]` 整条静默。有事件发摘要，互斥。
 
-**5. 确认闸门——下载和删种都经用户确认**：搜到资源禁止直接推送；三个删种脚本必须 `--check` 先查后删；cron 只搜索不下载。
+**6. 确认闸门——下载和删种都经用户确认**：搜到资源禁止直接推送；三个删种脚本必须 `--check` 先查后删；cron 只搜索不下载。
 
-**6. M-Team 禁止 Cookie 登录**：馒头严禁 Cookie 方式访问，会封号。只能 `MTEAM_API_KEY` REST API。`cookie_sync.py` 不为 mteam 同步，`connectivity_check.py` 不测 mteam cookie。
+**7. M-Team 禁止 Cookie 登录**：馒头严禁 Cookie 方式访问，会封号。只能 `MTEAM_API_KEY` REST API。`cookie_sync.py` 不为 mteam 同步，`connectivity_check.py` 不测 mteam cookie。
 
 ## 严重级
 
@@ -34,7 +34,7 @@
 
 ## 注意级
 
-**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime 用 `torrents.php`（**注意：adults.php 的 searchstr 参数已被站方忽略，返回无过滤全量列表**）、M-Team 成人区、做种不足→javbus-api + Sukebei。
+**14. 成人搜索必须检查开关**：搜索前读 `user-preferences.md` 的 `## 成人内容 → 启用` 字段。`enabled: false` 或未配置 → 拒绝成人搜索请求，告知「成人内容未启用，如需开启请修改 user-preferences.md」。`enabled: true` → 正常走成人搜索链路：PTTime 用 `adults.php?search=...&search_area=1&incldead=1`、M-Team 成人区（`mode: "adult"`）、PTSkit `/special.php`、做种不足→javbus-api + Sukebei。
 
 **15. 演员走元数据不搜 PT**：javbus-api `/api/movies/search?keyword=&page=N`。JF 逐条查。
 
@@ -63,7 +63,7 @@
 
 **25. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
 
-**25a. PTTime 成人搜索用 torrents.php 不用 adults.php**：PTTime 的 `adults.php` 已忽略 `searchstr` 参数，搜索时返回全量无过滤种子列表。已改用 `torrents.php?search=...&notnewword=1`（常规搜索覆盖成人内容）。不要改回 `adults.php`。
+**25a. PTTime 成人搜索用 `adults.php`**：PTTime 成人区搜索必须走 `/adults.php?search=...&search_area=1&incldead=1`，不能用 `torrents.php`（常规搜索不覆盖成人内容）。`pt_search.py --adult` 已正确路由。注意参数名是 `search`（不是 `searchstr`）。不要改回 `torrents.php`。
 
 **25b. Cookie 过期检测只看 `<title>` 标签**：之前检测 `'登录' in html[:2000]` 会把导航栏的「快捷登录」文字误判为过期。已改为提取 `<title>` 标签内容再检测（`_common._is_login_page()`）。涉及文件：`pt_search.py`、`site_profile.py`、`connectivity_check.py`。不要改回 `html[:N]` 方式。
 
@@ -93,3 +93,9 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 **32. 全量隐私审计（每次推送前自查）**：API Key、内网 IP、路径、用户 ID 绝不硬编码。见 [privacy-audit-checklist.md](privacy-audit-checklist.md)。
 
 **33. 新增脚本的 Cookie 检测必须复用 `_is_login_page()`**：`_common.py` 提供了 `_is_login_page(html)` 公共函数，通过提取 `<title>` 标签内容检测登录页面。禁止在新脚本中使用 `'登录' in html[:N]` 之类的粗暴匹配——会把导航栏「快捷登录」等文字误判为 Cookie 过期。所有 Cookie 有效性检测统一走这个函数。
+
+**34. 查下载进度时别忘了 cron 输出**：公开磁链完成后会被 `_cron_check.py` 自动删种（种子从 qB 消失，文件保留）。此时 qB API / `pt_downloaded.json` / `pt_deleted_backup.json` 都看不到有效完成记录。正确的查询链路：**最近一次 cron 报告 → qB 当前种子 → 下载历史 → deleted_backup**。Cron 输出在 `~/.hermes/cron/output/<job_id>/`。用户问「今天下载好的」优先查 cron 报告，不要在 qB 里找不到就回答「没有」。
+
+**35. qBittorrent Web API v5+ 必须 session 认证**：直接 `curl -u user:pass` 或 Python `urllib` Basic Auth 返回 403 Forbidden。正确流程：① `POST /api/v2/auth/login`（body: `username=xxx&password=xxx`）获取 `Set-Cookie: SID=...` → ② 后续请求带 `Cookie: SID=xxx`。`_qb_session.py` 已内置此逻辑，`qb_monitor.py` 和 `qb_add.py` 已适配。手动 curl 调 qB API 时必须遵守两步法，见 [qb-session-auth.md](qb-session-auth.md)。
+
+**36. Agent 排查时只给结论，不要主动问「要不要修」**：用户说「检查下脚本是否通？说结论别去改」「别修复」——排查类任务用户要的是状态报告和根因分析，不是修复建议。发现 bug 后只报告，不主动提议修复，除非用户明确要求。这与脚本修复类任务不同（后者当然要修）。
