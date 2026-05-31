@@ -10,6 +10,8 @@ _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 from qb_snapshot import backup_from_torrents
 
+from download_history import cmd_complete_by_hash
+
 _skill_root = os.path.join(_skill_dir, "..")
 
 STATE_FILE = os.path.join(_skill_root, "pt_notify_state.json")
@@ -160,6 +162,12 @@ def main():
         with open(TRACKER_FILE, "a") as f:
             for c in unique_completions:
                 f.write(c["hash"] + "\n")
+
+        for c in unique_completions:
+            try:
+                cmd_complete_by_hash(c["hash"], c["name"])
+            except Exception:
+                pass
 
     auto_cleaned = []
     if completed_public:
