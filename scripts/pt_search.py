@@ -1049,6 +1049,10 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
         return _search_mteam_api(site, query, limit, adult=adult)
     elif site["parser"] == "ttg":
         return _parse_ttg(html, site, site_id, limit)
+    else:
+        log.warning("unknown parser type=%s site=%s", site.get("parser"), site_id)
+        return [{"error": f"Unsupported parser type: {site.get('parser')}",
+                 "site": site["name"], "site_id": site_id}]
 
 
 def _parse_nexusphp_classic(html: str, site: dict, site_id: str,

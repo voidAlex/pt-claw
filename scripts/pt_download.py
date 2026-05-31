@@ -166,6 +166,13 @@ _PROMO_PATTERNS = [
 
 
 def _detect_promo(html: str) -> str:
+    """Detect promotion type from a detail page's HTML.
+
+    Class-based patterns are checked first (specific, low false-positive risk).
+    Text-based patterns (e.g. '>Free<') serve as fallback for sites that don't
+    use CSS classes.  This function is only called on single-torrent detail
+    pages, so cross-torrent false positives are not a concern.
+    """
     for pattern, label in _PROMO_PATTERNS:
         if re.search(pattern, html, re.IGNORECASE):
             return label

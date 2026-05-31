@@ -66,7 +66,7 @@ def load_config() -> dict:
 
 
 class QBit:
-    def __init__(self, url: str, user: str, password: str):
+    def __init__(self):
         self.opener, self.url = get_session()
 
     def list_torrents(self, category: str = "") -> list[dict]:
@@ -361,7 +361,7 @@ def main():
         sys.exit(1)
 
     try:
-        qb = QBit(qb_url, qb_user, qb_pass)
+        qb = QBit()
     except Exception as e:
         print(f"❌ 连接 qBittorrent 失败: {e}")
         sys.exit(1)

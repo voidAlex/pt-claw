@@ -60,10 +60,10 @@ def test_qbittorrent():
             },
             data=data,
         )
-        if "SID=" in body or status == 200:
+        if body.strip() == "Ok." or "SID" in body or status == 200:
             _result("qBittorrent", "ok", f"login OK, {url}", elapsed)
         else:
-            _result("qBittorrent", "warn", f"login returned 200 but no SID cookie", elapsed)
+            _result("qBittorrent", "warn", f"login returned {status} but unexpected body: {body[:60]}", elapsed)
     except Exception as e:
         _result("qBittorrent", "fail", str(e)[:80])
 

@@ -36,12 +36,15 @@ def _env(key, default=""):
     Rationale: the Hermes process may have stale values in os.environ from
     a previous secrets.env version.  The file on disk is the source of truth;
     process environment is only a fallback for keys not present in the file.
+
+    If the key exists in secrets.env (even with empty value), that value is
+    returned as-is — the user explicitly set it.  Only keys absent from the
+    file fall through to os.environ.
     """
     _load_env_file()
-    val = _env_cache.get(key, "")
-    if not val:
-        val = os.environ.get(key, default)
-    return val
+    if key in _env_cache:
+        return _env_cache[key]
+    return os.environ.get(key, default)
 
 
 def _env_matching(prefix):
