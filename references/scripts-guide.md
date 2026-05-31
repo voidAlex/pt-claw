@@ -326,16 +326,19 @@ python3 scripts/cross_seed.py "流浪地球2"
 
 ```bash
 # 执行一轮刷流（搜索免费种子→添加→记录）
-python3 scripts/pt_ratio_boost.py boost
+python3 scripts/pt_ratio_boost.py run
 
 # 只搜索不添加（预览）
-python3 scripts/pt_ratio_boost.py boost --dry-run
+python3 scripts/pt_ratio_boost.py run --check
 
 # 清理过期刷流种子
 python3 scripts/pt_ratio_boost.py cleanup
 
 # 预览过期种子（不删）
 python3 scripts/pt_ratio_boost.py cleanup --check
+
+# 查看当前刷流状态
+python3 scripts/pt_ratio_boost.py status
 ```
 
 从 `pt_boost.json` 读取配置，按站点搜索 Freeleech / 2x上传 等促销种子，自动添加到 qBittorrent 做种。支持促销标签识别（参考 MoviePilot 的 6 种促销类型）、大小/做种数过滤、做种天数上限。过期种子自动备份后移除（通过 `qb_snapshot.py`）。

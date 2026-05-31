@@ -1507,7 +1507,7 @@ def main():
 
     if adult and actor and "pttime" in target_sites:
         s = target_sites["pttime"]
-        search_path = f"/torrents.php?search={urllib.parse.quote(actor)}&notnewword=1"
+        search_path = f"/adults.php?search={urllib.parse.quote(actor)}&search_area=1&incldead=1"
         full_url = f"{s['url']}{search_path}"
         cookies = load_cookies()
         cookie_str = cookies.get("pttime", "")
