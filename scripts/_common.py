@@ -1,24 +1,28 @@
 """Shared utilities for pt-claw scripts."""
-import os, re
+import os, re, threading
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(_skill_dir, "..", "secrets.env")
 _env_cache = None
+_env_lock = threading.Lock()
 
 
 def _load_env_file():
     global _env_cache
     if _env_cache is not None:
         return
-    _env_cache = {}
-    if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                _env_cache[k.strip()] = v.strip()
+    with _env_lock:
+        if _env_cache is not None:
+            return
+        _env_cache = {}
+        if os.path.exists(ENV_FILE):
+            with open(ENV_FILE) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    _env_cache[k.strip()] = v.strip()
 
 
 def _env(key, default=""):

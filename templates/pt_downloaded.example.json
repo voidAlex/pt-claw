@@ -4,9 +4,35 @@
     {
       "code": "MIMK-267",
       "title": "示例标题",
-      "added_at": "2025-01-15T10:30:00",
+      "added_at": "2025-01-15T10:30:00+00:00",
       "source": "sukebei",
       "status": "downloaded"
+    },
+    {
+      "code": "ROYD-318",
+      "title": "示例影片",
+      "added_at": "2025-01-16T08:00:00+00:00",
+      "source": "pttime",
+      "status": "completed",
+      "completed_at": "2025-01-16T10:30:00+00:00"
+    },
+    {
+      "code": "IPZZ-410",
+      "title": "辅种示例",
+      "added_at": "2025-01-17T12:00:00+00:00",
+      "source": "pttime",
+      "source_site": "mteam",
+      "cross_seed_from": "IPZZ-410@mteam",
+      "status": "cross_seeded"
+    },
+    {
+      "code": "SSIS-448",
+      "title": "hash完成示例",
+      "added_at": "2025-01-18T09:00:00+00:00",
+      "source": "mteam",
+      "status": "completed",
+      "completed_at": "2025-01-18T11:00:00+00:00",
+      "completed_hash": "abc123def456"
     }
   ]
 }
