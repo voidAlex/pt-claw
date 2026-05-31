@@ -4,12 +4,12 @@ Add torrents to qBittorrent via Web API with file selection support.
 
 Usage:
     python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei
+    python3 qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-video --code MIDE-990
     python3 qb_add.py --stdin                              # read from stdin (JSON)
     python3 qb_add.py --from-search "query" --index 0      # search then add by index
 
 Public magnet file selection (two-step):
     python3 qb_add.py "magnet:?..." --tags sukebei --list-files
-    → shows ALL files + recommended (largest video + code-matching extras)
     python3 qb_add.py --select-files <hash> --keep 0,3,5
 """
 
@@ -70,6 +70,90 @@ def add_tags(hashes: str | list[str], tags: str | list[str]) -> dict:
                        data={"hashes": hashes, "tags": tags})
 
 
+def list_files(info_hash: str, code: str = "", timeout: int = 60) -> dict:
+    """List all files in a paused torrent. Returns flat list + auto-recommendation.
+
+    The 'recommended' field: largest video file + code-matching extras
+    (subtitles, covers with matching base name). Agent uses this as a hint
+    but makes the final decision via --select-files --keep.
+    """
+    VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".wmv", ".mov", ".ts", ".m2ts", ".webm", ".flv"}
+    SUB_EXTS = {".srt", ".ass", ".ssa", ".sub", ".idx"}
+
+    deadline = time.time() + timeout
+    files = []
+    while time.time() < deadline:
+        files = qb_request(f"/api/v2/torrents/files?hash={info_hash}")
+        if isinstance(files, list) and len(files) > 0 and files[0].get("size", 0) > 0:
+            break
+        if isinstance(files, dict) and "error" in files:
+            return files
+        time.sleep(2)
+
+    if not isinstance(files, list) or len(files) == 0:
+        return {"error": "metadata timeout — torrent may have no peers"}
+
+    result = []
+    video_entries = []
+    for i, f in enumerate(files):
+        name = f.get("name", "")
+        _, ext = os.path.splitext(name.lower())
+        size_bytes = f.get("size", 0)
+        entry = {
+            "index": i,
+            "name": name,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_bytes / 1048576, 1),
+            "ext": ext,
+            "is_video": ext in VIDEO_EXTS,
+            "is_subtitle": ext in SUB_EXTS,
+        }
+        result.append(entry)
+        if entry["is_video"]:
+            video_entries.append(entry)
+
+    recommended_main = None
+    recommended_extras = []
+    if video_entries:
+        main = max(video_entries, key=lambda f: f["size_bytes"])
+        main_base = os.path.splitext(main["name"])[0].lower()
+        recommended_main = {"index": main["index"], "name": main["name"], "size_mb": main["size_mb"]}
+        for e in result:
+            if e["index"] == main["index"]:
+                continue
+            e_base = os.path.splitext(e["name"])[0].lower()
+            e_name = e["name"].lower()
+            if e_base.startswith(main_base) or main_base in e_base or main_base in e_name:
+                if e["is_subtitle"] or e["ext"] in {".jpg", ".png", ".jpeg"}:
+                    recommended_extras.append({"index": e["index"], "name": e["name"], "size_mb": e["size_mb"]})
+        code_lower = code.lower()
+        if code_lower:
+            for e in result:
+                if e["index"] == main["index"]:
+                    continue
+                if code_lower in e["name"].lower():
+                    already = any(r["index"] == e["index"] for r in recommended_extras)
+                    if not already:
+                        recommended_extras.append({"index": e["index"], "name": e["name"], "size_mb": e["size_mb"]})
+
+    torrent_info = qb_request(f"/api/v2/torrents/info?hashes={info_hash}")
+    torrent_name = ""
+    if isinstance(torrent_info, list) and torrent_info:
+        torrent_name = torrent_info[0].get("name", "")
+
+    return {
+        "info_hash": info_hash,
+        "torrent_name": torrent_name,
+        "total_files": len(result),
+        "recommended": {
+            "main": recommended_main,
+            "extras": recommended_extras,
+        },
+        "files": result,
+        "next_step": f"Select files to keep, then: python3 qb_add.py --select-files {info_hash} --keep 0,3,5",
+    }
+
+
 def select_files(info_hash: str, keep_indices: list[int]) -> dict:
     """Skip all files NOT in keep_indices, then resume the torrent.
 
@@ -110,7 +194,7 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
                 max_video: bool = False, code: str = "") -> dict:
     """Add a torrent by magnet link or URL, then apply tags.
 
-    If max_video=True, torrent is added paused, then the largest video file
+    If max_video=True, torrent is added paused, then the largest video
     + code-matching extras are auto-selected before resuming.
     """
     data = {"urls": url_or_magnet}
@@ -129,11 +213,13 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         return result
 
     log.info("adding torrent url=%s category=%s tags=%s max_video=%s", url_or_magnet[:80], category, tags, max_video)
-    result = {"success": True}
+    msg = f"Added: {url_or_magnet[:80]}..."
+    result = {"success": True, "message": msg}
 
     # ── Get info hash ──────────────────────────────────────
     info_hash = _extract_hash_from_magnet(url_or_magnet)
     if not info_hash:
+        # Torrent URL — poll
         url_basename = url_or_magnet.rsplit("/", 1)[-1].rsplit("?", 1)[0]
         pattern = url_basename.rsplit(".", 1)[0] if "." in url_basename else url_basename
         if len(pattern) > 3:
@@ -149,13 +235,12 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         log.info("max-video hash=%s code=%s", info_hash, code)
         try:
             listing = list_files(info_hash, code=code, timeout=60)
-            files = listing.get("files", [])
             rec = listing.get("recommended", {})
             main = rec.get("main", {})
             extras = rec.get("extras", [])
             keep = [main["index"]] if main else []
             keep += [e["index"] for e in extras]
-            if keep and files:
+            if keep:
                 sel_result = select_files(info_hash, keep)
                 result["max_video"] = {
                     "selected_main": main.get("name"),
@@ -311,7 +396,7 @@ def main():
         cat = data.get("category", category)
         tgs = data.get("tags", tags)
         vo = data.get("max_video") or data.get("video_only", max_video)
-        code = data.get("code", code)
+        code = data.get("code", "")
         if isinstance(tgs, str):
             tgs = [t.strip() for t in tgs.split(",") if t.strip()]
 
