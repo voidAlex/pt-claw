@@ -61,7 +61,7 @@ def load():
     if not os.path.exists(BACKUP_FILE):
         return []
     try:
-        with open(BACKUP_FILE) as f:
+        with open(BACKUP_FILE, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, ValueError, OSError):
         return []
@@ -80,8 +80,16 @@ def save(entries):
                 entry["deleted_at"] = now
                 existing.append(entry)
             existing = existing[-500:]
+            # Clean orphaned .torrent files for evicted entries
+            retained_hashes = {e["hash"].lower() for e in existing}
+            if os.path.isdir(TORRENT_DIR):
+                for fname in os.listdir(TORRENT_DIR):
+                    if fname.endswith(".torrent"):
+                        h = fname[:-8].lower()
+                        if h not in retained_hashes:
+                            os.remove(os.path.join(TORRENT_DIR, fname))
             tmp = BACKUP_FILE + ".tmp"
-            with open(tmp, "w") as f:
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(existing, f, ensure_ascii=False, indent=2)
             os.replace(tmp, BACKUP_FILE)
         finally:
@@ -258,8 +266,14 @@ def main():
 
     if command == "clear":
         log.info("clearing all backup records")
-        with open(BACKUP_FILE, "w") as f:
-            json.dump([], f)
+        lock_path = BACKUP_FILE + ".lock"
+        with open(lock_path, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(BACKUP_FILE, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
         print("Cleared")
         return
 

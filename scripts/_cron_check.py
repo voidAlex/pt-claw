@@ -34,7 +34,7 @@ def _default_state():
 def _load_state():
     if os.path.exists(STATE_FILE):
         try:
-            with open(STATE_FILE) as f:
+            with open(STATE_FILE, encoding="utf-8") as f:
                 data = json.load(f)
             if "dead_torrents" not in data:
                 data["dead_torrents"] = {}
@@ -56,7 +56,7 @@ def _save_state(state):
     with open(lock_path, "w") as lf:
         fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
         try:
-            with open(tmp, "w") as f:
+            with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(state, f, ensure_ascii=False, indent=2)
             os.replace(tmp, STATE_FILE)
         finally:
@@ -83,7 +83,7 @@ def main():
 
     known_hashes = set()
     if os.path.exists(TRACKER_FILE):
-        with open(TRACKER_FILE) as f:
+        with open(TRACKER_FILE, encoding="utf-8") as f:
             for line in f:
                 h = line.strip().lower()
                 if h and len(h) == 40:
@@ -175,7 +175,7 @@ def main():
 
     if unique_completions:
         log.info("new completions count=%d", len(unique_completions))
-        with open(TRACKER_FILE, "a") as f:
+        with open(TRACKER_FILE, "a", encoding="utf-8") as f:
             for c in unique_completions:
                 f.write(c["hash"] + "\n")
 

@@ -13,7 +13,7 @@ Usage:
     python3 download_history.py cross-seed --code MIMK-267 --title "xxx" --source pttime --original-source mteam
 """
 
-import json, os, sys, argparse
+import json, os, sys, argparse, fcntl
 from datetime import datetime, timezone
 
 from _logger import get_logger
@@ -21,6 +21,7 @@ from _logger import get_logger
 log = get_logger("download_history")
 
 HISTORY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
+MAX_ITEMS = 5000
 
 DEFAULT_HISTORY = {
     "description": "下载历史 — 防止用户手动删除后定时任务重复下载",
@@ -32,19 +33,30 @@ def _load() -> dict:
     if not os.path.exists(HISTORY_PATH):
         return dict(DEFAULT_HISTORY)
     try:
-        with open(HISTORY_PATH) as f:
+        with open(HISTORY_PATH, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, ValueError):
-        # Corrupted file — reset to default
         return dict(DEFAULT_HISTORY)
 
+LOCK_PATH = HISTORY_PATH + ".lock"
 
 def _save(data: dict) -> None:
     os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
+    # Evict oldest completed entries when over cap
+    items = data.get("items", [])
+    if len(items) > MAX_ITEMS:
+        uncompleted = [i for i in items if i.get("status") != "completed"]
+        completed = [i for i in items if i.get("status") == "completed"]
+        data["items"] = uncompleted + completed[-(MAX_ITEMS - len(uncompleted)):]
     tmp = HISTORY_PATH + ".tmp"
-    with open(tmp, 'w') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, HISTORY_PATH)
+    with open(LOCK_PATH, "w") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, HISTORY_PATH)
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
 
 def _find_item(data: dict, code: str) -> tuple[dict | None, int]:

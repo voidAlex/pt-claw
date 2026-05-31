@@ -62,24 +62,26 @@ _SITE_MAP = _build_site_map()
 
 # ── Bencode parser (for .torrent file parsing) ──────────────────
 
-def _bdecode(data: bytes, pos: int = 0) -> tuple:
+def _bdecode(data: bytes, pos: int = 0, _depth: int = 0) -> tuple:
     """Decode a bencoded value, returning (value, new_pos)."""
     if pos >= len(data):
         raise ValueError(f"Bencode parse error: pos {pos} exceeds data length {len(data)}")
+    if _depth > 100:
+        raise ValueError("Bencode nesting too deep (>100 levels)")
     ch = data[pos:pos+1]
     if ch == b'd':
         pos += 1
         d = {}
         while data[pos:pos+1] != b'e':
-            key, pos = _bdecode(data, pos)
-            val, pos = _bdecode(data, pos)
+            key, pos = _bdecode(data, pos, _depth + 1)
+            val, pos = _bdecode(data, pos, _depth + 1)
             d[key] = val
         return d, pos + 1
     elif ch == b'l':
         pos += 1
         lst = []
         while data[pos:pos+1] != b'e':
-            val, pos = _bdecode(data, pos)
+            val, pos = _bdecode(data, pos, _depth + 1)
             lst.append(val)
         return lst, pos + 1
     elif ch == b'i':
@@ -308,13 +310,15 @@ def _fetch_and_parse(item: dict) -> dict | None:
 def _load_tasks() -> dict:
     if not os.path.exists(TASKS_FILE):
         return {}
-    with open(TASKS_FILE) as f:
+    with open(TASKS_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 
 def _save_tasks(tasks: dict):
-    with open(TASKS_FILE, "w") as f:
+    tmp = TASKS_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(tasks, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, TASKS_FILE)
 
 
 def _gen_task_id() -> str:
@@ -639,7 +643,7 @@ def main():
             if not input_path:
                 print(json.dumps({"error": "--input <file> or --stdin required"}))
                 sys.exit(1)
-            with open(input_path) as f:
+            with open(input_path, encoding="utf-8") as f:
                 items = json.load(f)
         if not isinstance(items, list):
             print(json.dumps({"error": "Input must be a JSON array of search results"}))
@@ -664,7 +668,7 @@ def main():
             if not title or not items_path:
                 print(json.dumps({"error": "--title and --items required (or use --stdin)"}))
                 sys.exit(1)
-            with open(items_path) as f:
+            with open(items_path, encoding="utf-8") as f:
                 items = json.load(f)
         if not title:
             print(json.dumps({"error": "--title required"}))

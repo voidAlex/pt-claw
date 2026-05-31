@@ -29,7 +29,7 @@ def _load_cache() -> dict:
     if not os.path.exists(_CACHE_FILE):
         return {}
     try:
-        with open(_CACHE_FILE) as f:
+        with open(_CACHE_FILE, encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -37,7 +37,7 @@ def _load_cache() -> dict:
 
 def _save_cache(cache: dict):
     tmp = _CACHE_FILE + ".tmp"
-    with open(tmp, "w") as f:
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(cache, f, ensure_ascii=False)
     os.replace(tmp, _CACHE_FILE)
 

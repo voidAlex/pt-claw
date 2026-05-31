@@ -1,6 +1,6 @@
 # pt-claw
 
-多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
+> v3.2.0 — 多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
 
 对话式搜索 115 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
 

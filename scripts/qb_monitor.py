@@ -50,14 +50,14 @@ def qb_get(endpoint: str) -> dict:
 
 def _read_tracker(path: str) -> int:
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return int(f.read().strip())
     except (FileNotFoundError, ValueError):
         return 0
 
 def _write_tracker(path: str, epoch: int):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(str(epoch))
 
 def main():

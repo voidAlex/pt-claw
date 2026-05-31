@@ -20,7 +20,7 @@ def _load_env_file():
             return
         _env_cache = {}
         if os.path.exists(ENV_FILE):
-            with open(ENV_FILE) as f:
+            with open(ENV_FILE, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith("#") or "=" not in line:

@@ -99,7 +99,7 @@ def _update_secrets_env(updates, dry_run=False):
     """Update PT_COOKIE_* lines in secrets.env. Add missing ones at the end."""
     lines = []
     if os.path.exists(ENV_FILE):
-        with open(ENV_FILE) as f:
+        with open(ENV_FILE, encoding="utf-8") as f:
             lines = f.readlines()
 
     updated_keys = set()
@@ -121,8 +121,10 @@ def _update_secrets_env(updates, dry_run=False):
             print(f"    {var_name}={value[:40]}...")
         return
 
-    with open(ENV_FILE, "w") as f:
+    tmp = ENV_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         f.writelines(lines)
+    os.replace(tmp, ENV_FILE)
     print(f"  ✅ Updated {len(updates)} cookie(s) in secrets.env")
 
 

@@ -52,7 +52,7 @@ DEFAULT_SITE = {
 def load_config() -> dict:
     if not os.path.exists(CONFIG_PATH):
         return {"enabled": False, "global": dict(DEFAULT_GLOBAL), "sites": {}, "per_run_add_limit": 5}
-    with open(CONFIG_PATH) as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         cfg = json.load(f)
     g = cfg.setdefault("global", {})
     for k, v in DEFAULT_GLOBAL.items():

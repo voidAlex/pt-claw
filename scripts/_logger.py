@@ -2,7 +2,7 @@
 Unified logging for pt-claw scripts.
 
 Provides:
-  - RotatingFileHandler (10 MB × 5 backups = 50 MB cap)
+  - RotatingFileHandler (10 MB × 6 files = 60 MB cap)
   - Per-invocation call_id for tracing request chains
   - Structured log format: timestamp | call_id | level | script | message
 
@@ -24,7 +24,7 @@ LOG_FILE = os.path.join(LOG_DIR, "pt-claw.log")
 
 _MAX_BYTES = 10 * 1024 * 1024   # 10 MB per file
 _BACKUP_COUNT = 5                # 5 rotated backups
-_TOTAL_CAP_MB = _MAX_BYTES * (_BACKUP_COUNT + 1) // (1024 * 1024)
+_CAP_MB = _MAX_BYTES * (_BACKUP_COUNT + 1) // (1024 * 1024)  # 60 MB total
 
 _call_id = uuid.uuid4().hex[:8]
 

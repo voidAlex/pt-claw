@@ -44,7 +44,7 @@ def load_history():
     f = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pt_downloaded.json")
     if not os.path.exists(f):
         return set()
-    with open(f) as fh:
+    with open(f, encoding="utf-8") as fh:
         return {i['code'] for i in json.load(fh).get('items', [])}
 
 def main():
