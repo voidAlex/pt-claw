@@ -4,7 +4,7 @@
 
 所有脚本位于 `scripts/` 目录，配置文件路径见脚注¹。
 
-**目录**：[pt_search](#pt_searchpy--多站搜索115-站含馒头-api) · [pt_download](#pt_downloadpy--详情页直接下载推送通用所有-pt-站) · [qb_add](#qb_addpy--添加到-qbittorrent含站点标签--文件选择) · [_cron_check](#_cron_checkpy--cron-进度检查合并完成通知--死种频率控制--公开种清理) · [download_history](#download_historypy--下载历史追踪) · [qb_monitor](#qb_monitorpy--qbittorrent-全功能查询) · [javbus_star](#javbus_starpy--演员片单交叉对比) · [qb_snapshot](#qb_snapshotpy--删种备份与恢复) · [jf_query](#jf_querypy--jellyfin-查询) · [javbus_magnet](#javbus_magnetpy--javbus-磁链获取) · [sukebei_search](#sukebei_searchpy--sukebei-nyaa-rss-搜索) · [mteam_api](#mteam_apypy--m-team-api-客户端) · [connectivity_check](#connectivity_checkpy--全服务连接测试) · [cookie_sync](#cookie_syncpy--cookiecloud-cookie-同步可选) · [site_profile](#site_profilepy--多站用户信息查询) · [cross_seed](#cross_seedpy--多站辅种验证与推送) · [pt_ratio_boost](#pt_ratio_boostpy--freeleech-自动辅种刷流保号) · [env_check.sh](#env_checksh--环境变量完整性检查)
+**目录**：[pt_search](#pt_searchpy--多站搜索115-站含馒头-api) · [pt_download](#pt_downloadpy--详情页直接下载推送通用所有-pt-站) · [qb_add](#qb_addpy--添加到-qbittorrent含站点标签--文件选择) · [_cron_check](#_cron_checkpy--cron-进度检查合并完成通知--死种频率控制--公开种清理) · [download_history](#download_historypy--下载历史追踪) · [qb_monitor](#qb_monitorpy--qbittorrent-全功能查询) · [qb_public_cleanup](#qb_public_cleanuppy--公开磁链手动清理) · [javbus_star](#javbus_starpy--演员片单交叉对比) · [qb_snapshot](#qb_snapshotpy--删种备份与恢复) · [jf_query](#jf_querypy--jellyfin-查询) · [javbus_magnet](#javbus_magnetpy--javbus-磁链获取) · [sukebei_search](#sukebei_searchpy--sukebei-nyaa-rss-搜索) · [mteam_api](#mteam_apypy--m-team-api-客户端) · [connectivity_check](#connectivity_checkpy--全服务连接测试) · [cookie_sync](#cookie_syncpy--cookiecloud-cookie-同步可选) · [site_profile](#site_profilepy--多站用户信息查询) · [cross_seed](#cross_seedpy--多站辅种验证与推送) · [pt_ratio_boost](#pt_ratio_boostpy--freeleech-自动辅种刷流保号) · [env_check.sh](#env_checksh--环境变量完整性检查)
 
 ### pt_search.py — 多站搜索（115 站，含馒头 API）
 
@@ -151,6 +151,20 @@ python3 scripts/qb_monitor.py --delete --tags sukebei --states stalledDL --check
 ```
 
 > ⚠️ **`--tracker` 参数注意**：`qb_monitor.py --tracker <file>` 的 `_read_tracker()` 期望 tracker 文件是单个 epoch 时间戳整数，不是 hash 列表。如果文件包含 hash（如 cron 的 `pt_completed_last.txt`），会解析失败退回 epoch 0，展示全部完成记录。Cron 进度检查应使用 hash-based 方式（见 [cron-progress-check.md](cron-progress-check.md)），不用 `--tracker`。
+
+### qb_public_cleanup.py — 公开磁链手动清理
+
+```bash
+# 预览待删除清单（不删）
+python3 scripts/qb_public_cleanup.py --check
+
+# 执行清理
+python3 scripts/qb_public_cleanup.py
+```
+
+识别并清理 qBittorrent 中的公开磁链种子（sukebei / javbus 标签）。移除低做种/低分享率的公开磁链，避免占用 PT 站上传带宽。四道安全防线：公开种占比 >20% 中止、单次 ≤50、`--check` 先查后删、删除前自动备份到 `pt_deleted_backup.json`。
+
+> **注意**：Cron 自动定时清理已合并到 `_cron_check.py` 中，`qb_public_cleanup.py` 留作手动使用。日常无需手动调用。
 
 ### javbus_star.py — 演员片单交叉对比
 
@@ -315,11 +329,11 @@ python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
 # 查询单站
 python3 scripts/site_profile.py --site mteam
 
-# 查询所有已配置站点
-python3 scripts/site_profile.py --all
+# 查询所有已配置站点（不带 --site 即全查）
+python3 scripts/site_profile.py
 
-# 只显示上传/下载/分享率
-python3 scripts/site_profile.py --site pttime --fields upload,download,ratio
+# JSON 输出
+python3 scripts/site_profile.py --site pttime --json
 ```
 
 查询各 PT 站用户个人信息：上传量、下载量、分享率、魔力值、做种数、做种体积。M-Team 通过 4 个 API 端点采集（profile/myPeerStatistics/mybonus/notify），NexusPHP 站通过 3 阶段 HTML 抓取（首页→详情页→做种页）。输出结构化 JSON。
@@ -327,17 +341,20 @@ python3 scripts/site_profile.py --site pttime --fields upload,download,ratio
 ### cross_seed.py — 多站辅种验证与推送
 
 ```bash
-# 检查 qB 中所有做种资源能在哪些站辅种
-python3 scripts/cross_seed.py --check
+# 搜索资源并保存结果
+python3 scripts/cross_seed.py search "流浪地球2" --save-path /media/downloads
 
-# 只检查特定站点
-python3 scripts/cross_seed.py --check --site mteam,pttime
+# 批量扫描 qB 中所有做种的可辅种机会
+python3 scripts/cross_seed.py batch-scan
 
-# 批量辅种（从 stdin 传入 info_hash 列表）
-echo -e "hash1\nhash2" | python3 scripts/cross_seed.py --stdin
+# 限定站点批量扫描
+python3 scripts/cross_seed.py batch-scan --site mteam,pttime --limit 50
 
-# 搜索某个资源的辅种来源
-python3 scripts/cross_seed.py "流浪地球2"
+# 从 stdin 验证 info_hash 列表
+echo '{"hashes": ["abc123...", "def456..."]}' | python3 scripts/cross_seed.py verify --stdin
+
+# 查看辅种任务列表
+python3 scripts/cross_seed.py list
 ```
 
 辅种流程遵循 PT-depiler 的三阶匹配策略：

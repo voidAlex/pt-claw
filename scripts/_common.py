@@ -26,7 +26,11 @@ def _load_env_file():
                     if not line or line.startswith("#") or "=" not in line:
                         continue
                     k, v = line.split("=", 1)
-                    _env_cache[k.strip()] = v.strip()
+                    v = v.strip()
+                    # Strip surrounding quotes if present (e.g. KEY="value")
+                    if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                        v = v[1:-1]
+                    _env_cache[k.strip()] = v
             log.debug("loaded env file path=%s keys=%d", ENV_FILE, len(_env_cache))
 
 

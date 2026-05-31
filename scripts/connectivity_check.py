@@ -15,7 +15,7 @@ Usage:
     python3 connectivity_check.py --keepalive             # keepalive all PT sites
     python3 connectivity_check.py --keepalive --site btschool  # keepalive one site
 """
-import json, os, sys, time
+import json, os, subprocess, sys, time
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
@@ -312,7 +312,7 @@ def keepalive_sites(filter_site=None):
             sync_script = os.path.join(_skill_dir, "cookie_sync.py")
             if os.path.exists(sync_script):
                 for site in failed:
-                    os.system(f"python3 {sync_script} --site {site}")
+                    subprocess.run(["python3", sync_script, "--site", site], timeout=30)
                 print("Re-checking failed sites...")
                 still_failed = []
                 for site_id in failed:

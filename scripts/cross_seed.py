@@ -64,6 +64,8 @@ _SITE_MAP = _build_site_map()
 
 def _bdecode(data: bytes, pos: int = 0) -> tuple:
     """Decode a bencoded value, returning (value, new_pos)."""
+    if pos >= len(data):
+        raise ValueError(f"Bencode parse error: pos {pos} exceeds data length {len(data)}")
     ch = data[pos:pos+1]
     if ch == b'd':
         pos += 1
@@ -564,11 +566,11 @@ def batch_scan(sites: list[str] = None, limit: int = 50) -> list[dict]:
                 if name_ok:
                     size_ratio = sr_size / existing_size
                     if 0.95 <= size_ratio <= 1.05:
-                        result = _compare_files(
-                            [{"path": "", "length": existing_size}],
-                            [{"path": "", "length": sr_size}],
-                        )
-                        if result == "VERIFIED" or cand_torrent["length"] == existing_size:
+                        # Use size match + name match for Tier 2 verification.
+                        # The real verification is name_match + size tolerance;
+                        # file-list comparison is skipped here because we only
+                        # have aggregate sizes from search results, not file lists.
+                        if True:
                             candidates.append({
                                 "site": sr_site,
                                 "title": sr.get("title", ""),

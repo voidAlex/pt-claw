@@ -110,12 +110,7 @@ def cmd_complete_by_hash(info_hash: str, name: str = "") -> None:
             continue
         code = item.get("code", "").lower()
         title = item.get("title", "").lower()
-        if code and code in h:
-            item["completed_at"] = datetime.now(timezone.utc).isoformat()
-            item["status"] = "completed"
-            item["completed_hash"] = h
-            updated += 1
-        elif name and name.lower().startswith(code):
+        if name and name.lower().startswith(code):
             item["completed_at"] = datetime.now(timezone.utc).isoformat()
             item["status"] = "completed"
             item["completed_hash"] = h

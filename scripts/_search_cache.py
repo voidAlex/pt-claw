@@ -36,8 +36,10 @@ def _load_cache() -> dict:
 
 
 def _save_cache(cache: dict):
-    with open(_CACHE_FILE, "w") as f:
+    tmp = _CACHE_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(cache, f, ensure_ascii=False)
+    os.replace(tmp, _CACHE_FILE)
 
 
 def _cache_key(site_id: str, query: str) -> str:

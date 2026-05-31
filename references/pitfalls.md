@@ -103,6 +103,6 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **36. Agent 排查时只给结论，不要主动问「要不要修」**：用户说「检查下脚本是否通？说结论别去改」「别修复」——排查类任务用户要的是状态报告和根因分析，不是修复建议。发现 bug 后只报告，不主动提议修复，除非用户明确要求。这与脚本修复类任务不同（后者当然要修）。
 
-**37. `_env()` 优先读 `os.environ` 导致旧配置残留（致命）**：`_common._env()` 先用 `os.environ.get(key)` 再回退到 `secrets.env`。Hermes 启动时从 `.env` 加载的环境变量（如 `PT_PROXY`）会常驻 `os.environ`。即使 `.env` 已删除或 `secrets.env` 已更新，`os.environ` 中的旧值仍覆盖正确值。症状：`secrets.env` 写了新代理，脚本实际连旧代理报 `No route to host`。临时解决：`unset PT_PROXY` 后重跑脚本验证，或重启 Hermes。长期：`_env()` 应优先读 `secrets.env`。
+**37. `_env()` 优先读 `secrets.env` 再回退 `os.environ`（已修复）**：`_common._env()` 当前正确实现：先用 `secrets.env`（通过 `_env_cache`），文件未命中才回退到 `os.environ`。早期曾存在 bug 导致 `os.environ` 优先，已于 v3.0.x 修复。如遇旧配置残留：`unset PT_PROXY` 后重跑脚本验证，或重启 Hermes。
 
-**38. `qb_add.py --tag` 不保证生效，推送后必须验证标签**：`qb_add.py` 的 `--tag` 参数依赖 qB API `addTags` 调用时机，可能在种子元数据未就绪时静默失败。推送后必须用 `qb_monitor.py --full` 回查验证标签字段非空。若缺失且现有脚本无「补标签」功能（截至 v3.0.2 无此功能），**直接汇报用户**：「标签未打上，现有脚本缺补标签功能」。等用户允许后再处理——禁止自己手写 curl/urllib 绕过。验证步骤作为 Step 5 的强制收尾，不可跳过。
+**38. `qb_add.py --tag` 不保证生效，推送后必须验证标签**：`qb_add.py` 的 `--tag` 参数依赖 qB API `addTags` 调用时机，可能在种子元数据未就绪时静默失败。推送后必须用 `qb_monitor.py --full` 回查验证标签字段非空。若缺失，可用 `qb_add.py --retag` 重打标签（截至 v3.1.0 已支持）。验证步骤作为 Step 5 的强制收尾，不可跳过。

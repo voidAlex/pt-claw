@@ -60,8 +60,11 @@ def _download_torrent(opener, qb_url, info_hash):
 def load():
     if not os.path.exists(BACKUP_FILE):
         return []
-    with open(BACKUP_FILE) as f:
-        return json.load(f)
+    try:
+        with open(BACKUP_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError, OSError):
+        return []
 
 
 def save(entries):
@@ -73,8 +76,9 @@ def save(entries):
             existing = load()
             now = datetime.now(timezone.utc).isoformat()
             for e in entries:
-                e["deleted_at"] = now
-            existing.extend(entries)
+                entry = dict(e)
+                entry["deleted_at"] = now
+                existing.append(entry)
             existing = existing[-500:]
             tmp = BACKUP_FILE + ".tmp"
             with open(tmp, "w") as f:

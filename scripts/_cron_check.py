@@ -182,8 +182,8 @@ def main():
         for c in unique_completions:
             try:
                 cmd_complete_by_hash(c["hash"], c["name"])
-            except Exception:
-                pass
+            except Exception as e:
+                log.error("complete_by_hash failed hash=%s error=%s", c["hash"][:12], e)
 
     auto_cleaned = []
     if completed_public:

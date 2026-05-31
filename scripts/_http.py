@@ -20,6 +20,7 @@ Usage:
     status, body, elapsed = fetch(url, data=json.dumps(payload).encode(),
                                   headers={"Content-Type": "application/json"})
 """
+import re
 import socket
 import ssl
 import time
@@ -183,7 +184,6 @@ def fetch(
             content_type = resp.headers.get("Content-Type", "")
             charset = "utf-8"
             if "charset=" in content_type:
-                import re
                 m = re.search(r'charset=([\w-]+)', content_type)
                 if m:
                     charset = m.group(1)
@@ -286,14 +286,22 @@ def fetch_json(
     timeout: float = 15.0,
     retries: int = 0,
 ) -> tuple[dict | list, float]:
-    """Fetch URL and parse JSON response. Returns (parsed_json, elapsed_ms)."""
+    """Fetch URL and parse JSON response. Returns (parsed_json, elapsed_ms).
+
+    Raises RuntimeError on HTTP errors or non-JSON responses.
+    """
     import json
     merged = {"Accept": "application/json"}
     if headers:
         merged.update(headers)
     status, body, elapsed = fetch(url, headers=merged, data=data, proxy=proxy,
                                   timeout=timeout, retries=retries)
-    return json.loads(body), elapsed
+    if status >= 400:
+        raise RuntimeError(f"HTTP {status} fetching {url}: {body[:200]}")
+    try:
+        return json.loads(body), elapsed
+    except json.JSONDecodeError:
+        raise RuntimeError(f"Non-JSON response (HTTP {status}) from {url}: {body[:200]}")
 
 
 def reset_pool():

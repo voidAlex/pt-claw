@@ -63,6 +63,7 @@ def get_logger(name: str = "pt-claw") -> logging.Logger:
     _ensure_handler()
     logger = logging.getLogger(f"pt-claw.{name}")
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(_handler)
+    if not logger.handlers:
+        logger.addHandler(_handler)
     logger.propagate = False
     return logger

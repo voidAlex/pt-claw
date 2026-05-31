@@ -1162,7 +1162,7 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
 def _search_mteam_api(site: dict, query: str, limit: int, adult: bool = False) -> list[dict]:
     """Search M-Team via REST API. Delegates to mteam_api module."""
     log.info("mteam_api search query=%s limit=%d adult=%s", query, limit, adult)
-    api_token = site.get("api_token", "")
+    api_token = _env("MTEAM_API_KEY", "") or site.get("api_token", "")
     if not api_token:
         return [{"error": "No API token configured",
                  "site": site["name"], "site_id": "mteam"}]
@@ -1516,7 +1516,11 @@ def main():
         target_sites = {k: v for k, v in SITES.items()}
 
     # Limit
-    limit = int(flags.get("limit", 20))
+    try:
+        limit = int(flags.get("limit", 20))
+    except (ValueError, TypeError):
+        print(json.dumps({"error": f"Invalid --limit value: {flags.get('limit')}"}))
+        sys.exit(1)
     adult = flags.get("adult", False)
     actor = flags.get("actor", "")
     no_cache = "no-cache" in flags
