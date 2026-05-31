@@ -125,10 +125,8 @@ Body: 空（不设 Content-Type）
 # id 是 query 参数
 ```
 
-**当前 pt-claw 代码问题**：
-`mteam_api.py` 的 `_api_post()` 统一加了 `Content-Type: application/json` 头。
-当 `body=None` 时实际发送 `Content-Type: application/json` + 空 body → M-Team 返回 `code: 1`。
-**所有种子的下载链接生成已损坏**，不只是成人区。
+**pt-claw 实现**：
+`_api_post()` 不设置 `Content-Type` 头（与 MoviePilot 一致）。当 `body=None` 时发送空 body，M-Team 正确处理并返回下载链接。
 
 响应:
 ```json
@@ -147,7 +145,7 @@ Body: 空（不设 Content-Type）
 
 | 项目 | HTTP 方式 | Body | Content-Type | Cookie |
 |------|----------|------|-------------|--------|
-| **pt-claw** | POST, id 在 query string | 空 `b""` | `application/json` ❌ | 无 |
+| **pt-claw** | POST, id 在 query string | 空 `b""` | 不设置 ✅ | 无 |
 | **MoviePilot** | POST, id 在 query string | 空 | 不设置 ✅ | 显式禁用（"否则MT会出错"）|
 | **PT-depiler** | POST | `{id: torrent_id}` | `multipart/form-data` | 无 |
 

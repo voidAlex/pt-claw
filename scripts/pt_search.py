@@ -1017,6 +1017,8 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
         search_path = site["adult_search"].format(query=urllib.parse.quote(query))
     else:
         search_path = site["search"].format(query=urllib.parse.quote(query))
+        if adult:
+            log.warning("adult search requested but site=%s has no adult_search path — falling back to normal search", site_id)
     full_url = f"{site['url']}{search_path}"
 
     proxy = _env("PT_PROXY") if site.get("needs_proxy") else None

@@ -1,5 +1,5 @@
 """Shared utilities for pt-claw scripts."""
-import os, re, threading
+import json, os, re, threading
 
 from _logger import get_logger
 
@@ -156,3 +156,57 @@ def _is_login_page(html: str) -> bool:
         return False
     title_text = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
     return '登录' in title_text or 'login' in title_text.lower()
+
+
+# ── Wishlist filtering ─────────────────────────────────────────
+
+WISHLIST_PATH = os.path.join(_skill_dir, "..", "pt_wishlist.json")
+
+
+def _load_wishlist() -> dict | None:
+    if not os.path.exists(WISHLIST_PATH):
+        return None
+    try:
+        with open(WISHLIST_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _get_actor_filters(actor_name: str) -> dict | None:
+    """Get exclude_prefixes and require_freeleech for an actor from wishlist."""
+    wl = _load_wishlist()
+    if not wl:
+        return None
+    for actor in wl.get("actors", []):
+        if actor.get("name") == actor_name:
+            return {
+                "exclude_prefixes": actor.get("exclude_prefixes", []),
+                "require_freeleech": actor.get("require_freeleech", False),
+            }
+    return None
+
+
+def _filter_by_wishlist(results: list[dict], actor_name: str) -> list[dict]:
+    """Filter search results by wishlist rules for an actor.
+
+    Supports exclude_prefixes (skip torrents whose fanhao code starts
+    with an excluded prefix) and require_freeleech (only keep Free/2xFree).
+    Returns filtered list; returns unchanged if no rules apply.
+    """
+    filters = _get_actor_filters(actor_name)
+    if not filters:
+        return results
+    exclude = [p.upper() for p in filters.get("exclude_prefixes", [])]
+    freeleech_only = filters.get("require_freeleech", False)
+    filtered = []
+    for r in results:
+        title = r.get("title", "")
+        code_match = re.match(r'^([A-Za-z0-9]+-\d+)', title)
+        code = code_match.group(1).upper() if code_match else ""
+        if exclude and any(code.startswith(p) for p in exclude):
+            continue
+        if freeleech_only and r.get("promo", "") not in ("Free", "2xFree"):
+            continue
+        filtered.append(r)
+    return filtered
