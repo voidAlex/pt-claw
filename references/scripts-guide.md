@@ -4,7 +4,7 @@
 
 所有脚本位于 `scripts/` 目录，配置文件路径见脚注¹。
 
-### pt_search.py — 多站搜索（15 站，含馒头 API）
+### pt_search.py — 多站搜索（115 站，含馒头 API）
 
 ```bash
 # 单站
