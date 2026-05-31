@@ -13,6 +13,10 @@ if [[ -f "$ENV_FILE" ]]; then
         [[ -z "$line" || "$line" != *=* ]] && continue
         key="${line%%=*}"
         val="${line#*=}"
+        # Skip keys starting with digit — bash cannot export/indirect-ref these
+        if [[ "$key" =~ ^[0-9] ]]; then
+            continue
+        fi
         export "${key}=${val}"
     done < "$ENV_FILE" 2>/dev/null
 fi
@@ -63,15 +67,21 @@ else
 fi
 
 echo "=== PT Cookies ==="
-for site in PTTIME BTSCHOOL CARPT HDFANS 1PTBA SOULVOICE ZMPT; do
-    var="PT_COOKIE_${site}"
-    if [[ -n "${!var}" ]]; then
-        _cookie_val="${!var}"
-        echo "  ✓ PT_COOKIE_${site} (set, ${#_cookie_val} chars)"
-    else
-        echo "  ⚠ PT_COOKIE_${site} — missing"
-    fi
-done
+if [[ -f "$ENV_FILE" ]]; then
+    for site in PTTIME BTSCHOOL CARPT HDFANS 1PTBA SOULVOICE ZMPT PTSKIT PTHOME \
+                HDSKY HDHOME AUDIENCES KEEPFRDS TTG; do
+        key="PT_COOKIE_${site}"
+        if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null && \
+           [[ -n "$(grep "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)" ]]; then
+            len=$(grep "^${key}=" "$ENV_FILE" | head -1 | cut -d= -f2- | wc -c)
+            echo "  ✓ PT_COOKIE_${site} (set, ${len} chars)"
+        else
+            echo "  ⚠ PT_COOKIE_${site} — missing"
+        fi
+    done
+else
+    echo "  ⚠ secrets.env not found"
+fi
 
 echo "=== CookieCloud (optional) ==="
 if [[ -n "${COOKIE_CLOUD_HOST}" ]]; then
