@@ -308,7 +308,11 @@ def main():
         return
 
     if command == "backup-batch":
-        torrents = json.load(sys.stdin)
+        try:
+            torrents = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            print(json.dumps({"error": "stdin is not valid JSON"}))
+            sys.exit(1)
         log.info("backup-batch count=%d", len(torrents))
         entries = backup_from_torrents(torrents, reason="manual_delete")
         print(json.dumps({"backed_up": len(entries)}, ensure_ascii=False))

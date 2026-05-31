@@ -71,8 +71,8 @@ curl -s "https://www.javbus.com/ajax/uncledatoolsbyajax.php?gid=<GID>&lang=zh&im
 
 ### PTTime
 
-- **页面**: `https://www.pttime.org/adults.php`
-- **按番号**: `search=SSIS-448&search_area=1&incldead=1`（注意参数名是 `search`，不是 `searchstr`）
+- **页面**: `https://www.pttime.org/torrents.php`（adults.php 搜索已失效，改用常规搜索 `torrents.php?search=`）
+- **按番号**: `search=SSIS-448&notnewword=1`（常规 torrents.php 搜索，adults.php 已废弃）
 - **按演员**: `search=浅野心&search_area=1&incldead=1`
 - **HTML**: 与主页 `torrents.php` 相同（NexusPHP 双行结构）
 - **pt-claw**: 已适配，`pt_search.py --site pttime --adult`

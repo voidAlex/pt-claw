@@ -259,6 +259,8 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
         data["savepath"] = save_path
     if category:
         data["category"] = category
+    if tags and isinstance(tags, list) and len(tags) > 0:
+        data["tags"] = ",".join(tags)
     if max_video:
         data["paused"] = "true"
 
@@ -335,6 +337,39 @@ def main():
             category = sys.argv[i + 2]
         elif a == "--tags" and i + 1 < len(sys.argv) - 1:
             tags = [t.strip() for t in sys.argv[i + 2].split(",") if t.strip()]
+
+    # ── --retag mode (add tags to existing torrents) ──────────
+    if "--retag" in sys.argv:
+        if not tags:
+            print(json.dumps({"error": "--retag requires --tags <tag1,tag2>"}))
+            sys.exit(1)
+        hashes = []
+        retag_idx = sys.argv.index("--retag")
+        if retag_idx + 1 < len(sys.argv) and not sys.argv[retag_idx + 1].startswith("-"):
+            hashes = [sys.argv[retag_idx + 1]]
+        else:
+            for a in sys.argv:
+                if a.startswith("--hash="):
+                    hashes = [a.split("=", 1)[1]]
+                    break
+            if not hashes:
+                hashes_str = ""
+                for a in sys.argv:
+                    if a.startswith("--hashes="):
+                        hashes_str = a.split("=", 1)[1]
+                        break
+                if hashes_str:
+                    hashes = [h.strip() for h in hashes_str.split(",") if h.strip()]
+        if not hashes:
+            print(json.dumps({"error": "--retag requires a hash argument: --retag <hash> or --hash=<hash>"}))
+            sys.exit(1)
+        log.info("retagging hashes=%s tags=%s", hashes, tags)
+        result = add_tags(hashes, tags)
+        if "error" not in result:
+            print(json.dumps({"status": "tagged", "hashes": hashes if isinstance(hashes, list) else [hashes], "tags": tags}))
+        else:
+            print(json.dumps({"error": result["error"]}))
+        return
 
     # ── --select-files mode (step 2: apply selection + resume) ──
     if "--select-files" in sys.argv:

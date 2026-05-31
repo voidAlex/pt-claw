@@ -625,7 +625,11 @@ def main():
     if cmd == "verify":
         if "stdin" in parsed["flags"]:
             raw = sys.stdin.read()
-            items = json.loads(raw)
+            try:
+                items = json.loads(raw)
+            except json.JSONDecodeError:
+                print(json.dumps({"error": "stdin is not valid JSON"}))
+                sys.exit(1)
             if isinstance(items, dict) and "results" in items:
                 items = items["results"]
         else:
@@ -646,7 +650,11 @@ def main():
         title = parsed["flags"].get("title", "")
         save_path = parsed["flags"].get("save-path", "")
         if "stdin" in parsed["flags"]:
-            items = json.loads(sys.stdin.read())
+            try:
+                items = json.loads(sys.stdin.read())
+            except json.JSONDecodeError:
+                print(json.dumps({"error": "stdin is not valid JSON"}))
+                sys.exit(1)
             if isinstance(items, dict) and "results" in items:
                 items = items["results"]
         else:

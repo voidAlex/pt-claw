@@ -4,7 +4,7 @@
 
 **1. bash `source secrets.env` 会因 cookie 特殊字符报错**：Cookie 值含 `==`、`;`、`=` 等字符时，`source` 会触发 bash 解析错误（如 `sl-session=xxx==: 未找到命令`）。**永远用 Python `_load_env_file()` 读取环境变量**，不要 source。手动调试时用 Python 单行脚本。
 
-**2. PTTime 成人区搜索必须走 `adults.php`**：PTTime 成人内容只能通过 `/adults.php?search=...&search_area=1&incldead=1` 搜索（参数名是 `search`，不是 `searchstr`）。常规 `torrents.php` 不覆盖成人内容。`pt_search.py --adult` 已正确路由到 `adults.php`。不要改用 `torrents.php`。
+**2. PTTime 成人区搜索必须走 `adults.php`**：`pt_search.py --adult` 对 PTTime 走 `/adults.php?search=...&search_area=1&incldead=1`（注意参数是 `search=`，不是旧版 `searchstr=`）。`--adult --actor` 同理走 `/adults.php?search=...`。早期 `searchstr=` 参数曾失效，但 `search=` 参数正常工作。
 
 **3. 公开磁链只看标签不看 tracker**：唯一可靠判断是 qB 标签（sukebei/javbus）。`qb_public_cleanup.py` 有四道防线：占比>20%中止、单次≤50、`--check` 先查后删、删除前自动备份。
 
@@ -68,7 +68,7 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **26. `pt_notify_state.json` 通知状态文件**：`_cron_check.py` 用此文件追踪死种通知频率（首次立即，之后每 6h 提醒，最多 20 次）。文件不存在时自动创建默认值，无需手动维护。不要删除此文件，否则会丢失通知计数导致重复提醒。
 
-**26a. PTTime 成人搜索用 `adults.php`**：PTTime 成人区搜索必须走 `/adults.php?search=...&search_area=1&incldead=1`，不能用 `torrents.php`（常规搜索不覆盖成人内容）。`pt_search.py --adult` 已正确路由。注意参数名是 `search`（不是 `searchstr`）。不要改回 `torrents.php`。
+**26a. PTTime 成人搜索参数是 `search=` 不是 `searchstr=`**：早期 `adults.php?searchstr=` 曾失效返回全量，后改用 `adults.php?search=` 恢复正常。`pt_search.py --adult` 当前走 `/adults.php?search=...&search_area=1&incldead=1`，与 #2 一致。不要改回 `searchstr=` 参数。
 
 **26b. Cookie 过期检测只看 `<title>` 标签**：之前检测 `'登录' in html[:2000]` 会把导航栏的「快捷登录」文字误判为过期。已改为提取 `<title>` 标签内容再检测（`_common._is_login_page()`）。涉及文件：`pt_search.py`、`site_profile.py`、`connectivity_check.py`。不要改回 `html[:N]` 方式。
 
@@ -82,7 +82,12 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **28. 禁止 `source secrets.env`**：Cookie 值含 `=`，bash source 会误解析。脚本内部 `_load_env_file()` 安全处理。
 
-**29. 禁止 /tmp/*.py 临时脚本**：日常用 `qb_monitor/jf_query/javbus_star/qb_add`。新场景事后固化。
+**29. 禁止手写内联 Python，包括 `| python3 -c` 管道过滤**：
+- 禁止 `| python3 -c "import sys,json; ..."`——脚本输出本身就是结构化 JSON，LLM 直接读就行，不需要再过滤。
+- 禁止手写 `urllib` 调 qB API——`qb_monitor.py --full` 一行搞定。`--states`/`--stalled`/`--codes`/`--tags` 覆盖所有过滤场景。
+- 禁止 `python3 -c "from _qb_session import ..."`——这是绕开脚本自己写代码。
+- **为什么这样写会被说**：用户一眼看出你在手写 Python 解析 JSON，而不是用脚本。点号 (`|`) 后面接 `python3 -c` 在对话里特别显眼，触发「你怎么又在写脚本」的反弹。
+- **脚本做不到 → 直接汇报缺口，禁止自己补**：如果某个操作（如给已有种子补标签、查特定字段）现有脚本覆盖不了，直接告诉用户「缺 XXX 功能，现有脚本做不到」。等用户明确允许后再解决（委托 OpenCode 或手动 curl 一次）。禁止因为「脚本没有这个功能」就自己写 Python 绕过——这恰恰是用户最讨厌的模式。Skill 的 Agent 行为规则第 6 条（脚本缺口汇报）与本条是三位一体纪律。
 
 **30. 内网用 Python 脚本不裸 curl**：tirith 拦截 curl→私有 IP。脚本内部 `urllib.request` 绕过。
 
@@ -97,3 +102,7 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 **35. qBittorrent Web API v5+ 必须 session 认证**：直接 `curl -u user:pass` 或 Python `urllib` Basic Auth 返回 403 Forbidden。正确流程：① `POST /api/v2/auth/login`（body: `username=xxx&password=xxx`）获取 `Set-Cookie: SID=...` → ② 后续请求带 `Cookie: SID=xxx`。`_qb_session.py` 已内置此逻辑，`qb_monitor.py` 和 `qb_add.py` 已适配。手动 curl 调 qB API 时必须遵守两步法，见 [qb-session-auth.md](qb-session-auth.md)。
 
 **36. Agent 排查时只给结论，不要主动问「要不要修」**：用户说「检查下脚本是否通？说结论别去改」「别修复」——排查类任务用户要的是状态报告和根因分析，不是修复建议。发现 bug 后只报告，不主动提议修复，除非用户明确要求。这与脚本修复类任务不同（后者当然要修）。
+
+**37. `_env()` 优先读 `os.environ` 导致旧配置残留（致命）**：`_common._env()` 先用 `os.environ.get(key)` 再回退到 `secrets.env`。Hermes 启动时从 `.env` 加载的环境变量（如 `PT_PROXY`）会常驻 `os.environ`。即使 `.env` 已删除或 `secrets.env` 已更新，`os.environ` 中的旧值仍覆盖正确值。症状：`secrets.env` 写了新代理，脚本实际连旧代理报 `No route to host`。临时解决：`unset PT_PROXY` 后重跑脚本验证，或重启 Hermes。长期：`_env()` 应优先读 `secrets.env`。
+
+**38. `qb_add.py --tag` 不保证生效，推送后必须验证标签**：`qb_add.py` 的 `--tag` 参数依赖 qB API `addTags` 调用时机，可能在种子元数据未就绪时静默失败。推送后必须用 `qb_monitor.py --full` 回查验证标签字段非空。若缺失且现有脚本无「补标签」功能（截至 v3.0.2 无此功能），**直接汇报用户**：「标签未打上，现有脚本缺补标签功能」。等用户允许后再处理——禁止自己手写 curl/urllib 绕过。验证步骤作为 Step 5 的强制收尾，不可跳过。

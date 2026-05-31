@@ -255,7 +255,17 @@ echo -e "CODE1\nCODE2" | python3 scripts/download_history.py filter  # 批量
 
 完整 115 站标签映射见 [references/site-tags.md](references/site-tags.md)。标签 = 站点 ID（小写）。
 
-推送成功后必须记录下载历史：
+推送成功后必须验证和记录：
+
+**验证标签**：`qb_add.py` 的 `--tag` 参数不一定生效，推送后必须用 `qb_monitor.py --full` 回查确认标签。若缺失，用脚本补打：
+```bash
+# 查哈希
+python3 scripts/qb_monitor.py --full | ...  # LLM 直接读 JSON 找 hash
+# 补标签 (如果有 addTags 脚本，用法见 scripts-guide)
+```
+⚠️ 此步骤禁止手写 curl/urllib 调 qB API——只允许用现有脚本。
+
+**记录下载历史**：
 ```bash
 python3 scripts/download_history.py add --code <番号> --title "<标题>" --source <站点标签>
 ```
@@ -300,9 +310,26 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ## Common Pitfalls
 
-致命级 7 条 + 严重级 7 条 + 注意级 17 条（含子条目）+ 脚本纪律 10 条，共 41 条。详见 [references/pitfalls.md](references/pitfalls.md)。
+致命级 7 条 + 严重级 7 条 + 注意级 17 条（含子条目）+ 脚本纪律 12 条，共 43 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
 Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
+
+### ⚡ Agent 行为规则（非脚本，Agent 自身遵循）
+
+**1. 优先用现成脚本，禁止手写 Python 查 qB。** `qb_monitor.py --full` 一行就能拿到全部信息。`--states`、`--stalled`、`--codes` 覆盖所有查询场景。禁止自己写 `urllib` 登录 qB API。
+
+**2. 用户问"下载好什么"→ 先查 cron 最新输出。** 种子完成→清理后 qB 里就没了。`~/.hermes/cron/output/<job_id>/` 最新文件才是权威来源。qB → 下载历史 → JF → cron 输出，按这个顺序查。
+
+**3. 删种文件保留规则：**
+- 下载完成(100%) → 保留文件（用户可能要看）
+- 未完成/死种/metaDL → 连带删文件（废片占空间）
+- `qb_monitor.py --delete` 默认保留文件，未完成需追加 qB API `deleteFiles=true`
+
+**4. 禁止管道接 `python3 -c` 过滤 JSON。** 脚本输出是结构化的，LLM 直接读就行。过滤用脚本自带的 `--codes`/`--tags`/`--states` 参数，不要 `| python3 -c "import sys,json; ..."`。这是手写 Python，违反规则 1。读取脚本完整输出让 LLM 自己解析 JSON 是零成本的，管道过滤反而多此一举。
+
+**5. 推送后必须验证标签。** `qb_add.py` 推送后用 `qb_monitor.py --full` 查回确认标签打上了。没打上用脚本补打（禁止手写 curl/urllib 调 qB API）。
+
+**6. 脚本功能有缺口 → 直接汇报用户，不自己写代码绕过。** 某个操作现有脚本都做不到时（如「补标签」），直接告诉用户：「缺 XXX 功能，现有脚本覆盖不了」。等用户明确允许后再动手（委托 OpenCode 加功能，或手动 curl 一次）。禁止自己写 Python/curl/管道 JSON 绕过——这是「脚本缺口汇报」规则，与规则 1「优先用现成脚本」和规则 4「禁止管道接 python3 -c」是三位一体的纪律。
 
 ## 环境变量
 
