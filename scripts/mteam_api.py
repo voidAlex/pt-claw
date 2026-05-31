@@ -15,42 +15,42 @@ Config from env:
 Details: references/mteam-api.md
 """
 
-import sys, json, os, urllib.request, urllib.error
+import sys, json, os
 
 from _common import _env, _fmt_size
-from _proxy import using_proxy
-
+from _http import fetch
 
 API_HOST = "https://api.m-team.cc/api"
 
 
 def _api_post(endpoint: str, api_key: str, body: dict | None = None, timeout: int = 15) -> dict:
     """Make a POST request to M-Team API. Uses PT_PROXY if available."""
-    url = f"{API_HOST}{endpoint}"
-
-    req = urllib.request.Request(url, data=b"", method="POST")
-    req.add_header("x-api-key", api_key)
-    req.add_header("Accept", "application/json")
-    req.add_header("User-Agent", "Mozilla/5.0")
-    req.add_header("Origin", "https://www.m-team.cc")
-
-    if body:
-        req.data = json.dumps(body).encode()
-        req.add_header("Content-Type", "application/json")
-
     proxy = _env("PT_PROXY")
     if not proxy:
         return {"code": "-1", "message": "PT_PROXY not set — M-Team API requires proxy (domestic IPs get 403)"}
 
-    with using_proxy(proxy):
-        opener = urllib.request.build_opener()
-        try:
-            with opener.open(req, timeout=timeout) as resp:
-                return json.loads(resp.read())
-        except urllib.error.HTTPError as e:
-            return {"code": str(e.code), "message": f"HTTP {e.code}: {e.reason}"}
-        except Exception as e:
-            return {"code": "-1", "message": str(e)}
+    url = f"{API_HOST}{endpoint}"
+    headers = {
+        "x-api-key": api_key,
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0",
+        "Origin": "https://www.m-team.cc",
+    }
+    data = json.dumps(body).encode() if body else b""
+
+    try:
+        status, resp_text, elapsed = fetch(
+            url, method="POST", headers=headers, data=data,
+            proxy=proxy, timeout=timeout, warmup=True,
+        )
+        return json.loads(resp_text)
+    except Exception as e:
+        err_str = str(e)
+        import re
+        m = re.search(r'HTTP (\d+)', err_str)
+        if m:
+            return {"code": m.group(1), "message": f"HTTP {m.group(1)}"}
+        return {"code": "-1", "message": err_str[:120]}
 
 
 def search(keyword: str, api_key: str, limit: int = 25, adult: bool = False) -> list[dict]:

@@ -15,14 +15,13 @@ Usage:
     python3 connectivity_check.py --keepalive             # keepalive all PT sites
     python3 connectivity_check.py --keepalive --site btschool  # keepalive one site
 """
-import json, os, sys, time, urllib.request, urllib.parse, urllib.error
+import json, os, sys, time
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _skill_dir)
 
 from _common import _env, _load_env_file, _is_login_page
-from _proxy import using_proxy
-
+from _http import fetch
 
 results = []
 
@@ -37,28 +36,8 @@ def _result(name, status, detail="", latency_ms=0):
     print(f"  {icon} {name}: {detail}{extra}")
 
 
-def _fetch(url, timeout=10, headers=None, data=None, proxy=None):
-    """Return (status_code, body_text, elapsed_ms) or raise."""
-    with using_proxy(proxy):
-        opener = urllib.request.build_opener()
-        req = urllib.request.Request(url)
-        req.add_header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
-        if headers:
-            for k, v in headers.items():
-                req.add_header(k, v)
-        t0 = time.time()
-        if data:
-            if isinstance(data, dict):
-                data = urllib.parse.urlencode(data).encode()
-            req.data = data
-        with opener.open(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8", errors="replace")
-            status = resp.status
-    elapsed = (time.time() - t0) * 1000
-    return status, body, elapsed
-
-
 def test_qbittorrent():
+    import urllib.parse
     print("\n=== qBittorrent ===")
     url = _env("QBITTORRENT_URL")
     user = _env("QBITTORRENT_USER")
@@ -68,20 +47,19 @@ def test_qbittorrent():
         return
     try:
         data = urllib.parse.urlencode({"username": user, "password": passwd}).encode()
-        t0 = time.time()
-        req = urllib.request.Request(f"{url.rstrip('/')}/api/v2/auth/login", data=data)
-        req.add_header("User-Agent", "Hermes/1.0")
-        opener = urllib.request.build_opener()
-        with opener.open(req, timeout=10) as resp:
-            elapsed = (time.time() - t0) * 1000
-            cookies = resp.headers.get_all("Set-Cookie", [])
-            sid = any("SID=" in c for c in cookies)
-        if sid:
+        status, body, elapsed = fetch(
+            f"{url.rstrip('/')}/api/v2/auth/login",
+            method="POST",
+            headers={
+                "User-Agent": "Hermes/1.0",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data=data,
+        )
+        if "SID=" in body or status == 200:
             _result("qBittorrent", "ok", f"login OK, {url}", elapsed)
         else:
             _result("qBittorrent", "warn", f"login returned 200 but no SID cookie", elapsed)
-    except urllib.error.HTTPError as e:
-        _result("qBittorrent", "fail", f"HTTP {e.code}")
     except Exception as e:
         _result("qBittorrent", "fail", str(e)[:80])
 
@@ -92,20 +70,27 @@ def test_mteam():
     if not key:
         _result("M-Team", "fail", "MTEAM_API_KEY not set")
         return
+    proxy = _env("PT_PROXY")
+    if not proxy:
+        _result("M-Team", "fail", "PT_PROXY not set — M-Team API requires proxy")
+        return
     try:
         body = json.dumps({"keyword": "test", "pageNumber": 1, "pageSize": 1}).encode()
-        req = urllib.request.Request(
+        status, resp_text, elapsed = fetch(
             "https://api.m-team.cc/api/torrent/search",
+            method="POST",
+            headers={
+                "x-api-key": key,
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0",
+                "Origin": "https://www.m-team.cc",
+            },
             data=body,
-            headers={"x-api-key": key, "Content-Type": "application/json", "User-Agent": "Mozilla/5.0", "Origin": "https://www.m-team.cc"},
+            proxy=proxy,
+            warmup=True,
+            retries=2,
         )
-        proxy = _env("PT_PROXY")
-        t0 = time.time()
-        with using_proxy(proxy):
-            opener = urllib.request.build_opener()
-            with opener.open(req, timeout=15) as resp:
-                elapsed = (time.time() - t0) * 1000
-                data = json.loads(resp.read())
+        data = json.loads(resp_text)
         code = str(data.get("code", ""))
         if code == "0":
             total = data.get("data", {}).get("total", "?")
@@ -118,13 +103,6 @@ def test_mteam():
             _result("M-Team", "ok", f"API OK, search returned {total} results{quota_info}", elapsed)
         else:
             _result("M-Team", "fail", f"API returned code={code}, message={data.get('message', '')[:60]}", elapsed)
-    except urllib.error.HTTPError as e:
-        detail = f"HTTP {e.code}"
-        if e.code == 403:
-            detail += " (rate limited or invalid key)"
-        elif e.code == 405:
-            detail += " (API endpoint down)"
-        _result("M-Team", "fail", detail)
     except Exception as e:
         _result("M-Team", "fail", str(e)[:80])
 
@@ -138,25 +116,19 @@ def test_jellyfin(instance, url_key, token_key):
         _result(label, "skip", f"{url_key} or {token_key} not set")
         return
     try:
-        req = urllib.request.Request(
+        status, body, elapsed = fetch(
             f"{url.rstrip('/')}/System/Info",
-            headers={"X-MediaBrowser-Token": token, "User-Agent": "Hermes/1.0"},
+            headers={"X-MediaBrowser-Token": token},
         )
-        t0 = time.time()
-        opener = urllib.request.build_opener()
-        with opener.open(req, timeout=10) as resp:
-            elapsed = (time.time() - t0) * 1000
-            info = json.loads(resp.read())
+        info = json.loads(body)
         version = info.get("Version", "?")
         product = info.get("ProductName", "?")
         _result(label, "ok", f"{product} {version} @ {url}", elapsed)
-    except urllib.error.HTTPError as e:
-        if e.code == 401:
-            _result(label, "fail", f"401 Unauthorized — bad API key")
-        else:
-            _result(label, "fail", f"HTTP {e.code}")
     except Exception as e:
-        _result(label, "fail", str(e)[:80])
+        detail = str(e)[:80]
+        if "401" in detail or "Unauthorized" in detail:
+            detail = "401 Unauthorized — bad API key"
+        _result(label, "fail", detail)
 
 
 def test_javbus_api():
@@ -166,19 +138,17 @@ def test_javbus_api():
         _result("javbus-api", "skip", "JAVBUS_API_URL not set")
         return
     try:
-        status, body, elapsed = _fetch(f"{url.rstrip('/')}/api/movies/ABP-001", timeout=10)
-        if status == 200:
-            data = json.loads(body)
-            if data.get("id"):
-                _result("javbus-api", "ok", f"Docker API OK @ {url}", elapsed)
-            else:
-                _result("javbus-api", "warn", f"API responded but no data for test code", elapsed)
+        status, body, elapsed = fetch(f"{url.rstrip('/')}/api/movies/ABP-001", timeout=10)
+        data = json.loads(body)
+        if data.get("id"):
+            _result("javbus-api", "ok", f"Docker API OK @ {url}", elapsed)
         else:
-            _result("javbus-api", "fail", f"HTTP {status}")
-    except urllib.error.URLError:
-        _result("javbus-api", "fail", "connection refused — container down?")
+            _result("javbus-api", "warn", f"API responded but no data for test code", elapsed)
     except Exception as e:
-        _result("javbus-api", "fail", str(e)[:80])
+        detail = str(e)[:80]
+        if "refused" in detail.lower():
+            detail = "connection refused — container down?"
+        _result("javbus-api", "fail", detail)
 
 
 def test_proxy():
@@ -188,7 +158,12 @@ def test_proxy():
         _result("PT_PROXY", "warn", "not set (sites needing proxy will fail)")
         return
     try:
-        status, body, elapsed = _fetch("https://www.google.com", timeout=10, proxy=proxy)
+        status, body, elapsed = fetch(
+            "https://www.google.com",
+            proxy=proxy,
+            warmup=True,
+            retries=2,
+        )
         _result("PT_PROXY", "ok", f"proxy OK ({proxy}), {elapsed:.0f}ms", elapsed)
     except Exception as e:
         _result("PT_PROXY", "fail", f"proxy unreachable: {str(e)[:60]}")
@@ -201,16 +176,20 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy, search_path=None):
         _result(name, "skip", f"{cookie_var} not set")
         return
     pt_proxy = _env("PT_PROXY")
-    attempts = [pt_proxy] if needs_proxy else [None, pt_proxy]
+    proxy = pt_proxy if needs_proxy else None
     if search_path:
         url = f"{base_url.rstrip('/')}/{search_path.lstrip('/')}"
     else:
         url = f"{base_url.rstrip('/')}/torrents.php?search=test"
     headers = {"Cookie": cookie}
     last_err = None
+
+    # Try with determined proxy first, then fallback to other
+    attempts = [proxy] if needs_proxy else [None, pt_proxy]
     for use_proxy in attempts:
         try:
-            status, body, elapsed = _fetch(url, timeout=15, headers=headers, proxy=use_proxy)
+            status, body, elapsed = fetch(url, headers=headers, proxy=use_proxy,
+                                          warmup=(use_proxy is not None))
             if _is_login_page(body):
                 _result(name, "fail", f"cookie expired (login page returned)", elapsed)
                 return
@@ -224,10 +203,6 @@ def _test_pt_site(name, base_url, cookie_var, needs_proxy, search_path=None):
             else:
                 _result(name, "warn", f"got {len(body)} bytes, unclear if page is valid", elapsed)
                 return
-        except urllib.error.HTTPError as e:
-            last_err = f"HTTP {e.code}"
-            if len(attempts) > 1:
-                continue
         except Exception as e:
             last_err = str(e)[:80]
             if len(attempts) > 1:
@@ -272,11 +247,14 @@ def _keepalive_site(name, base_url, cookie_var, needs_proxy):
         print(f"  ⏭️  {name}: {cookie_var} not set, skip")
         return True
     pt_proxy = _env("PT_PROXY")
-    attempts = [pt_proxy] if needs_proxy else [None, pt_proxy]
+    proxy = pt_proxy if needs_proxy else None
     url = f"{base_url.rstrip('/')}/index.php"
+    attempts = [proxy] if needs_proxy else [None, pt_proxy]
     for use_proxy in attempts:
         try:
-            status, body, elapsed = _fetch(url, timeout=15, headers={"Cookie": cookie}, proxy=use_proxy)
+            status, body, elapsed = fetch(url, headers={"Cookie": cookie},
+                                          proxy=use_proxy,
+                                          warmup=(use_proxy is not None))
             if _is_login_page(body):
                 print(f"  ⚠️  {name}: cookie expired ({elapsed:.0f}ms)")
                 return False

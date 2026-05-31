@@ -26,11 +26,9 @@ import re
 import subprocess
 import sys
 import time
-import urllib.parse
-import urllib.request
 
 from _common import _env, _fmt_size, _load_env_file, _parse_size
-from _proxy import using_proxy
+from _http import fetch, fetch_raw
 from _search_cache import cache_get, cache_put
 
 # Single source of truth — pt_search.SITES is the canonical registry
@@ -71,21 +69,15 @@ def download_torrent(download_url: str, site: str = "") -> bytes:
     if site_cfg and site_cfg["needs_proxy"]:
         proxy_url = _env("PT_PROXY")
 
-    req = urllib.request.Request(download_url)
+    headers = {}
     if cookie_str:
-        req.add_header("Cookie", cookie_str)
-    req.add_header("User-Agent",
-                   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                   "AppleWebKit/537.36 (KHTML, like Gecko) "
-                   "Chrome/125.0.0.0 Safari/537.36")
+        headers["Cookie"] = cookie_str
 
-    with using_proxy(proxy_url):
-        opener = urllib.request.build_opener()
-        with opener.open(req, timeout=30) as resp:
-            ct = resp.headers.get("Content-Type", "")
-            if not any(t in ct.lower() for t in ("bittorrent", "octet-stream")):
-                raise RuntimeError(f"Invalid Content-Type for .torrent: {ct}")
-            return resp.read()
+    status, raw, elapsed = fetch_raw(
+        download_url, headers=headers, proxy=proxy_url,
+        warmup=(proxy_url is not None), timeout=30,
+    )
+    return raw
 
 
 def _download_mteam(download_url: str) -> bytes:
@@ -93,15 +85,12 @@ def _download_mteam(download_url: str) -> bytes:
     if not proxy:
         raise RuntimeError("PT_PROXY not set — M-Team requires proxy")
 
-    req = urllib.request.Request(download_url)
-    req.add_header("User-Agent", "Mozilla/5.0")
-    with using_proxy(proxy):
-        opener = urllib.request.build_opener()
-        with opener.open(req, timeout=30) as resp:
-            ct = resp.headers.get("Content-Type", "")
-            if not any(t in ct.lower() for t in ("bittorrent", "octet-stream")):
-                raise RuntimeError(f"Invalid Content-Type for M-Team .torrent: {ct}")
-            return resp.read()
+    status, raw, elapsed = fetch_raw(
+        download_url,
+        headers={"User-Agent": "Mozilla/5.0"},
+        proxy=proxy, warmup=True, timeout=30,
+    )
+    return raw
 
 
 def _get_mteam_download_url(torrent_id: str) -> str:

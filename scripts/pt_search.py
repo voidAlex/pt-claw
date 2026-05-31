@@ -18,12 +18,11 @@ Config:
 Output: JSON array of results across all sites.
 """
 
-import json, os, re, sys, time, urllib.request, urllib.parse, urllib.error
+import json, os, re, sys, time, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from http.cookiejar import CookieJar
 
 from _common import _load_env_file, _env, _fmt_size, _env_matching, _is_login_page
-from _proxy import using_proxy
+from _http import fetch
 from _search_cache import cache_get, cache_put
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "secrets.env")
@@ -208,7 +207,6 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
                  "site": site["name"], "site_id": site_id}]
 
     if adult and site_id == "pttime":
-        # PTTime adults.php ignores searchstr parameter — use regular search which covers adult content
         search_path = f"/torrents.php?search={urllib.parse.quote(query)}&notnewword=1"
     elif adult and "adult_search" in site:
         search_path = site["adult_search"].format(query=urllib.parse.quote(query))
@@ -216,29 +214,14 @@ def search_site(site_id: str, site: dict, query: str, limit: int,
         search_path = site["search"].format(query=urllib.parse.quote(query))
     full_url = f"{site['url']}{search_path}"
 
-    req = urllib.request.Request(full_url)
-    req.add_header("Cookie", cookie_str)
-    req.add_header("User-Agent",
-                   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                   "AppleWebKit/537.36 (KHTML, like Gecko) "
-                   "Chrome/125.0.0.0 Safari/537.36")
-
     proxy = _env("PT_PROXY") if site.get("needs_proxy") else None
     try:
-        with using_proxy(proxy):
-            opener = urllib.request.build_opener()
-            with opener.open(req, timeout=timeout) as resp:
-                raw = resp.read()
-                content_type = resp.headers.get("Content-Type", "")
-                match = re.search(r'charset=([\w-]+)', content_type)
-                encoding = match.group(1) if match else "utf-8"
-                try:
-                    html = raw.decode(encoding)
-                except (UnicodeDecodeError, LookupError):
-                    html = raw.decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as e:
-        return [{"error": f"HTTP {e.code}", "site": site["name"],
-                 "site_id": site_id}]
+        status, html, elapsed = fetch(
+            full_url,
+            headers={"Cookie": cookie_str},
+            proxy=proxy,
+            warmup=(proxy is not None),
+        )
     except Exception as e:
         return [{"error": str(e), "site": site["name"], "site_id": site_id}]
 
@@ -723,7 +706,6 @@ def main():
 
     if adult and actor and "pttime" in target_sites:
         s = target_sites["pttime"]
-        # PTTime adults.php ignores searchstr — use regular search for adult actor lookup
         search_path = f"/torrents.php?search={urllib.parse.quote(actor)}&notnewword=1"
         full_url = f"{s['url']}{search_path}"
         cookies = load_cookies()
@@ -731,28 +713,17 @@ def main():
         if not cookie_str:
             print(json.dumps({"error": "No cookie configured for PTTime"}))
             sys.exit(1)
-        req = urllib.request.Request(full_url)
-        req.add_header("Cookie", cookie_str)
-        req.add_header("User-Agent",
-                       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                       "AppleWebKit/537.36 (KHTML, like Gecko) "
-                       "Chrome/125.0.0.0 Safari/537.36")
         proxy = _env("PT_PROXY") if s.get("needs_proxy") else None
-        with using_proxy(proxy):
-            opener = urllib.request.build_opener()
-            try:
-                with opener.open(req, timeout=15) as resp:
-                    raw = resp.read()
-                    ct = resp.headers.get("Content-Type", "")
-                    m = re.search(r'charset=([\w-]+)', ct)
-                    enc = m.group(1) if m else "utf-8"
-                    try:
-                        html = raw.decode(enc)
-                    except (UnicodeDecodeError, LookupError):
-                        html = raw.decode("utf-8", errors="replace")
-            except Exception as e:
-                print(json.dumps({"error": str(e), "site": "PTTime"}))
-                sys.exit(1)
+        try:
+            status, html, elapsed = fetch(
+                full_url,
+                headers={"Cookie": cookie_str},
+                proxy=proxy,
+                warmup=(proxy is not None),
+            )
+        except Exception as e:
+            print(json.dumps({"error": str(e), "site": "PTTime"}))
+            sys.exit(1)
         results = _parse_nexusphp(html, s, "pttime", limit)
         if not results or ("error" in (results[0] if results else {})):
             results = _parse_nexusphp_classic(html, s, "pttime", limit)

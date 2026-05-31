@@ -8,33 +8,21 @@ Usage:
     python3 site_profile.py --json            # JSON output (default)
 """
 
-import json, os, re, sys, time, urllib.request, urllib.error
+import json, os, re, sys, time
 
 from _common import _env, _fmt_size, _env_matching, _load_env_file, _parse_size, _is_login_page
-from _proxy import using_proxy
+from _http import fetch
 from mteam_api import _api_post
 from pt_search import SITES, load_cookies
 
 
 def _fetch_page(url, cookie, proxy=None, timeout=15):
     """GET a page with cookie auth, return decoded HTML or raise."""
-    req = urllib.request.Request(url)
-    req.add_header("Cookie", cookie)
-    req.add_header("User-Agent",
-                   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                   "AppleWebKit/537.36 (KHTML, like Gecko) "
-                   "Chrome/125.0.0.0 Safari/537.36")
-    with using_proxy(proxy):
-        opener = urllib.request.build_opener()
-        with opener.open(req, timeout=timeout) as resp:
-            raw = resp.read()
-            ct = resp.headers.get("Content-Type", "")
-            enc_match = re.search(r'charset=([\w-]+)', ct)
-            encoding = enc_match.group(1) if enc_match else "utf-8"
-            try:
-                return raw.decode(encoding)
-            except (UnicodeDecodeError, LookupError):
-                return raw.decode("utf-8", errors="replace")
+    status, html, elapsed = fetch(
+        url, headers={"Cookie": cookie}, proxy=proxy,
+        warmup=(proxy is not None), timeout=timeout,
+    )
+    return html
 
 
 def _extract_field(html, labels):
@@ -94,8 +82,6 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
 
     try:
         html = _fetch_page(f"{base_url}/index.php", cookie, proxy=proxy, timeout=15)
-    except urllib.error.HTTPError as e:
-        return {"status": "error", "error": f"HTTP {e.code}"}
     except Exception as e:
         return {"status": "error", "error": str(e)[:120]}
 

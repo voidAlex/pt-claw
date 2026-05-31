@@ -12,24 +12,24 @@ Env: reads JELLYFIN1_URL / JELLYFIN1_API_KEY from secrets.env
      Pass --server 1|2 to select JF1/JF2 (default: 1)
 """
 
-import json, os, sys, urllib.request, urllib.parse, urllib.error
+import json, os, sys, urllib.parse
 from collections import Counter
 
 from _common import _env, parse_arg, flag_present
+from _http import fetch_json
 
 def jf_get(endpoint, server=1):
     url = _env(f"JELLYFIN{server}_URL").rstrip("/")
     key = _env(f"JELLYFIN{server}_API_KEY")
     if not url or not key:
         return {"error": f"JELLYFIN{server} not configured"}
-    req = urllib.request.Request(f"{url}{endpoint}",
-                                 headers={"X-MediaBrowser-Token": key,
-                                           "User-Agent": "Hermes/1.0"})
-    opener = urllib.request.build_opener()
     try:
-        with opener.open(req, timeout=15) as r:
-            return json.loads(r.read())
-    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        data, elapsed = fetch_json(
+            f"{url}{endpoint}",
+            headers={"X-MediaBrowser-Token": key},
+        )
+        return data
+    except Exception as e:
         return {"error": f"Jellyfin unreachable: {e}"}
 
 def main():

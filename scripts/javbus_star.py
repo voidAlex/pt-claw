@@ -10,21 +10,17 @@ Usage:
 Output: JSON with existing (in JF or history) and missing films, sorted by date.
 """
 
-import json, os, sys, re, urllib.request, urllib.parse
+import json, os, sys, re, urllib.parse
 
 from _common import _env
-from _proxy import using_proxy
+from _http import fetch_json
 
 JAVBUS_API = (_env("JAVBUS_API_URL") or "http://localhost:8922").rstrip("/")
 
 def javbus_get(path):
     proxy = _env("PT_PROXY") or None
-    req = urllib.request.Request(f"{JAVBUS_API}{path}",
-                                 headers={"User-Agent": "Hermes/1.0"})
-    with using_proxy(proxy):
-        opener = urllib.request.build_opener()
-        with opener.open(req, timeout=15) as r:
-            return json.loads(r.read())
+    data, elapsed = fetch_json(f"{JAVBUS_API}{path}", proxy=proxy)
+    return data
 
 def jf_check(code, server=1):
     url = _env(f"JELLYFIN{server}_URL").rstrip("/")
@@ -33,11 +29,11 @@ def jf_check(code, server=1):
         return False
     try:
         q = urllib.parse.quote(code)
-        req = urllib.request.Request(f"{url}/Items?searchTerm={q}&recursive=true",
-                                     headers={"X-MediaBrowser-Token": key,
-                                               "User-Agent": "Hermes/1.0"})
-        with urllib.request.build_opener().open(req, timeout=5) as r:
-            return json.loads(r.read()).get("TotalRecordCount", 0) > 0
+        data, elapsed = fetch_json(
+            f"{url}/Items?searchTerm={q}&recursive=true",
+            headers={"X-MediaBrowser-Token": key},
+        )
+        return data.get("TotalRecordCount", 0) > 0
     except Exception:
         return False
 

@@ -12,10 +12,10 @@ Usage:
 Output: JSON array with title, magnet, size, isHD, hasSubtitle, shareDate.
 """
 
-import sys, json, os, re, urllib.request, urllib.parse
+import sys, json, os, re, urllib.parse
 
 from _common import _env, _is_spam, _magnet_score as _score
-from _proxy import using_proxy
+from _http import fetch, fetch_json
 
 
 # ── javbus-api client ─────────────────────────────────────────
@@ -61,7 +61,7 @@ def search_scrape(code: str) -> dict:
 
     # Step 1: get page + gid
 
-    html = _fetch(f"https://www.javbus.com/{code}", proxy)
+    html = _fetch_text(f"https://www.javbus.com/{code}", proxy)
 
     # Detect CAPTCHA or redirect before parsing
     if not html:
@@ -91,7 +91,7 @@ def search_scrape(code: str) -> dict:
         f"https://www.javbus.com/ajax/uncledatoolsbyajax.php"
         f"?gid={gid}&lang=zh&img=https://pics.javbus.com/cover/xxx.jpg&uc={uc}"
     )
-    html = _fetch(ajax_url, proxy, referer=f"https://www.javbus.com/{code}")
+    html = _fetch_text(ajax_url, proxy, referer=f"https://www.javbus.com/{code}")
 
     # Step 3: extract + deduplicate magnets
     seen = set()
@@ -141,28 +141,22 @@ def search_scrape(code: str) -> dict:
 # ── Helpers ───────────────────────────────────────────────────
 def _get_json(url: str) -> dict | list | None:
     proxy = _env("PT_PROXY") or None
-    req = urllib.request.Request(url, headers={"User-Agent": "Hermes/1.0"})
     try:
-        with using_proxy(proxy):
-            opener = urllib.request.build_opener()
-            with opener.open(req, timeout=15) as r:
-                return json.loads(r.read())
+        data, elapsed = fetch_json(url, proxy=proxy)
+        return data
     except Exception:
         return None
 
 
-def _fetch(url: str, proxy: str = "", referer: str = "") -> str:
-    headers = {"User-Agent": "Hermes/1.0"}
+def _fetch_text(url: str, proxy: str = "", referer: str = "") -> str:
+    headers = {}
     if referer:
         headers["Referer"] = referer
-    req = urllib.request.Request(url, headers=headers)
-    with using_proxy(proxy or None):
-        opener = urllib.request.build_opener()
-        try:
-            with opener.open(req, timeout=15) as resp:
-                return resp.read().decode("utf-8", errors="replace")
-        except Exception as e:
-            return ""
+    try:
+        status, body, elapsed = fetch(url, headers=headers, proxy=proxy or None)
+        return body
+    except Exception:
+        return ""
 
 
 def main():

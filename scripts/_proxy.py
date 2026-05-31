@@ -1,21 +1,12 @@
 """
-Proxy compatibility layer.
+Proxy compatibility layer (legacy — kept for backward compatibility).
 
-urllib.request.ProxyHandler has compatibility issues with certain proxy types,
-causing "No route to host" errors. This module provides a context manager
-that uses environment variables instead, which urllib picks up automatically
-via its default ProxyHandler.
+New code should use ``from _http import fetch`` instead, which provides
+connection pooling, retry, and proxy warmup out of the box.
 
-Usage:
-    from _proxy import using_proxy
-
-    with using_proxy(proxy_url):
-        opener = urllib.request.build_opener()
-        resp = opener.open(req, timeout=15)
-
-    with using_proxy(None):
-        opener = urllib.request.build_opener()
-        resp = opener.open(req, timeout=15)  # direct, no proxy
+This module is retained because some scripts still use the env-var based
+proxy approach with urllib.request.  It will be removed once all scripts
+have been migrated to ``_http.fetch()``.
 """
 import contextlib
 import os
