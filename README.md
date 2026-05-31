@@ -65,7 +65,7 @@
 | `javbus_star.py` | 演员片单交叉对比（javbus-api → JF + 历史） |
 | `jf_query.py` | Jellyfin 查询（演员排名/搜索/去重） |
 | `download_history.py` | 下载历史追踪（防重复） |
-| `pt_ratio_boost.py` | Freeleech 自动辅种 |
+| `pt_ratio_boost.py` | Freeleech 刷流保号 |
 | `site_profile.py` | 多站用户信息查询（上传/下载/分享率/魔力值/做种数） |
 | `cross_seed.py` | 多站辅种验证与推送（下载.torrent→SHA1比对→qB暂停添加） |
 | `mteam_api.py` | M-Team API 客户端 |

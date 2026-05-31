@@ -152,8 +152,16 @@ _PROMO_PATTERNS = [
     (r'class="[^"]*pro_free[^"]*"', "Free"),
     (r'class="[^"]*pro_50pctdown[^"]*"', "50%"),
     (r'class="[^"]*pro_30pctdown[^"]*"', "30%"),
+    (r'class="[^"]*pro_halfdown[^"]*"', "50%"),
+    (r'class="[^"]*pro_30percent[^"]*"', "30%"),
+    (r'class="[^"]*pro_custom[^"]*"', "Custom"),
+    (r'class="[^"]*free[^"]*".*class="[^"]*twoup[^"]*"', "2xFree"),
+    (r'class="[^"]*twoup[^"]*"', "2xUp"),
+    (r'class="[^"]*(?:^|\s)(?:free|_free)(?:\s|")[^"]*"', "Free"),
     (r'>\s*Free\s*<', "Free"),
     (r'>\s*2\s*x\s*Free\s*<', "2xFree"),
+    (r'>\s*50\s*%\s*<', "50%"),
+    (r'>\s*30\s*%\s*<', "30%"),
 ]
 
 
