@@ -56,7 +56,7 @@
 |------|------|
 | `pt_search.py` | 多站搜索（NexusPHP + M-Team API） |
 | `pt_download.py` | 详情页 URL 直接下载推送 qB（通用所有站） |
-| `qb_add.py` | 添加种子到 qBittorrent（含站点标签+正片提取） |
+| `qb_add.py` | 添加种子到 qBittorrent（含文件选择 + 推荐） |
 | `qb_monitor.py` | qB 全功能查询（状态/过滤/删除/死种诊断） |
 | `qb_public_cleanup.py` | 公开磁链清理（手动使用，cron 已合并到 `_cron_check.py`） |
 | `qb_snapshot.py` | 删种备份与恢复（backup/restore/list 合一） |
