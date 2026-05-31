@@ -22,20 +22,28 @@ def _load_env_file():
 
 
 def _env(key, default=""):
-    val = os.environ.get(key, "")
+    """Read config value. secrets.env takes priority over os.environ.
+
+    Rationale: the Hermes process may have stale values in os.environ from
+    a previous secrets.env version.  The file on disk is the source of truth;
+    process environment is only a fallback for keys not present in the file.
+    """
+    _load_env_file()
+    val = _env_cache.get(key, "")
     if not val:
-        _load_env_file()
-        val = _env_cache.get(key, default)
+        val = os.environ.get(key, default)
     return val
 
 
 def _env_matching(prefix):
     _load_env_file()
     result = {}
-    for k, v in os.environ.items():
+    # secrets.env first (authoritative)
+    for k, v in _env_cache.items():
         if k.startswith(prefix):
             result[k] = v
-    for k, v in _env_cache.items():
+    # os.environ fills in keys NOT already in file
+    for k, v in os.environ.items():
         if k.startswith(prefix) and k not in result:
             result[k] = v
     return result
