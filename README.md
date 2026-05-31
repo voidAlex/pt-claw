@@ -14,6 +14,7 @@
 - **定时任务**：进度监控+公开种清理(15m)、每日追剧(10:00)、Cookie同步/保活(视配置)、刷流保号(每日)
 - **辅种**：多站 cross-seed 三阶匹配（infoHash→名称+体积→文件列表）
 - **刷流保号**：可选 Freeleech/2x上传 促销种子自动下载做种，到期自动清理
+- **详情页直推**：给个 PT 站详情页链接，自动下载 .torrent 推送 qB（通用所有 115+ 站）
 
 ## 使用方式
 
@@ -30,6 +31,9 @@
 
 你：关注诺兰的电影
      → Agent 写关注列表，每天 10 点自动检查新资源
+
+你：这个链接下载 https://pt.btschool.club/details.php?id=172580
+     → Agent 自动识别站点、下载种子、推送到 qBittorrent
 ```
 
 脚本是 Agent 内部调用的，使用者无需关心命令行参数。
@@ -51,6 +55,7 @@
 | 脚本 | 用途 |
 |------|------|
 | `pt_search.py` | 多站搜索（NexusPHP + M-Team API） |
+| `pt_download.py` | 详情页 URL 直接下载推送 qB（通用所有站） |
 | `qb_add.py` | 添加种子到 qBittorrent（含站点标签+正片提取） |
 | `qb_monitor.py` | qB 全功能查询（状态/过滤/删除/死种诊断） |
 | `qb_public_cleanup.py` | 公开磁链清理（手动使用，cron 已合并到 `_cron_check.py`） |

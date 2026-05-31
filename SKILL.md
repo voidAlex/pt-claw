@@ -1,7 +1,7 @@
 ---
 name: pt-claw
-description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。115站支持(15核心+100扩展)，纯脚本无外部依赖。"
-version: 3.0.2
+  description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、详情页直推、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。115站支持(15核心+100扩展)，纯脚本无外部依赖。"
+version: 3.1.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -39,6 +39,7 @@ metadata:
 | 分类 | 关键词 |
 |------|--------|
 | 搜索/下载 | 搜、搜索、下载、下、找个资源、有没有、求片 |
+| 详情页直推 | 详情页、链接下载、这个种子、直推、直接下 |
 | qBittorrent | qb、qB、qbit、下载进度、下载状态、做种、种子、删种、暂停、恢复、死种 |
 | 辅种 | 辅种、cross seed、检查辅种、哪些站能辅、批量辅种、全站辅种 |
 | PT 站点 | pt、PT、PT站、馒头、mteam、pttime、btschool、carpt、hdfans、1ptba、1PTBar、一PT吧、soulvoice、zmpt、织梦、ptskit、拾刻、pthome、铂金家、hdsky、天雪、hdhome、家园、audiences、观众、keepfrds、朋友、ttg、套套哥、听听歌、totheglory、pter、猫站、hdarea、chdbits、彩虹岛、ourbits、我堡、hddolby、高清杜比、hdkylin、麒麟、hdtime、hdupt、好多油、hhanclub、憨憨、海胆、hdcity、天使、springsunday、春天、cmct、tccf、et8、tlfbits、吐鲁番、joyhd、tjupt、北洋、sjtu、葡萄、byrbt、北邮人、hudbt、蝴蝶、nanyangpt、南洋、kamept、龟站、rousi、肉丝、opencd、皇后、ourbits、烧包、唐门 |
