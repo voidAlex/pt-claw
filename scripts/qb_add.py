@@ -197,6 +197,21 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
     If max_video=True, torrent is added paused, then the largest video
     + code-matching extras are auto-selected before resuming.
     """
+    import urllib.parse as _up
+    _logged_url = url_or_magnet
+    try:
+        _parsed = _up.urlparse(url_or_magnet)
+        if _parsed.query:
+            _params = _up.parse_qs(_parsed.query, keep_blank_values=True)
+            _filtered_parts = []
+            for _k, _v_list in _params.items():
+                if _k.lower() in ("passkey", "sign", "token"):
+                    continue
+                _filtered_parts.append(f"{_k}={_v_list[0]}")
+            _new_qs = "&".join(_filtered_parts)
+            _logged_url = _up.urlunparse(_parsed._replace(query=_new_qs, fragment=""))
+    except Exception:
+        pass
     data = {"urls": url_or_magnet}
     if save_path:
         data["savepath"] = save_path
@@ -209,11 +224,11 @@ def add_torrent(url_or_magnet: str, save_path: str = None,
 
     result = qb_request("/api/v2/torrents/add", method="POST", data=data)
     if "error" in result:
-        log.error("add torrent failed url=%s error=%s", url_or_magnet[:80], result["error"])
+        log.error("add torrent failed url=%s error=%s", _logged_url[:80], result["error"])
         return result
 
-    log.info("adding torrent url=%s category=%s tags=%s max_video=%s", url_or_magnet[:80], category, tags, max_video)
-    msg = f"Added: {url_or_magnet[:80]}..."
+    log.info("adding torrent url=%s category=%s tags=%s max_video=%s", _logged_url[:80], category, tags, max_video)
+    msg = f"Added: {_logged_url[:80]}..."
     result = {"success": True, "message": msg}
 
     # ── Get info hash ──────────────────────────────────────

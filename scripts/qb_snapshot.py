@@ -94,6 +94,10 @@ def save(entries):
             os.replace(tmp, BACKUP_FILE)
         finally:
             fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    try:
+        os.unlink(lock_path)
+    except OSError:
+        pass
 
 
 def backup_from_torrents(torrents, reason=""):
@@ -274,6 +278,10 @@ def main():
                     json.dump([], f)
             finally:
                 fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+        try:
+            os.unlink(lock_path)
+        except OSError:
+            pass
         print("Cleared")
         return
 

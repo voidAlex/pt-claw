@@ -107,8 +107,7 @@ def warmup_proxy(proxy: str, timeout: float = 3.0) -> bool:
                 # Still mark as warmed so we don't keep retrying
                 _warmed_proxies.add(proxy)
                 return False
-
-    _warmed_proxies.add(proxy)
+    # After exhausting all warmup attempts without success
     return False
 
 

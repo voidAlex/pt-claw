@@ -106,3 +106,7 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 **37. `_env()` 优先读 `secrets.env` 再回退 `os.environ`（已修复）**：`_common._env()` 当前正确实现：先用 `secrets.env`（通过 `_env_cache`），文件未命中才回退到 `os.environ`。早期曾存在 bug 导致 `os.environ` 优先，已于 v3.0.x 修复。如遇旧配置残留：`unset PT_PROXY` 后重跑脚本验证，或重启 Hermes。
 
 **38. `qb_add.py --tag` 不保证生效，推送后必须验证标签**：`qb_add.py` 的 `--tag` 参数依赖 qB API `addTags` 调用时机，可能在种子元数据未就绪时静默失败。推送后必须用 `qb_monitor.py --full` 回查验证标签字段非空。若缺失，可用 `qb_add.py --retag` 重打标签（截至 v3.1.0 已支持）。验证步骤作为 Step 5 的强制收尾，不可跳过。
+
+**39. Cron agent 禁止全盘搜索文件**：cron 任务已设 `workdir` 指向 skill 目录，脚本和配置都在当前目录下。Agent 必须直接用相对路径执行（如 `python3 scripts/cookie_sync.py`），禁止跑到 `/home/alex` 全盘搜索。搜不到就报「未安装/未配置」→ 纯粹是 agent 无视 prompt 自己发挥。Cron prompt 应显式禁止全盘搜索、禁止生成诊断报告、禁止建议初始化流程。所有 cron job prompt 遵循此规则。
+
+**40. 番号忽略名单用 `pt_downloaded.json`**：没有独立的 ignore 文件。要忽略某个番号（不再出现于搜索/追剧结果），直接写入 `pt_downloaded.json`，status 设为 `"ignored"`，source 设为 `"manual"`。`download_history.py check/filter` 只判断番号存在性，不区分 status，所以 ignored 条目自动被跳过。写入时注意加 `reason` 字段记录原因。

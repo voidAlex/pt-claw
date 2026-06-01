@@ -51,6 +51,8 @@ def search(code: str, limit: int = 20) -> list[dict]:
 
         if is_spam(title):
             continue
+        if not ih:
+            continue
         if ih.upper() in seen_hashes:
             continue
         seen_hashes.add(ih.upper())

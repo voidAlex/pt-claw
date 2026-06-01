@@ -1,0 +1,17 @@
+[
+  {
+    "hash": "abc123def456...",
+    "name": "Example.Torrent.Name",
+    "save_path": "/media/downloads/",
+    "category": "movie",
+    "tags": "pttime",
+    "size": 4294967296,
+    "added_on": 1717200000,
+    "reason": "manual_delete",
+    "torrent_backup": "torrent_backups/abc123.torrent",
+    "deleted_at": "2025-06-01T12:00:00",
+    "progress": 1.0,
+    "state": "completed",
+    "was_completed": true
+  }
+]

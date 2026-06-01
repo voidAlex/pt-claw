@@ -61,6 +61,10 @@ def _save_state(state):
             os.replace(tmp, STATE_FILE)
         finally:
             fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    try:
+        os.unlink(lock_path)
+    except OSError:
+        pass
 
 
 def main():

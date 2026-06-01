@@ -70,7 +70,7 @@ def cmd_add(code: str, title: str, source: str = "unknown",
             source_site: str = "", cross_seed_from: str = "") -> None:
     """Record a new download."""
     data = _load()
-    existing = {i["code"] for i in data["items"]}
+    existing = {i["code"] for i in data["items"] if "code" in i}
     if code in existing:
         log.info("add skipped code=%s reason=already_exists", code)
         print(json.dumps({"status": "skipped", "reason": f"{code} already in history"}))
@@ -122,7 +122,7 @@ def cmd_complete_by_hash(info_hash: str, name: str = "") -> None:
             continue
         code = item.get("code", "").lower()
         title = item.get("title", "").lower()
-        if name and name.lower().startswith(code):
+        if name and code.lower() in name.lower():
             item["completed_at"] = datetime.now(timezone.utc).isoformat()
             item["status"] = "completed"
             item["completed_hash"] = h
@@ -136,7 +136,7 @@ def cmd_complete_by_hash(info_hash: str, name: str = "") -> None:
 def cmd_check(code: str) -> None:
     """Check if a code exists in history."""
     data = _load()
-    codes = {i["code"] for i in data["items"]}
+    codes = {i["code"] for i in data["items"] if "code" in i}
     exists = code in codes
     log.info("check code=%s exists=%s", code, exists)
     print(json.dumps({"exists": exists, "code": code}))
@@ -145,7 +145,7 @@ def cmd_check(code: str) -> None:
 def cmd_filter() -> None:
     """Read codes from stdin, print only those NOT in history."""
     data = _load()
-    known = {i["code"] for i in data["items"]}
+    known = {i["code"] for i in data["items"] if "code" in i}
     passed = 0
     for line in sys.stdin:
         code = line.strip()
@@ -215,7 +215,7 @@ def main():
         cmd_list()
     elif args.cmd == "cross-seed":
         data = _load()
-        existing = {i["code"] for i in data["items"]}
+        existing = {i["code"] for i in data["items"] if "code" in i}
         if args.code in existing:
             log.info("cross_seed skipped code=%s reason=already_exists", args.code)
             print(json.dumps({"status": "skipped", "reason": f"{args.code} already in history"}))

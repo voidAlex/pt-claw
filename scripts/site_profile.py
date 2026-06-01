@@ -32,10 +32,11 @@ def _extract_field(html, labels):
     """Find a value after any of the given label strings in HTML text."""
     for label in labels:
         # Pattern: label followed by optional HTML tags, then a value
+        # Use word boundaries to avoid matching inside HTML attributes
         patterns = [
             # Label then value in next <td> or after colon/equals
-            re.escape(label) + r'(?:</[^>]+>)?(?:\s*(?:<[^>]*>)+\s*)*\s*([\d,.]+\s*(?:TB|GB|MB|KB|B)\b|[\d,.]+)',
-            re.escape(label) + r'(?:\s*[:：]\s*|\s*(?:<[^>]*>)+\s*)([\d,.]+\s*(?:TB|GB|MB|KB|B)\b|[\d,.]+)',
+            r'\b' + re.escape(label) + r'\b' + r'(?:</[^>]+>)?(?:\s*(?:<[^>]*>)+\s*)*\s*([\d,.]+\s*(?:TB|GB|MB|KB|B)\b|[\d,.]+)',
+            r'\b' + re.escape(label) + r'\b' + r'(?:\s*[:：]\s*|\s*(?:<[^>]*>)+\s*)\s*([\d,.]+\s*(?:TB|GB|MB|KB|B)\b|[\d,.]+)',
         ]
         for pat in patterns:
             m = re.search(pat, html, re.IGNORECASE)

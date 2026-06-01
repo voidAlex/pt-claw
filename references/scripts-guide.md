@@ -212,6 +212,24 @@ python3 scripts/qb_snapshot.py clear
 
 `qb_public_cleanup.py`、`qb_monitor.py --delete`、`pt_ratio_boost.py` 删除种子前自动调用 `backup_from_torrents()`，将 hash/名称/路径/标签/分类 **加上 .torrent 文件** 备份到 `torrent_backups/`，元数据写入 `pt_deleted_backup.json`（保留最近 500 条）。
 
+**`pt_deleted_backup.json` Schema**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `hash` | string | 种子 info_hash |
+| `name` | string | 种子名称 |
+| `save_path` | string | 保存路径 |
+| `category` | string | qB 分类 |
+| `tags` | string | qB 标签 |
+| `size` | int | 文件大小（字节）|
+| `added_on` | int | 添加时间戳 |
+| `reason` | string | 删除原因（manual_delete/cron_public_cleanup/disk_full 等）|
+| `torrent_backup` | string | .torrent 备份路径 |
+| `deleted_at` | string | 删除时间 ISO 格式 |
+| `progress` | float | 删除时进度 (0-1) |
+| `state` | string | 删除时状态 |
+| `was_completed` | bool | 是否已下载完成 |
+
 **恢复链路**：`qb_snapshot.py restore` 从备份恢复种子到 qBittorrent。支持按 hash 单个恢复、最近恢复、按原因批量恢复。恢复时重新上传 .torrent 文件并应用原始标签/分类/路径。无 .torrent 文件的条目会打印搜索关键词供手动恢复。
 
 **确认机制**：三个删种脚本均支持 `--check` 参数，只查不删，展示将被删除的种子清单，等用户确认后再执行实际删除。用法：

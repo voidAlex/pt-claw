@@ -19,6 +19,7 @@ Pipeline examples:
     python3 cross_seed.py search "流浪地球2" --save-path /media/downloads
 """
 
+import fcntl
 import hashlib
 import json
 import os
@@ -315,10 +316,20 @@ def _load_tasks() -> dict:
 
 
 def _save_tasks(tasks: dict):
+    lock_path = TASKS_FILE + ".lock"
     tmp = TASKS_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(tasks, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, TASKS_FILE)
+    with open(lock_path, "w") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(tasks, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, TASKS_FILE)
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    try:
+        os.unlink(lock_path)
+    except OSError:
+        pass
 
 
 def _gen_task_id() -> str:
@@ -333,7 +344,15 @@ def create_task(title: str, items: list[dict], save_path: str) -> dict:
     task_id = _gen_task_id()
 
     verified_items = [i for i in items if i.get("verified")]
-    total_size = sum(i.get("size", i.get("size_bytes", 0)) for i in verified_items)
+    total_size = 0
+    for i in verified_items:
+        sb = i.get("size_bytes", 0)
+        if sb == 0:
+            size_str = i.get("size", "")
+            if size_str:
+                from _common import _parse_size
+                sb = _parse_size(size_str)
+        total_size += sb
 
     task = {
         "id": task_id,

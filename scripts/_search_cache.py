@@ -16,6 +16,7 @@ Usage (from other scripts):
     cache_put("mteam", "流浪地球2", results)
 """
 
+import fcntl
 import json
 import os
 import time
@@ -36,10 +37,20 @@ def _load_cache() -> dict:
 
 
 def _save_cache(cache: dict):
+    lock_path = _CACHE_FILE + ".lock"
     tmp = _CACHE_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(cache, f, ensure_ascii=False)
-    os.replace(tmp, _CACHE_FILE)
+    with open(lock_path, "w") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(cache, f, ensure_ascii=False)
+            os.replace(tmp, _CACHE_FILE)
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    try:
+        os.unlink(lock_path)
+    except OSError:
+        pass
 
 
 def _cache_key(site_id: str, query: str) -> str:

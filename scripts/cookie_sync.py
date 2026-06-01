@@ -87,7 +87,7 @@ def _extract_cookie_for_domain(cookie_data, domain):
             continue
         for c in cookies:
             c_domain = c.get("domain", "").lstrip(".")
-            if domain in c_domain or c_domain in domain:
+            if c_domain == domain or c_domain.endswith("." + domain):
                 name = c.get("name", "")
                 value = c.get("value", "")
                 if name and value:

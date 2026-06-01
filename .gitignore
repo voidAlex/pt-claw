@@ -36,5 +36,8 @@ pt_search_cache.json
 cross_seed_tasks.json
 torrent_backups/
 
+# Pytest
+.pytest_cache/
+
 # Logs
 logs/

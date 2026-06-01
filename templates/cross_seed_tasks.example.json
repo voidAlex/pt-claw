@@ -1,0 +1,15 @@
+[
+  {
+    "id": "task-uuid",
+    "hash": "abc123...",
+    "name": "Example.Torrent.Name",
+    "size_bytes": 4294967296,
+    "source_site": "pttime",
+    "target_sites": [
+      "btschool",
+      "carpt"
+    ],
+    "status": "pending",
+    "created_at": "2025-06-01T12:00:00"
+  }
+]

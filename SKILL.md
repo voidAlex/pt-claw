@@ -1,6 +1,6 @@
 ---
 name: pt-claw
-description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、详情页直推、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。115站支持(15核心+100扩展)，纯脚本无外部依赖。"
+description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、详情页直推、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。115站支持(15核心+100扩展)，纯脚本无外部依赖。 Also use this skill when users ask about PT sites, torrent search, qBittorrent management, cross-seeding, ratio boosting, Jellyfin media integration, or any private tracker automation task."
 version: 3.2.0
 author: Hermes Agent
 license: MIT
@@ -89,11 +89,26 @@ metadata:
 | `jf_query.py` | Jellyfin 查询 |
 | `env_check.sh` | 环境变量检查 |
 
+> **内部模块**（`_` 前缀脚本）：`_common.py`（公共工具）、`_http.py`（HTTP 客户端）、`_logger.py`（日志系统）、`_qb_session.py`（qB 会话）、`_search_cache.py`（搜索缓存）— 不直接调用，被其他脚本引用。
+
 所有脚本通过 `_logger.py` 统一写入 `logs/pt-claw.log`（RotatingFileHandler，10MB × 6 份 = 最大 60MB）。每次调用自动分配 8 字符 `call_id`，贯穿整个调用链。排障时查看日志：
 ```bash
 grep "call_id" logs/pt-claw.log | tail -50    # 最近调用
 grep "ERROR" logs/pt-claw.log | tail -20       # 最近错误
 ```
+
+## 数据文件
+
+| 文件 | 用途 | Schema 文档 |
+|------|------|------------|
+| `pt_boost.json` | 免费种自动下载配置 | `references/pt-boost.md` |
+| `pt_downloaded.json` | 下载历史记录 | `templates/pt_downloaded.example.json` |
+| `pt_wishlist.json` | 想看清单 | `references/jf-integration.md` |
+| `pt_notify_state.json` | 通知状态 | `references/cron-progress-check.md` |
+| `pt_deleted_backup.json` | 删种备份记录 | `templates/pt_deleted_backup.example.json` |
+| `pt_completed_last.txt` | 已完成种子hash | `references/cron-progress-check.md` |
+| `pt_search_cache.json` | 搜索缓存 | 内部使用，自动管理 |
+| `cross_seed_tasks.json` | 跨站辅种任务 | 内部使用，自动管理 |
 
 ## 参考文档
 
@@ -118,6 +133,7 @@ grep "ERROR" logs/pt-claw.log | tail -20       # 最近错误
 | [references/site-tags.md](references/site-tags.md) | 115 站完整标签映射 | 推送下载时查找标签 |
 | [references/extended-sites.md](references/extended-sites.md) | 扩展 100 站完整列表（URL/代理/分类） | 查看扩展站详情或配置 Cookie |
 | [references/env-reference.md](references/env-reference.md) | 完整环境变量清单 + 配置模板 | 配置或排查环境问题 |
+| `user-preferences.md` | 用户偏好配置（分类映射、保存路径、选项开关）|
 
 日志路径：`logs/pt-claw.log`（自动轮换，最多 60MB）。
 
@@ -273,7 +289,7 @@ python3 scripts/qb_monitor.py --full | ...  # LLM 直接读 JSON 找 hash
 python3 scripts/download_history.py add --code <番号> --title "<标题>" --source <站点标签>
 ```
 
-**分类映射**：从 `user-preferences.md` 读取（初始化时一次性从 qB API 读取写入）。不硬编码分类名。
+**分类映射**：首次初始化时从 qBittorrent API 读取分类列表，自动写入 `user-preferences.md`。后续直接从 `user-preferences.md` 读取。不硬编码分类名。
 
 ### Step 6：后台定时任务
 
@@ -334,11 +350,28 @@ Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 
 **6. 脚本功能有缺口 → 直接汇报用户，不自己写代码绕过。** 某个操作现有脚本都做不到时（如「补标签」），直接告诉用户：「缺 XXX 功能，现有脚本覆盖不了」。等用户明确允许后再动手（委托 OpenCode 加功能，或手动 curl 一次）。禁止自己写 Python/curl/管道 JSON 绕过——这是「脚本缺口汇报」规则，与规则 1「优先用现成脚本」和规则 4「禁止管道接 python3 -c」是三位一体的纪律。
 
+## 环境要求
+
+**推荐模型**: DeepSeek V4 Pro（或其他支持长上下文、多工具调用的模型）
+
+- Python 3.10+
+- `python3-cryptography` (CookieCloud 同步需要)
+- qBittorrent Web UI 已开启
+- PT 站 Cookie（存于 `secrets.env`）
+- M-Team API Key（可选，API 搜索需要）
+
 ## 环境变量
 
 完整清单见 [references/env-reference.md](references/env-reference.md)。模板见 `templates/secrets.env.example`。
 
 关键规则：
-- **禁止设 `HTTP_PROXY`** — 用 `PT_PROXY`
+- 禁止在**系统环境**设 `HTTP_PROXY`（会影响所有脚本的正常网络请求）— 需要代理时用 `PT_PROXY`。Docker 容器（如 javbus-api）内部可单独设置 `HTTP_PROXY`。
 - 脚本通过 `_load_env_file()` 安全读取，禁止 `source secrets.env`
 - API Key 写 `secrets.env`，不依赖 memory
+
+## 致谢
+
+本技能在 PT 站适配过程中参考了以下优秀项目：
+- [PT-depiler](https://github.com/) - NexusPHP 站点解析参考
+- [MoviePilot](https://github.com/jxxghp/MoviePilot) - 部分功能设计灵感
+

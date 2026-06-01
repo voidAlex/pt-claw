@@ -106,6 +106,8 @@ def main():
             break
         movies = results.get("movies", [])
         if not movies or page > 10:
+            if page > 10:
+                print(f"Warning: results truncated at page 10 for '{search_kw}'", file=sys.stderr)
             break
         for m in movies:
             # Only include if this star is in the cast

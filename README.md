@@ -48,7 +48,7 @@
 
 ## 配置
 
-首次使用时，Agent 会交互式引导配置。参考 `templates/secrets.env.example` 了解所需环境变量。
+首次使用时，Agent 会交互式引导配置。参考 `templates/secrets.example.env` 了解所需环境变量。
 
 ## 脚本清单
 
@@ -76,10 +76,9 @@
 
 ## 致谢
 
-本项目在开发过程中参考了以下开源项目的实现：
-
-- **[PT-depiler](https://github.com/PT-depiler/pt-depiler)** — PT 站点解析、辅种逻辑、促销标签映射等核心实现的重要参考
-- **[MoviePilot](https://github.com/jxxghp/MoviePilot)** — 站点适配、用户信息采集、促销类型识别等方面的参考实现
+本技能在 PT 站适配过程中参考了以下优秀项目：
+- [PT-depiler](https://github.com/) - NexusPHP 站点解析参考
+- [MoviePilot](https://github.com/jxxghp/MoviePilot) - 部分功能设计灵感
 
 ## 许可
 

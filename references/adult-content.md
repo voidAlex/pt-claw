@@ -51,6 +51,28 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 磁链版本选择优先级：`-C`（字幕）> `-U`（去码）> `uncensored` > `-AI` > 标准版 > `4K`
 
+### 快速信息查询（仅查演员/标题/日期，无需磁链）
+
+**场景**：用户问「XXX是谁的片」「IPZZ-860 主演」「这个番号什么内容」等纯信息查询，不需要磁链。
+
+**一步直达**（localhost 直连不走代理，秒级返回）：
+
+```bash
+curl -s "http://localhost:8922/api/movies/IPZZ-860" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print('主演:', ', '.join(s['name'] for s in d.get('stars', [])))
+print('标题:', d.get('title', ''))
+print('日期:', d.get('date', ''))
+print('导演:', (d.get('director') or {}).get('name', ''))
+print('片长:', d.get('videoLength', ''), '分钟')
+"
+```
+
+返回字段：`stars[].id` + `stars[].name`（演员）、`title`（完整标题含演员名）、`date`、`director.name`、`videoLength`、`genres`、`img`（封面）、`gid`/`uc`（后续拿磁链用）。
+
+⚠️ **不要用 `javbus_magnet.py` 做纯信息查询**：该脚本走 PT_PROXY 代理（即使目标是 localhost:8922），代理不可达时返回 "Movie not found"，而直接 curl localhost 正常。`javbus_magnet.py` 仅用于需要磁链的场景。
+
 ### 裸爬模式（无 javbus-api 时）
 
 ```bash

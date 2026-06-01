@@ -236,7 +236,14 @@ def main():
 
     if "--since" in args:
         idx = args.index("--since")
-        cutoff = datetime.fromisoformat(args[idx + 1])
+        if idx + 1 >= len(args):
+            print("Error: --since requires a value", file=sys.stderr)
+            sys.exit(1)
+        try:
+            cutoff = datetime.fromisoformat(args[idx + 1])
+        except ValueError:
+            print(f"Error: invalid --since value: {args[idx + 1]}", file=sys.stderr)
+            sys.exit(1)
     elif tracker_path:
         last_epoch = _read_tracker(tracker_path)
         cutoff = datetime.fromtimestamp(last_epoch, tz=timezone.utc)

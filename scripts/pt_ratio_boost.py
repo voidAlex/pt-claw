@@ -102,11 +102,15 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
         mteam_script = os.path.join(_skill_dir, "mteam_api.py")
         keyword = site_cfg.get("search_keyword", "") or ""
         max_results = site_cfg.get("max_results", 50)
-        r = subprocess.run(
-            ["python3", mteam_script, "search", keyword or " ", "--limit", str(max_results)],
-            capture_output=True, text=True, timeout=60,
-            env={**os.environ, "MTEAM_API_KEY": api_key},
-        )
+        try:
+            r = subprocess.run(
+                ["python3", mteam_script, "search", keyword or " ", "--limit", str(max_results)],
+                capture_output=True, text=True, timeout=60,
+                env={**os.environ, "MTEAM_API_KEY": api_key},
+            )
+        except subprocess.TimeoutExpired:
+            log.warning("search_freeleech timed out for mteam")
+            return [{"error": "search timed out", "source": "mteam"}]
         try:
             items = json.loads(r.stdout)
         except json.JSONDecodeError:
@@ -127,11 +131,15 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
                 continue
             if item.get("seeders", 0) < site_cfg.get("min_seeders", 0):
                 continue
-            dl_r = subprocess.run(
-                ["python3", mteam_script, "download", str(torrent_id)],
-                capture_output=True, text=True, timeout=15,
-                env={**os.environ, "MTEAM_API_KEY": api_key},
-            )
+            try:
+                dl_r = subprocess.run(
+                    ["python3", mteam_script, "download", str(torrent_id)],
+                    capture_output=True, text=True, timeout=15,
+                    env={**os.environ, "MTEAM_API_KEY": api_key},
+                )
+            except subprocess.TimeoutExpired:
+                log.warning("download timed out for mteam torrent_id=%s", torrent_id)
+                continue
             try:
                 dl = json.loads(dl_r.stdout)
                 item["download_url"] = dl.get("download_url", "")
@@ -146,10 +154,14 @@ def search_freeleech(site_id: str, site_cfg: dict, global_cfg: dict) -> list[dic
             return [{"error": f"search_keyword not set for {site_id}", "source": site_id}]
         max_results = site_cfg.get("max_results", 50)
         search_script = os.path.join(_skill_dir, "pt_search.py")
-        r = subprocess.run(
-            ["python3", search_script, keyword, "--site", site_id, "--limit", str(max_results)],
-            capture_output=True, text=True, timeout=60,
-        )
+        try:
+            r = subprocess.run(
+                ["python3", search_script, keyword, "--site", site_id, "--limit", str(max_results)],
+                capture_output=True, text=True, timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            log.warning("search_freeleech timed out for %s", site_id)
+            return [{"error": f"search timed out for {site_id}", "source": site_id}]
         try:
             items = json.loads(r.stdout)
         except json.JSONDecodeError:

@@ -1,4 +1,5 @@
 """Shared utilities for pt-claw scripts."""
+from __future__ import annotations
 import json, os, re, threading
 
 from _logger import get_logger

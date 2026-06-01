@@ -121,7 +121,7 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
    1. **更新 NexusPHP Parser Notes（下方）** — 如果是新解析模式的变体，记录关键差异
 2. **更新 skill 的 Supported PT Sites 表格** — 添加新站点行
 3. **更新 `user-preferences.md`** — 补充新站点的代理需求配置
-4. **更新 `templates/secrets.env.example`** — 添加新站点的 Cookie/API key 环境变量
+4. **更新 `templates/secrets.example.env`** — 添加新站点的 Cookie/API key 环境变量
 5. **告知用户**：适配完成，附验证结果
 
 ### 适配检查清单
@@ -140,7 +140,7 @@ curl -b <qb_cookie> -X POST '<qb_url>/api/v2/torrents/add' \
 | 10 | qBittorrent 推送成功 | ☐ |
 | 11 | `pt_search.py` SITES 字典已注册 | ☐ |
 | 12 | Skill 文档站点表格已更新 | ☐ |
-| 13 | 模板文件已更新（secrets.env.example + user-preferences.md） | ☐ |
+| 13 | 模板文件已更新（secrets.example.env + user-preferences.md） | ☐ |
 
 ## NexusPHP Parser Notes
 

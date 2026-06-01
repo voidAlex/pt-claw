@@ -1,6 +1,6 @@
 # 环境变量参考 — `secrets.env`
 
-所有敏感配置存于 `secrets.env`（不入 Git）。模板见 `templates/secrets.env.example`。
+所有敏感配置存于 `secrets.env`（不入 Git）。模板见 `templates/secrets.example.env`。
 
 脚本内部通过 `_load_env_file()` 安全读取（处理含 `=` 的 Cookie 值），**禁止 `source secrets.env`**。
 

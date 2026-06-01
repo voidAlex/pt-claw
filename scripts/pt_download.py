@@ -34,11 +34,14 @@ from _logger import get_logger
 log = get_logger("pt_download")
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
+if _skill_dir not in sys.path:
+    sys.path.insert(0, _skill_dir)
+
+from pt_search import SITES, _PROMO_PATTERNS, _detect_promo
 
 
 def _match_site(detail_url: str) -> tuple[str, dict] | None:
     """Match a detail page URL to a site in the SITES registry by domain."""
-    sys.path.insert(0, _skill_dir)
     from pt_search import SITES
 
     parsed = urllib.parse.urlparse(detail_url)
@@ -145,38 +148,6 @@ def _extract_title(html: str) -> str:
     return ""
 
 
-_PROMO_PATTERNS = [
-    (r'class="[^"]*pro_free2up[^"]*"', "2xFree"),
-    (r'class="[^"]*pro_50pctdown2up[^"]*"', "2x50%"),
-    (r'class="[^"]*pro_2up[^"]*"', "2xUp"),
-    (r'class="[^"]*pro_free[^"]*"', "Free"),
-    (r'class="[^"]*pro_50pctdown[^"]*"', "50%"),
-    (r'class="[^"]*pro_30pctdown[^"]*"', "30%"),
-    (r'class="[^"]*pro_halfdown[^"]*"', "50%"),
-    (r'class="[^"]*pro_30percent[^"]*"', "30%"),
-    (r'class="[^"]*pro_custom[^"]*"', "Custom"),
-    (r'class="[^"]*free[^"]*".*class="[^"]*twoup[^"]*"', "2xFree"),
-    (r'class="[^"]*twoup[^"]*"', "2xUp"),
-    (r'class="[^"]*(?:^|\s)(?:free|_free)(?:\s|")[^"]*"', "Free"),
-    (r'>\s*Free\s*<', "Free"),
-    (r'>\s*2\s*x\s*Free\s*<', "2xFree"),
-    (r'>\s*50\s*%\s*<', "50%"),
-    (r'>\s*30\s*%\s*<', "30%"),
-]
-
-
-def _detect_promo(html: str) -> str:
-    """Detect promotion type from a detail page's HTML.
-
-    Class-based patterns are checked first (specific, low false-positive risk).
-    Text-based patterns (e.g. '>Free<') serve as fallback for sites that don't
-    use CSS classes.  This function is only called on single-torrent detail
-    pages, so cross-torrent false positives are not a concern.
-    """
-    for pattern, label in _PROMO_PATTERNS:
-        if re.search(pattern, html, re.IGNORECASE):
-            return label
-    return ""
 
 
 def _extract_size(html: str) -> str:
@@ -330,7 +301,7 @@ def download_from_url(detail_url: str, save_path: str = None,
 
     upload_result = _upload_to_qb(
         torrent_data, torrent_id, site_id,
-        save_path=save_path, category=category, tags=tags or [site_id],
+        save_path=save_path, category=category, tags=tags if tags is not None else [site_id],
     )
     if "error" in upload_result:
         return upload_result
@@ -345,7 +316,7 @@ def download_from_url(detail_url: str, save_path: str = None,
         "size": info.get("size", ""),
         "download_url": download_url,
         "torrent_size_bytes": len(torrent_data),
-        "tags": tags or [site_id],
+        "tags": tags if tags is not None else [site_id],
     }
 
 

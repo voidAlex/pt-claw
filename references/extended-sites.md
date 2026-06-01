@@ -121,4 +121,4 @@ PT_COOKIE_HDAREA=<cookie>
 PT_COOKIE_BYRBT=<cookie>
 ```
 
-模板见 `templates/secrets.env.example`。
+模板见 `templates/secrets.example.env`。

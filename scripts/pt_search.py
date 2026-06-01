@@ -21,7 +21,7 @@ Output: JSON array of results across all sites.
 import json, os, re, sys, time, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from _common import _load_env_file, _env, _fmt_size, _env_matching, _is_login_page
+from _common import _load_env_file, _env, _fmt_size, _env_matching, _is_login_page, _parse_size
 from _http import fetch
 from _logger import get_logger
 from _search_cache import cache_get, cache_put
@@ -1144,7 +1144,7 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
 
         results.append({
             "title": title.strip(),
-            "size": size_str, "size_bytes": 0,
+            "size": size_str, "size_bytes": _parse_size(size_str),
             "seeders": seeds, "leechers": leech,
             "category": "", "promo": promo,
             "download_url": site["url"] + "/" + dl_url,
