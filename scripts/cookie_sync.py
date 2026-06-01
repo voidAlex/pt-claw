@@ -178,10 +178,32 @@ def main():
 
     print(f"Found {len(cookie_data)} domain(s) in CookieCloud")
 
+    if only_site:
+        if only_site not in SITE_DOMAINS:
+            print(f"❌ Unknown site: {only_site}")
+            print(f"   Known sites: {', '.join(sorted(SITE_DOMAINS))}")
+            sys.exit(1)
+        target_sites = {only_site}
+    else:
+        _configured_sites = set()
+        if os.path.exists(ENV_FILE):
+            with open(ENV_FILE, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("PT_COOKIE_"):
+                        key = line.split("=", 1)[0].strip()
+                        site_id = key.replace("PT_COOKIE_", "").lower()
+                        if site_id in SITE_DOMAINS:
+                            _configured_sites.add(site_id)
+        target_sites = _configured_sites
+        if not target_sites:
+            print("No PT_COOKIE_* entries found in secrets.env. Nothing to sync.")
+            print("Tip: Add PT_COOKIE_<site> entries to secrets.env, or use --site <site> to add one.")
+            sys.exit(0)
+
     updates = {}
-    for site_id, domain in SITE_DOMAINS.items():
-        if only_site and site_id != only_site:
-            continue
+    for site_id in sorted(target_sites):
+        domain = SITE_DOMAINS[site_id]
         cookie_str = _extract_cookie_for_domain(cookie_data, domain)
         if cookie_str:
             var_name = f"PT_COOKIE_{site_id.upper()}"
@@ -193,7 +215,7 @@ def main():
             print(f"  ⏭️  {site_id}: no cookie found for {domain}")
 
     if not updates:
-        print("No PT site cookies found in CookieCloud")
+        print("No PT site cookies found in CookieCloud for configured sites")
         sys.exit(0)
 
     _update_secrets_env(updates, dry_run=dry_run)
