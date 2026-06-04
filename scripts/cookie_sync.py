@@ -131,6 +131,10 @@ def _update_secrets_env(updates, dry_run=False):
             os.replace(tmp, ENV_FILE)
         finally:
             fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    try:
+        os.unlink(lock_path)
+    except OSError:
+        pass
     print(f"  ✅ Updated {len(updates)} cookie(s) in secrets.env")
 
 

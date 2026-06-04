@@ -355,7 +355,7 @@ python3 scripts/wishlist_manager.py list
 
 致命级 8 条 + 严重级 7 条 + 注意级 19 条（含子条目）+ 脚本纪律 17 条，共 51 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
-> **#51 (新增) Cron job 禁止附加 pt-claw skill**：不要用 `skills=["pt-claw.skill"]` 创建 cron 任务——整份 ~20KB SKILL.md 会被内联到每次运行的上下文，叠加通知输出后超出 `max_tokens` 上限导致截断。用自包含 prompt + `skills=[]` 替代。同时执行 `hermes config set model.max_tokens 32768` 拉满输出上限。详见 [references/cron-progress-check.md](references/cron-progress-check.md) "Cron 输出截断预防" 章节。
+> **Cron job 禁止附加 pt-claw.skill**：不要用 `skills=["pt-claw.skill"]` 创建 cron 任务——整份 ~20KB SKILL.md 会被内联到每次运行的上下文，叠加通知输出后超出 `max_tokens` 上限导致截断。用自包含 prompt + `skills=[]` 替代（详见 #39 Cron prompt 设计铁律）。同时执行 `hermes config set model.max_tokens 32768` 拉满输出上限。完整排查步骤见 [references/cron-progress-check.md](references/cron-progress-check.md) "Cron 输出截断预防" 章节。
 
 Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 
