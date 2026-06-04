@@ -38,6 +38,12 @@ python3 scripts/pt_download.py "https://pt.btschool.club/details.php?id=172580" 
 # M-Team 详情页（走 API genDlToken）
 python3 scripts/pt_download.py "https://kp.m-team.cc/detail/12345" --tags mteam --category "电影"
 
+# M-Team 一步法（无需 URL，直接指定站点和种子 ID）
+python3 scripts/pt_download.py --site mteam --torrent-id 1188133 --tags mteam --category "电影"
+
+# 任意站点一步法
+python3 scripts/pt_download.py --site pttime --torrent-id 99999 --tags pttime
+
 # 多个详情页批量
 python3 scripts/pt_download.py url1 url2 url3 --tags batch --category "电影"
 
@@ -50,7 +56,9 @@ python3 scripts/pt_download.py "https://www.pttime.org/details.php?id=99999" --t
 
 **支持的 URL 格式**：`details.php?id=X`（NexusPHP）· `detail/X`（M-Team）· 任意含 `?id=X` 参数的 PT 详情页
 
-### qb_add.py — 添加到 qBittorrent（含站点标签 + 文件选择）
+**一步法模式**：`--site <站点ID> --torrent-id <种子ID>` 直接下载推送，无需提供详情页 URL。支持所有站点。
+
+### qb_add.py — 添加到 qBittorrent（含站点标签 + 文件选择 + 补标签 + 补分类）
 
 ```bash
 # 公开磁链 — 列出文件供用户选择（推荐）
@@ -64,8 +72,17 @@ python3 scripts/qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-v
 # PT 种子不需要文件选择（PT 站一般只有正片）
 python3 scripts/qb_add.py "https://pt.example.com/download.php?id=123" --category "电影" --tags pttime
 
+# 本地 .torrent 文件上传（multipart form upload）
+python3 scripts/qb_add.py --file /tmp/xxx.torrent --category "电影" --tags mteam
+
 # stdin JSON 模式（支持 max_video 字段）
 echo '{"magnet": "...", "category": "<分类名>", "save_path": "<路径>", "tags": ["sukebei"], "max_video": true}' | python3 scripts/qb_add.py --stdin
+
+# 给已有种子补标签（推送后验证发现标签缺失时使用）
+python3 scripts/qb_add.py --retag <hash> --tags mteam
+
+# 给已有种子补分类（分类缺失或需变更时使用）
+python3 scripts/qb_add.py --recat <hash> --category "电影"
 ```
 
 **公开磁链文件选择（推荐流程）**：
@@ -111,6 +128,13 @@ python3 scripts/download_history.py complete --code MIMK-267
 
 # 按种子 hash 标记完成（匹配 code 或 name）
 python3 scripts/download_history.py complete-by-hash --hash abc123 --name "ROYD-318"
+
+# 忽略某个番号（不再出现在搜索/追剧结果）
+python3 scripts/download_history.py ignore --code FWAY-071 --reason "不喜欢"
+python3 scripts/download_history.py ignore --code SSIS-448 --title "xxx" --reason "已收藏"
+
+# 取消忽略
+python3 scripts/download_history.py unignore --code FWAY-071
 
 # 辅种记录（跨站来源标记）
 python3 scripts/download_history.py cross-seed --code MIMK-267 --title "xxx" --source pttime --original-source mteam
@@ -317,7 +341,7 @@ python3 scripts/cookie_sync.py --dry-run           # 预览不同步
 python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
 ```
 
-从 CookieCloud 服务端拉取浏览器 Cookie，解密后更新 `secrets.env` 中的 `PT_COOKIE_*`（M-Team 除外，因 M-Team 使用 API Key 认证，不同步 cookie）。需要 `secrets.env` 中配置 `COOKIE_CLOUD_HOST`/`UUID`/`PASS`（可选，不配置则跳过）。
+从 CookieCloud 服务端拉取浏览器 Cookie，解密后**仅更新 `secrets.env` 中已有的 `PT_COOKIE_*` 条目**（M-Team 除外，因 M-Team 使用 API Key 认证，不同步 cookie）。不再遍历所有 14 个站——只同步你实际配置过的站点，没配过的跳过。需要 `secrets.env` 中配置 `COOKIE_CLOUD_HOST`/`UUID`/`PASS`（可选，不配置则跳过）。
 
 **依赖**：`python3-cryptography`（系统包 `apt install python3-cryptography`，或 `pip install cryptography`）。
 
@@ -344,14 +368,22 @@ python3 scripts/cookie_sync.py --site btschool     # 只同步一个站
 # 查询单站
 python3 scripts/site_profile.py --site mteam
 
-# 查询所有已配置站点（不带 --site 即全查）
+# 查询所有已配置站点（自动过滤无 Cookie 站点）
 python3 scripts/site_profile.py
+
+# 查询全部 115 站（含未配置的，恢复旧行为）
+python3 scripts/site_profile.py --all
+
+# 调试模式（输出原始 HTML 片段辅助字段提取诊断）
+python3 scripts/site_profile.py --site btschool --debug
 
 # JSON 输出
 python3 scripts/site_profile.py --site pttime --json
 ```
 
 查询各 PT 站用户个人信息：上传量、下载量、分享率、魔力值、做种数、做种体积。M-Team 通过 4 个 API 端点采集（profile/myPeerStatistics/mybonus/notify），NexusPHP 站通过 3 阶段 HTML 抓取（首页→详情页→做种页）。输出结构化 JSON。
+
+**默认行为（v3.3.0+）**：不带 `--site` 时自动过滤只查询已配置 Cookie/API Key 的站点，不再遍历全部 115 站产生噪音。`--all` 恢复原行为。`--debug` 输出 HTML 片段用于诊断 NexusPHP 解析失败。
 
 ### cross_seed.py — 多站辅种验证与推送
 
@@ -401,6 +433,36 @@ python3 scripts/pt_ratio_boost.py status
 从 `pt_boost.json` 读取配置，按站点搜索 Freeleech / 2x上传 等促销种子，自动添加到 qBittorrent 做种。支持促销标签识别（参考 MoviePilot 的 6 种促销类型）、大小/做种数过滤、做种天数上限。过期种子自动备份后移除（通过 `qb_snapshot.py`）。
 
 配置 schema 和详细用法见 [references/pt-boost.md](pt-boost.md)。
+
+### wishlist_manager.py — 愿望单管理
+
+```bash
+# 添加关注演员（支持 exclude_prefixes 和 exclude_multi）
+python3 scripts/wishlist_manager.py add-actor --name "深田えいみ" --type adult_actress --exclude-prefixes "FNS,ABC" --exclude-multi
+python3 scripts/wishlist_manager.py add-actor --name "浅野心" --type adult_actress
+
+# 移除关注演员
+python3 scripts/wishlist_manager.py remove-actor --name "深田えいみ"
+
+# 添加/移除关注电影
+python3 scripts/wishlist_manager.py add-movie --title "镖人" --year 2024 --quality 4K --codec HEVC --note "漫画改编"
+python3 scripts/wishlist_manager.py remove-movie --title "镖人"
+
+# 添加/移除关注番号
+python3 scripts/wishlist_manager.py add-fanhao --code SSIS-448 --note "收藏"
+python3 scripts/wishlist_manager.py remove-fanhao --code SSIS-448
+
+# 列表查看（默认全部）
+python3 scripts/wishlist_manager.py list
+python3 scripts/wishlist_manager.py list --actors
+python3 scripts/wishlist_manager.py list --movies
+python3 scripts/wishlist_manager.py list --fanhao
+
+# 输出完整 JSON
+python3 scripts/wishlist_manager.py json
+```
+
+管理 `pt_wishlist.json` 关注列表：演员（含 `exclude_prefixes` 排除厂牌、`exclude_multi` 排除多人共演）、影片、番号的增删查。定时追剧 cron 读取此文件决定搜什么。
 
 ### env_check.sh — 环境变量完整性检查
 

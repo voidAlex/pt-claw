@@ -72,11 +72,17 @@ python3 scripts/connectivity_check.py --quick
 
 ```python
 # 下载进度检查（静默模式：没事件不通知）
+# ⚠️ 致命坑：千万不要在 cron job 中用 skills=["pt-claw"]！
+# 整份 pt-claw SKILL.md（~20KB）会内联到每次运行的上下文里，
+# 即使只是 [SILENT] 也占 ~25KB。一旦有实际通知要输出，总响应
+# 超出 max_tokens 上限导致 "Response truncated due to output length limit" 截断。
+# 用一个自包含的 prompt 替代，workdir 已指向 skill 目录，脚本直接可用。
+# 同时建议执行 `hermes config set model.max_tokens 32768` 拉满输出上限。
 cronjob(action='create',
     name="PT下载进度检查",
     schedule="*/15 * * * *",
     repeat="forever",
-    prompt="""加载 pt-claw skill，运行 `python3 scripts/_cron_check.py` 检查 qBittorrent 状态。脚本输出结构化 JSON：
+    prompt="""工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。运行 `python3 scripts/_cron_check.py` 检查 qBittorrent 状态。脚本输出结构化 JSON：
 
 1. JSON 含 `"silent": true` → 整个回复仅：[SILENT]
 2. JSON 含 `notifications` 数组 → 按类型格式化输出：
@@ -86,7 +92,7 @@ cronjob(action='create',
 3. 输出底部 stats（总数/下载中/做种中/死种）仅参考，不重复展示
 
 ⚠️ 不要自动删除死种，等用户确认。脚本已处理完成跟踪和频率控制。""",
-    skills=["pt-claw"],
+    skills=[],
     deliver="origin",
     workdir="<skill-dir>",
 )
@@ -118,10 +124,18 @@ cronjob(action='create',
     name="CookieCloud定时同步",
     schedule="0 */4 * * *",
     repeat="forever",
-    prompt="""加载 pt-claw skill。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
-如果有，运行 `python3 scripts/cookie_sync.py` 同步 cookie，然后 `python3 scripts/connectivity_check.py --quick` 验证。
-如果 CookieCloud 未配置则 [SILENT] 跳过。
-同步失败或连接异常时报告用户。""",
+    prompt="""加载 pt-claw skill。工作目录已设为 skill 目录，禁止全盘搜索文件，直接用相对路径执行。
+
+1. 检查 secrets.env 中是否有 COOKIE_CLOUD_HOST
+2. 有 → 运行 `python3 scripts/cookie_sync.py`，然后 `python3 scripts/connectivity_check.py --quick`
+3. 无 → 直接 [SILENT]
+
+同步成功（exit 0）→ [SILENT]
+同步失败（exit ≠ 0）→ 一句话报哪个环节挂了
+连接检查全通 → [SILENT]
+连接检查有异常 → 一句话报哪个站挂了
+
+禁止生成诊断报告、文件列表、初始化建议。""",
     skills=["pt-claw"],
     deliver="origin",
     workdir="<skill-dir>",

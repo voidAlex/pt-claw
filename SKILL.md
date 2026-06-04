@@ -1,7 +1,7 @@
 ---
-name: pt-claw
+name: pt-claw.skill
 description: "PT种子搜索下载与qBittorrent管理技能。搜索/下载/辅种/刷流/站点管理时触发——包括搜片、下片、详情页直推、qb管理、查做种、删种、辅种、查站内信息、刷流保号、Cookie同步、追剧等场景。115站支持(15核心+100扩展)，纯脚本无外部依赖。 Also use this skill when users ask about PT sites, torrent search, qBittorrent management, cross-seeding, ratio boosting, Jellyfin media integration, or any private tracker automation task."
-version: 3.2.0
+version: 3.3.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -10,7 +10,7 @@ metadata:
     related_skills: []
 ---
 
-# pt-claw — PT 多站搜索下载与 qBittorrent 管理
+# pt-claw.skill — PT 多站搜索下载与 qBittorrent 管理
 
 ## Overview
 
@@ -70,18 +70,19 @@ metadata:
 | 脚本 | 用途 |
 |------|------|
 | `pt_search.py` | 多站搜索（115 站 NexusPHP + M-Team API） |
-| `pt_download.py` | 详情页 URL 直接下载推送 qB（通用所有站） |
-| `qb_add.py` | 添加种子到 qBittorrent（含文件选择 + 推荐） |
+| `pt_download.py` | 详情页 URL 或 `--site/--torrent-id` 直接下载推送 qB（通用所有站） |
+| `qb_add.py` | 添加种子到 qBittorrent（含文件选择 + `--file` 本地上传 + `--recat` 补分类） |
 | `qb_monitor.py` | qB 状态/过滤/删除/死种诊断 |
 | `cross_seed.py` | 多站辅种验证与推送 |
-| `site_profile.py` | 多站用户信息查询 |
+| `site_profile.py` | 多站用户信息查询（v3.3.0+ 默认只查已配置站，`--debug` 诊断模式） |
 | `pt_ratio_boost.py` | Freeleech 刷流保号 |
 | `qb_snapshot.py` | 删种备份与恢复 |
 | `qb_public_cleanup.py` | 公开磁链清理 |
 | `_cron_check.py` | Cron 综合检查（完成/死种/清理） |
 | `connectivity_check.py` | 全服务连接测试 |
 | `cookie_sync.py` | CookieCloud 同步 |
-| `download_history.py` | 下载历史防重复 |
+| `download_history.py` | 下载历史防重复（含 ignore/unignore 忽略名单） |
+| `wishlist_manager.py` | 愿望单管理（add/remove/list 演员/影片/番号，支持 exclude_multi、exclude_prefixes） |
 | `mteam_api.py` | M-Team API 客户端 |
 | `sukebei_search.py` | Sukebei RSS 搜索 |
 | `javbus_magnet.py` | JavBus 磁链爬取 |
@@ -103,7 +104,7 @@ grep "ERROR" logs/pt-claw.log | tail -20       # 最近错误
 |------|------|------------|
 | `pt_boost.json` | 免费种自动下载配置 | `references/pt-boost.md` |
 | `pt_downloaded.json` | 下载历史记录 | `templates/pt_downloaded.example.json` |
-| `pt_wishlist.json` | 想看清单 | `references/jf-integration.md` |
+| `pt_wishlist.json` | 想看清单（演员支持 `exclude_prefixes` 排除厂牌、`exclude_multi` 排除多人共演） | `references/jf-integration.md` |
 | `pt_notify_state.json` | 通知状态 | `references/cron-progress-check.md` |
 | `pt_deleted_backup.json` | 删种备份记录 | `templates/pt_deleted_backup.example.json` |
 | `pt_completed_last.txt` | 已完成种子hash | `references/cron-progress-check.md` |
@@ -276,11 +277,9 @@ echo -e "CODE1\nCODE2" | python3 scripts/download_history.py filter  # 批量
 
 推送成功后必须验证和记录：
 
-**验证标签**：`qb_add.py` 的 `--tag` 参数不一定生效，推送后必须用 `qb_monitor.py --full` 回查确认标签。若缺失，用脚本补打：
+**验证标签**：`qb_add.py` 的 `--tag` 参数不一定生效，推送后必须用 `qb_monitor.py --full` 回查确认标签。若缺失，用 `qb_add.py --retag <hash> --tags <tag>` 补打：
 ```bash
-# 查哈希
-python3 scripts/qb_monitor.py --full | ...  # LLM 直接读 JSON 找 hash
-# 补标签 (如果有 addTags 脚本，用法见 scripts-guide)
+python3 scripts/qb_add.py --retag 2dc99206569795ac3cc6e009c9ff2b8c0fa18b72 --tags mteam
 ```
 ⚠️ 此步骤禁止手写 curl/urllib 调 qB API——只允许用现有脚本。
 
@@ -299,7 +298,7 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 |------|------|---------|
 | PT下载进度检查 | 每 15 分钟 | 完成/死种（首次立即，之后每 6h 提醒，最多 20 次）/公开种自动清理 |
 | PT自动追剧 | 每天 10:00 | 有新资源（只展示不下载） |
-| CookieCloud定时同步 **或** PT站点Cookie保活 | 每4h/每天06:00 | 二选一，视配置 |
+| CookieCloud定时同步 **或** PT站点Cookie保活 | 每4h/每天06:00 | 同步成功/连接全通→[SILENT]；失败/异常→一句话报障 |
 
 管理：「暂停XX任务」「恢复XX任务」「列出定时任务」
 
@@ -329,7 +328,9 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 ## Common Pitfalls
 
-致命级 7 条 + 严重级 7 条 + 注意级 17 条（含子条目）+ 脚本纪律 12 条，共 43 条。详见 [references/pitfalls.md](references/pitfalls.md)。
+致命级 8 条 + 严重级 7 条 + 注意级 19 条（含子条目）+ 脚本纪律 17 条，共 51 条。详见 [references/pitfalls.md](references/pitfalls.md)。
+
+> **#51 (新增) Cron job 禁止附加 pt-claw skill**：不要用 `skills=["pt-claw"]` 创建 cron 任务——整份 ~20KB SKILL.md 会被内联到每次运行的上下文，叠加通知输出后超出 `max_tokens` 上限导致截断。用自包含 prompt + `skills=[]` 替代。同时执行 `hermes config set model.max_tokens 32768` 拉满输出上限。详见 [references/cron-progress-check.md](references/cron-progress-check.md) "Cron 输出截断预防" 章节。
 
 Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 

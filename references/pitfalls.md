@@ -107,6 +107,37 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **38. `qb_add.py --tag` 不保证生效，推送后必须验证标签**：`qb_add.py` 的 `--tag` 参数依赖 qB API `addTags` 调用时机，可能在种子元数据未就绪时静默失败。推送后必须用 `qb_monitor.py --full` 回查验证标签字段非空。若缺失，可用 `qb_add.py --retag` 重打标签（截至 v3.1.0 已支持）。验证步骤作为 Step 5 的强制收尾，不可跳过。
 
-**39. Cron agent 禁止全盘搜索文件**：cron 任务已设 `workdir` 指向 skill 目录，脚本和配置都在当前目录下。Agent 必须直接用相对路径执行（如 `python3 scripts/cookie_sync.py`），禁止跑到 `/home/alex` 全盘搜索。搜不到就报「未安装/未配置」→ 纯粹是 agent 无视 prompt 自己发挥。Cron prompt 应显式禁止全盘搜索、禁止生成诊断报告、禁止建议初始化流程。所有 cron job prompt 遵循此规则。
+**39. Cron agent 禁止全盘搜索文件**：cron 任务已设 `workdir` 指向 skill 目录，脚本和配置都在当前目录下。Agent 必须直接用相对路径执行（如 `python3 scripts/cookie_sync.py`），禁止跑到 `/home/alex` 全盘搜索。搜不到就报「未安装/未配置」→ 纯粹是 agent 无视 prompt 自己发挥。
 
-**40. 番号忽略名单用 `pt_downloaded.json`**：没有独立的 ignore 文件。要忽略某个番号（不再出现于搜索/追剧结果），直接写入 `pt_downloaded.json`，status 设为 `"ignored"`，source 设为 `"manual"`。`download_history.py check/filter` 只判断番号存在性，不区分 status，所以 ignored 条目自动被跳过。写入时注意加 `reason` 字段记录原因。
+**Cron prompt 设计铁律**（实战验证——只说「做什么」不够，必须说「不许做什么」）：
+- 开头必须声明：`工作目录已设为 skill 目录，scripts/ 和 secrets.env 都在当前目录下，禁止全盘搜索文件，直接用相对路径执行`
+- **文件存在性幻觉防御**：即使 prompt 明确写了「skill 目录下已有 X、Y、Z 文件」，cron agent 仍可能间歇性输出「X 不存在，请初始化」。必须在 prompt 尾部显式禁止：`禁止检查文件是否存在——文件必定存在，直接执行流程` + `禁止输出"尚未初始化""文件不存在"等初始化检查信息`。典型反例：PT 追剧 cron 在 6/3 明明工作正常（前两日均正常执行），却突然报告 `pt_wishlist.json、secrets.env、user-preferences.md 均不存在` 并拒绝执行——纯模型幻觉，文件完好无损。
+- 成功路径必须显式收窄：`同步成功（exit 0）→ [SILENT]`、`连接检查全通 → [SILENT]`
+- 失败路径必须限制篇幅：`用一句话报告哪个环节挂了`、`用一句话报哪个站挂了`
+- 尾部必须加禁止清单：`禁止生成诊断报告、文件列表、初始化建议等废话`
+- 模糊指令（如「全部正常则 [SILENT]」）不够——agent 会在「不正常」时自由发挥整页报告。每条分支都要写死输出格式。
+- 所有 cron job prompt 遵循此规则。典型反例：CookieCloud 同步 prompt 没有显式禁止全盘搜索，agent 无视 workdir + skill 脚本，直接 `/home/alex` 全局搜然后报「未安装」。
+
+**41. 演员名歧义——同姓不同人**：Sukebei/JavBus 等公开源对演员名做子串匹配，搜「東雲」会同时返回 東雲みれい 和 東雲つばき 的作品。VEC-771 是東雲つばき的，不是東雲みれい的。输出结果时必须核实：①用番号反查 `/api/movies/{CODE}` 确认演员列表 ②看完整标题是否含全名而非仅姓氏 ③不同演员的作品分组标注「注意：XXX 是另一位演员」。不要看到同姓就归给一个演员。
+
+**42. JavBus 全线 521 时的回退链**：JavBus 返回 521（Cloudflare origin down）时，javbus-api 完全不可用。此时演员信息获取的回退顺序：① Sukebei 搜演员名 → 提取番号列表 ② Sukebei 搜番号 → 读标题获取演员+剧情 ③ JF 实例搜索。注意 Sukebei 的上传日期 ≠ 发行日期，排序仅作参考。javbus-api 恢复后优先用 API 核实。
+
+**43. M-Team 签名下载 URL 时效短 + curl 代理返回 HTML**：`/api/rss/dlv2?sign=...&t=<timestamp>` 的 `t` 参数是时间戳，过期极快（可能几分钟内）。搜索返回的下载 URL 不可久存，推送前必须重新调用 `python3 scripts/mteam_api.py download <torrent_id>` 获取新鲜 URL。更隐蔽的是：`curl -x <proxy> <download_url>` 有时返回 Google HTML 而非 .torrent 文件（代理层面的问题），但 Python `urllib.request` + ProxyHandler 走同一代理则正常下载。下载 .torrent 时优先用 Python urllib 而非 curl。
+
+**44. `qb_monitor.py --full` 下载中种子无 hash 字段**：`--full` 输出的 `downloading` 列表中每个条目只有 `name/progress/size/dlspeed/tags/state`，**不包含 `hash` 字段**。这意味着种子正在下载时无法通过 hash 精确匹配来验证标签。补标签时只能用 `name` 子串匹配定位，或用 `qb_add.py` 推送时返回的 `info_hash`。一旦种子完成（移入 `completed_recent`），hash 字段恢复。
+
+**45. `qb_add.py --file` 静默假成功（v3.3.0 已修复）**：`qb_add.py` 现已支持 `--file` 模式，通过 multipart form upload 正确上传本地 .torrent 文件。旧版 `--file` 被静默吞掉导致假成功的问题已修复。用法：`python3 qb_add.py --file /tmp/xxx.torrent --category 9kg --tags mteam`。上传前会验证文件存在且以 `d`（bencode dict 标记）开头。
+
+**46. `qb_add.py --retag` 补标签功能（v3.1.0+）**：`python3 qb_add.py --retag <hash> --tags mteam` 给已有种子打标签。此功能不在 `--help` 输出中但已实现。注意 hash 参数格式：`--retag abc123` 或 `--hash=abc123`。与 pitfall #38（`--tag` 不保证生效）配合使用——推送后标签缺失时用此补打。
+
+**47. 愿望单管理（v3.3.0+ 支持脚本命令）**：`wishlist_manager.py` 提供 `add-actor`/`remove-actor`/`add-movie`/`remove-movie`/`add-fanhao`/`remove-fanhao`/`list`/`json` 命令，支持 `exclude_multi`、`exclude_prefixes` 字段。cron 追剧搜到演员作品列表后，agent 应过滤掉标题含「共演」「×」「&」「ハーレム」等多演员标记的作品（当该演员设了 `exclude_multi: true`）。
+
+**48. `qb_add.py --recat` 补分类功能（v3.3.0+）**：`python3 qb_add.py --recat <hash> --category "电影"` 给已有种子设置分类。与 `--retag`（补标签）对称使用。hash 参数格式：`--recat abc123` 或 `--hash=abc123`。
+
+**40. 番号忽略名单（v3.3.0+ 支持脚本命令）**：`download_history.py ignore --code FWAY-071 --reason "不喜欢"` 将番号标记为 ignored，`check`/`filter` 自动跳过。取消忽略用 `unignore --code FWAY-071`。也可手动写入 `pt_downloaded.json`（status 设 `"ignored"`，source 设 `"manual"`）。
+
+**49. `site_profile.py` 无 `--site` 时自动过滤已配置站点（v3.3.0 已修复）**：默认只查询有 Cookie 或 MTEAM_API_KEY 的站点，不再遍历全部 115 站。`--all` 恢复原行为。`--debug` 输出 HTML 片段辅助 NexusPHP 解析诊断。
+
+**51. qB API `torrents/info` 批量列表不返回完整 hash，禁止截取使用**：`/api/v2/torrents/info?sort=added_on&reverse=true&limit=N` 返回的条目中 `hash` 字段是完整的 40 字符 SHA1。但 **Agent 用 `terminal()` 执行 Python 脚本列出时，输出可能被截断**（如只显示前 12 字符 `ddee9cb7a9e4`）。如果拿截断的 hash 去调 `--retag`、`setCategory`、`setLocation` 等 API，会静默失败（hash 不匹配，qB 返回空响应不报错）。**正确做法**：推送新种子后，用 `qb_monitor.py --full` 查看完整状态（含完整 hash），或用 `torrents/info?hashes=<full_hash>` 精确查询。必须验证 hash 长度 = 40 字符再用于任何 API 调用。从批量列表获取 hash 时，用 `len(hash)` 验证 40 字符，不满足就重新精确查询。
+
+**50. NexusPHP 站用户信息解析不完整（v3.3.0+ 支持 `--debug` 诊断）**：`site_profile.py` 用正则从 HTML 提取字段，不同站 HTML 结构差异大导致解析不全。`--debug` 模式输出原始 HTML 片段（`info_html_excerpt`、`matched_labels`、`page_title`）辅助逐站适配。已知影响：1PTBar / CarPT / 织梦 / BTSchool / HDFans / PTTime / SoulVoice 共 7 站。仅 M-Team（走 API）数据完整。

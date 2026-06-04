@@ -3,9 +3,11 @@
 Query user profile info from PT sites (upload/download/ratio/bonus/seeding/level).
 
 Usage:
-    python3 site_profile.py                   # all sites
+    python3 site_profile.py                   # configured sites only (have cookies/api-key)
     python3 site_profile.py --site mteam      # single site
     python3 site_profile.py --json            # JSON output (default)
+    python3 site_profile.py --all             # query all 115 sites (original behavior)
+    python3 site_profile.py --debug           # include raw HTML excerpts for NexusPHP parsing diagnosis
 """
 
 import json, os, re, sys, time
@@ -73,7 +75,7 @@ def _extract_ratio(html):
     return 0.0
 
 
-def _parse_nexusphp_profile(site_id, site_cfg, cookie):
+def _parse_nexusphp_profile(site_id, site_cfg, cookie, debug=False):
     """Scrape NexusPHP site profile via 3-phase scraping.
 
     Phase 1: GET /index.php — username, uploaded, downloaded, ratio, bonus, seeding, seeding_size
@@ -84,6 +86,10 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
     base_url = site_cfg["url"].rstrip("/")
     proxy = _env("PT_PROXY") if site_cfg.get("needs_proxy") else None
 
+    debug_info = None
+    if debug:
+        debug_info = {"matched_labels": {}}
+
     try:
         html = _fetch_page(f"{base_url}/index.php", cookie, proxy=proxy, timeout=15)
     except Exception as e:
@@ -93,6 +99,10 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
     if _is_login_page(html):
         return {"status": "error", "error": "Cookie expired"}
 
+    if debug:
+        title_m = re.search(r'<title>([^<]*)</title>', html, re.IGNORECASE)
+        debug_info["page_title"] = title_m.group(1).strip() if title_m else ""
+
     # Try to find user info block — usually in a sidebar or top bar area
     # Narrow search to the info panel region if detectable
     info_html = html
@@ -101,6 +111,9 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
         html, re.DOTALL | re.IGNORECASE)
     if info_block:
         info_html = info_block.group(0)
+
+    if debug:
+        debug_info["info_html_excerpt"] = info_html[:2000]
 
     # Also try to grab the right-side panel or specific stats sections
     # Many NexusPHP sites put stats in <td> blocks with specific width/layout
@@ -114,11 +127,15 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
             username = um.group(1).strip()
     if username:
         result["username"] = username
+    if debug:
+        debug_info["matched_labels"]["username"] = username or ""
 
     # Level / class
     level = _extract_text_field(html, ["等级", "Class", "User class", "用户等级", "级别"])
     if level:
         result["level"] = level
+    if debug:
+        debug_info["matched_labels"]["level_phase1"] = level or ""
 
     # Uploaded
     uploaded_str = _extract_field(info_html, ["上传量", "上传", "Uploaded", "上传量："])
@@ -127,6 +144,8 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
     if uploaded_str:
         result["uploaded"] = uploaded_str
         result["uploaded_bytes"] = _parse_size(uploaded_str)
+    if debug:
+        debug_info["matched_labels"]["uploaded_raw"] = uploaded_str or ""
 
     # Downloaded
     downloaded_str = _extract_field(info_html, ["下载量", "下载", "Downloaded", "下载量："])
@@ -135,11 +154,15 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
     if downloaded_str:
         result["downloaded"] = downloaded_str
         result["downloaded_bytes"] = _parse_size(downloaded_str)
+    if debug:
+        debug_info["matched_labels"]["downloaded_raw"] = downloaded_str or ""
 
     # Ratio
     ratio = _extract_ratio(html)
     if ratio:
         result["ratio"] = ratio
+    if debug:
+        debug_info["matched_labels"]["ratio_raw"] = str(ratio) if ratio else ""
 
     # Bonus / magic points
     bonus_str = _extract_field(info_html, ["魔力值", "魔力", "Bonus", "积分", "做种积分"])
@@ -150,6 +173,8 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
             result["bonus"] = float(bonus_str.replace(",", ""))
         except ValueError:
             result["bonus"] = bonus_str
+    if debug:
+        debug_info["matched_labels"]["bonus_raw"] = bonus_str or ""
 
     # Seeding count
     seeding_str = _extract_field(info_html, ["做种数", "做种", "Seeding", "做种中"])
@@ -160,6 +185,8 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
             result["seeding"] = int(float(seeding_str.replace(",", "")))
         except ValueError:
             pass
+    if debug:
+        debug_info["matched_labels"]["seeding_raw"] = seeding_str or ""
 
     # Seeding size
     seeding_size_str = _extract_field(info_html, ["做种量", "Seeding size", "做种体积"])
@@ -167,6 +194,8 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
         seeding_size_str = _extract_field(html, ["做种量", "Seeding size", "做种体积"])
     if seeding_size_str:
         result["seeding_size"] = seeding_size_str
+    if debug:
+        debug_info["matched_labels"]["seeding_size_raw"] = seeding_size_str or ""
 
     # --- Phase 2: /userdetails.php — richer profile data ---
     try:
@@ -240,6 +269,9 @@ def _parse_nexusphp_profile(site_id, site_cfg, cookie):
     if not has_data:
         result["status"] = "error"
         result["error"] = "Could not parse profile data from page"
+
+    if debug_info is not None:
+        result["_debug"] = debug_info
 
     return result
 
@@ -335,11 +367,15 @@ def _fetch_mteam_profile(api_key):
     return result
 
 
-def _parse_ttg_profile(site_id, site_cfg, cookie):
+def _parse_ttg_profile(site_id, site_cfg, cookie, debug=False):
     """Scrape TTG user profile from 3 pages (index + userdetails + mybonus)."""
     result = {"status": "ok"}
     base_url = site_cfg["url"].rstrip("/")
     proxy = _env("PT_PROXY") if site_cfg.get("needs_proxy") else None
+
+    debug_info = None
+    if debug:
+        debug_info = {"matched_labels": {}}
 
     try:
         html = _fetch_page(f"{base_url}/index.php", cookie, proxy=proxy, timeout=15)
@@ -349,23 +385,36 @@ def _parse_ttg_profile(site_id, site_cfg, cookie):
     if _is_login_page(html):
         return {"status": "error", "error": "Cookie expired"}
 
+    if debug:
+        title_m = re.search(r'<title>([^<]*)</title>', html, re.IGNORECASE)
+        debug_info["page_title"] = title_m.group(1).strip() if title_m else ""
+        debug_info["info_html_excerpt"] = html[:2000]
+
     username = _extract_text_field(html, ["用户名", "Username"])
     if username:
         result["username"] = username
+    if debug:
+        debug_info["matched_labels"]["username"] = username or ""
 
     uploaded_str = _extract_field(html, ["上传量", "上传", "Uploaded"])
     if uploaded_str:
         result["uploaded"] = uploaded_str
         result["uploaded_bytes"] = _parse_size(uploaded_str)
+    if debug:
+        debug_info["matched_labels"]["uploaded_raw"] = uploaded_str or ""
 
     downloaded_str = _extract_field(html, ["下载量", "下载", "Downloaded"])
     if downloaded_str:
         result["downloaded"] = downloaded_str
         result["downloaded_bytes"] = _parse_size(downloaded_str)
+    if debug:
+        debug_info["matched_labels"]["downloaded_raw"] = downloaded_str or ""
 
     ratio = _extract_ratio(html)
     if ratio:
         result["ratio"] = ratio
+    if debug:
+        debug_info["matched_labels"]["ratio_raw"] = str(ratio) if ratio else ""
 
     try:
         bonus_html = _fetch_page(f"{base_url}/mybonus.php", cookie, proxy=proxy, timeout=15)
@@ -375,6 +424,8 @@ def _parse_ttg_profile(site_id, site_cfg, cookie):
                 result["bonus"] = float(bonus_str.replace(",", ""))
             except ValueError:
                 result["bonus"] = bonus_str
+        if debug:
+            debug_info["matched_labels"]["bonus_raw"] = bonus_str or ""
     except Exception:
         pass
 
@@ -383,10 +434,13 @@ def _parse_ttg_profile(site_id, site_cfg, cookie):
         result["status"] = "error"
         result["error"] = "Could not parse profile data from page"
 
+    if debug_info is not None:
+        result["_debug"] = debug_info
+
     return result
 
 
-def _fetch_site_profile(site_id, site_cfg, cookies):
+def _fetch_site_profile(site_id, site_cfg, cookies, debug=False):
     """Fetch profile for a single site. Returns result dict."""
     if site_id == "mteam":
         api_key = _env("MTEAM_API_KEY", "")
@@ -399,10 +453,10 @@ def _fetch_site_profile(site_id, site_cfg, cookies):
         return {"status": "error", "error": f"No cookie configured for {site_cfg['name']}"}
 
     if site_cfg.get("parser") == "nexusphp":
-        return _parse_nexusphp_profile(site_id, site_cfg, cookie)
+        return _parse_nexusphp_profile(site_id, site_cfg, cookie, debug=debug)
 
     if site_cfg.get("parser") == "ttg":
-        return _parse_ttg_profile(site_id, site_cfg, cookie)
+        return _parse_ttg_profile(site_id, site_cfg, cookie, debug=debug)
 
     return {"status": "error", "error": f"Unknown parser: {site_cfg.get('parser')}"}
 
@@ -413,6 +467,8 @@ def main():
     args = sys.argv[1:]
     filter_site = None
     json_output = True
+    query_all = False
+    debug = False
 
     i = 0
     while i < len(args):
@@ -422,6 +478,10 @@ def main():
             i += 1
         elif arg == "--json":
             json_output = True
+        elif arg == "--all":
+            query_all = True
+        elif arg == "--debug":
+            debug = True
         elif arg in ("--help", "-h"):
             print(__doc__)
             sys.exit(0)
@@ -434,16 +494,30 @@ def main():
         sys.exit(1)
 
     cookies = load_cookies()
-    target_sites = {}
+    api_key = _env("MTEAM_API_KEY", "")
+
     if filter_site:
-        target_sites[filter_site] = SITES[filter_site]
-    else:
+        target_sites = {filter_site: SITES[filter_site]}
+    elif query_all:
         target_sites = dict(SITES)
+    else:
+        # Default: only sites with cookies configured or mteam with API key
+        target_sites = {}
+        for sid, scfg in SITES.items():
+            if sid == "mteam" and api_key:
+                target_sites[sid] = scfg
+            elif cookies.get(sid):
+                target_sites[sid] = scfg
+
+    configured_count = len(target_sites)
+    total_count = len(SITES)
+    print(f"Querying {configured_count} sites ({configured_count} configured, use --all for all {total_count})",
+          file=sys.stderr)
 
     profiles = {}
     for site_id, site_cfg in target_sites.items():
         log.info("querying profile site=%s", site_id)
-        profiles[site_id] = _fetch_site_profile(site_id, site_cfg, cookies)
+        profiles[site_id] = _fetch_site_profile(site_id, site_cfg, cookies, debug=debug)
 
     print(json.dumps(profiles, ensure_ascii=False, indent=2))
 

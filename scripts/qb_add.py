@@ -8,6 +8,13 @@ Usage:
     python3 qb_add.py --stdin                              # read from stdin (JSON)
     python3 qb_add.py --from-search "query" --index 0      # search then add by index
 
+Local .torrent file upload:
+    python3 qb_add.py --file /tmp/xxx.torrent --category movies --tags mteam
+
+Tag/category management on existing torrents:
+    python3 qb_add.py --retag <hash> --tags tag1,tag2
+    python3 qb_add.py --recat <hash> --category movies
+
 Public magnet file selection (two-step):
     python3 qb_add.py "magnet:?..." --tags sukebei --list-files
     python3 qb_add.py --select-files <hash> --keep 0,3,5
@@ -339,6 +346,116 @@ def main():
             print(json.dumps({"status": "tagged", "hashes": hashes if isinstance(hashes, list) else [hashes], "tags": tags}))
         else:
             print(json.dumps({"error": result["error"]}))
+        return
+
+    # ── --recat mode (set category on existing torrents) ────────
+    if "--recat" in sys.argv:
+        if not category:
+            print(json.dumps({"error": "--recat requires --category <category>"}))
+            sys.exit(1)
+        hashes = []
+        recat_idx = sys.argv.index("--recat")
+        if recat_idx + 1 < len(sys.argv) and not sys.argv[recat_idx + 1].startswith("-"):
+            hashes = [sys.argv[recat_idx + 1]]
+        else:
+            for a in sys.argv:
+                if a.startswith("--hash="):
+                    hashes = [a.split("=", 1)[1]]
+                    break
+            if not hashes:
+                hashes_str = ""
+                for a in sys.argv:
+                    if a.startswith("--hashes="):
+                        hashes_str = a.split("=", 1)[1]
+                        break
+                if hashes_str:
+                    hashes = [h.strip() for h in hashes_str.split(",") if h.strip()]
+        if not hashes:
+            print(json.dumps({"error": "--recat requires a hash argument: --recat <hash> or --hash=<hash>"}))
+            sys.exit(1)
+        log.info("recatting hashes=%s category=%s", hashes, category)
+        hashes_param = "|".join(hashes) if isinstance(hashes, list) else hashes
+        result = qb_request("/api/v2/torrents/setCategory", method="POST",
+                            data={"hashes": hashes_param, "category": category})
+        if "error" not in result:
+            print(json.dumps({"status": "recatted", "hashes": hashes if isinstance(hashes, list) else [hashes], "category": category}))
+        else:
+            print(json.dumps({"error": result["error"]}))
+        return
+
+    # ── --file mode (upload local .torrent via multipart) ─────────
+    if "--file" in sys.argv:
+        file_idx = sys.argv.index("--file")
+        file_path = sys.argv[file_idx + 1] if file_idx + 1 < len(sys.argv) and not sys.argv[file_idx + 1].startswith("-") else ""
+        if not file_path:
+            print(json.dumps({"error": "--file requires a path argument: --file /tmp/xxx.torrent"}))
+            sys.exit(1)
+        if not os.path.isfile(file_path):
+            print(json.dumps({"error": "file not found: %s" % file_path}))
+            sys.exit(1)
+        try:
+            with open(file_path, "rb") as f:
+                torrent_data = f.read()
+        except OSError as e:
+            print(json.dumps({"error": "cannot read file: %s" % e}))
+            sys.exit(1)
+        if not torrent_data:
+            print(json.dumps({"error": "file is empty: %s" % file_path}))
+            sys.exit(1)
+        if torrent_data[0:1] != b"d":
+            print(json.dumps({"error": "not a valid .torrent file (missing bencode dict marker): %s" % file_path}))
+            sys.exit(1)
+
+        opener = _get_opener()
+        boundary = "----QbAddFileUpload"
+        filename = os.path.basename(file_path)
+        if not filename.endswith(".torrent"):
+            filename += ".torrent"
+
+        parts = []
+        parts.append(("--%s\r\n"
+                       'Content-Disposition: form-data; name="torrents"; '
+                       'filename="%s"\r\n'
+                       "Content-Type: application/x-bittorrent\r\n\r\n" % (boundary, filename)).encode())
+
+        field_parts = []
+        if save_path:
+            field_parts.append("--%s\r\n"
+                               'Content-Disposition: form-data; name="savepath"\r\n\r\n'
+                               "%s\r\n" % (boundary, save_path))
+        if category:
+            field_parts.append("--%s\r\n"
+                               'Content-Disposition: form-data; name="category"\r\n\r\n'
+                               "%s\r\n" % (boundary, category))
+        if tags:
+            tag_str = ",".join(tags)
+            field_parts.append("--%s\r\n"
+                               'Content-Disposition: form-data; name="tags"\r\n\r\n'
+                               "%s\r\n" % (boundary, tag_str))
+
+        body = b"".join(parts) + torrent_data + b"\r\n"
+        for fp in field_parts:
+            body += fp.encode()
+        body += ("--%s--\r\n" % boundary).encode()
+
+        req = urllib.request.Request(
+            "%s/api/v2/torrents/add" % _qb_url,
+            data=body,
+            headers={
+                "Content-Type": "multipart/form-data; boundary=%s" % boundary,
+            },
+            method="POST",
+        )
+        try:
+            with opener.open(req, timeout=30) as resp:
+                resp.read()
+            log.info("file upload ok file=%s category=%s tags=%s", file_path, category, tags)
+            print(json.dumps({"success": True, "message": "Uploaded: %s" % filename,
+                              "file": file_path, "category": category, "tags": tags}))
+        except Exception as e:
+            log.error("file upload failed file=%s error=%s", file_path, e)
+            print(json.dumps({"error": "upload failed: %s" % e}))
+            sys.exit(1)
         return
 
     # ── --select-files mode (step 2: apply selection + resume) ──

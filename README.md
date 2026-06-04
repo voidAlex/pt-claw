@@ -1,6 +1,6 @@
-# pt-claw
+# pt-claw.skill
 
-> v3.2.0 — 多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
+> v3.3.0 — 多站 PT 种子搜索与下载技能，兼容任意 AI Agent。
 
 对话式搜索 115 个 PT 站资源、推送到 qBittorrent、监控下载进度——全程纯脚本，无 Prowlarr/Jackett 依赖。
 
@@ -56,7 +56,7 @@
 |------|------|
 | `pt_search.py` | 多站搜索（NexusPHP + M-Team API） |
 | `pt_download.py` | 详情页 URL 直接下载推送 qB（通用所有站） |
-| `qb_add.py` | 添加种子到 qBittorrent（含文件选择 + 推荐） |
+| `qb_add.py` | 添加种子到 qBittorrent（含文件选择 + 本地文件上传 + 补分类） |
 | `qb_monitor.py` | qB 全功能查询（状态/过滤/删除/死种诊断） |
 | `qb_public_cleanup.py` | 公开磁链清理（手动使用，cron 已合并到 `_cron_check.py`） |
 | `qb_snapshot.py` | 删种备份与恢复（backup/restore/list 合一） |
@@ -64,9 +64,10 @@
 | `javbus_magnet.py` | JavBus 磁链爬取 |
 | `javbus_star.py` | 演员片单交叉对比（javbus-api → JF + 历史） |
 | `jf_query.py` | Jellyfin 查询（演员排名/搜索/去重） |
-| `download_history.py` | 下载历史追踪（防重复） |
+| `download_history.py` | 下载历史追踪（防重复 + ignore/unignore 忽略名单） |
+| `wishlist_manager.py` | 愿望单管理（add/remove/list 演员/影片/番号） |
 | `pt_ratio_boost.py` | Freeleech 刷流保号 |
-| `site_profile.py` | 多站用户信息查询（上传/下载/分享率/魔力值/做种数） |
+| `site_profile.py` | 多站用户信息查询（默认只查已配置站） |
 | `cross_seed.py` | 多站辅种验证与推送（下载.torrent→SHA1比对→qB暂停添加） |
 | `mteam_api.py` | M-Team API 客户端 |
 | `env_check.sh` | 环境变量完整性检查 |

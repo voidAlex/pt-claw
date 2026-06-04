@@ -5,10 +5,18 @@ Download from PT site detail page URL — extract download link, fetch .torrent,
 Works for ALL NexusPHP sites (115+) and M-Team (API).
 
 Usage:
+    # URL mode — provide detail page URL(s):
     python3 pt_download.py "https://pt.btschool.club/details.php?id=172580"
     python3 pt_download.py "https://pt.btschool.club/details.php?id=172580" --tags btschool
     python3 pt_download.py "https://kp.m-team.cc/detail/12345" --category "电影" --tags mteam
     python3 pt_download.py url1 url2 url3 --tags batch --category "电影"
+
+    # One-step mode — no URL needed, just site + torrent ID:
+    python3 pt_download.py --site mteam --torrent-id 1188133 --tags mteam --category "电影"
+    python3 pt_download.py --site btschool --torrent-id 172580 --tags btschool
+
+    # Both modes can be combined (URLs processed first, then --site/--torrent-id):
+    python3 pt_download.py "https://kp.m-team.cc/detail/123" --site btschool --torrent-id 456 --tags batch
 
     # Dry run — show info without downloading
     python3 pt_download.py "https://pt.btschool.club/details.php?id=172580" --check
@@ -16,7 +24,7 @@ Usage:
     # Re-download to a specific save path
     python3 pt_download.py "https://pt.btschool.club/details.php?id=172580" --save-path /media/downloads
 
-How it works:
+How it works (URL mode):
     1. Parse detail page URL → detect site (by domain) + torrent ID
     2. Fetch detail page HTML → extract title and promo info
     3. Build download URL:
@@ -24,6 +32,11 @@ How it works:
        - M-Team: API genDlToken → signed download URL
     4. Fetch .torrent binary with site cookie
     5. Upload .torrent to qBittorrent via multipart form + apply tags/category
+
+How it works (--site/--torrent-id mode):
+    1. Look up site config from SITES registry by site_id
+    2. Build download URL directly (skip URL parsing & detail page fetch)
+    3. Fetch .torrent binary → upload to qBittorrent
 """
 import json, os, re, sys, urllib.parse
 
@@ -334,6 +347,10 @@ def _parse_args(argv: list[str]) -> dict:
             i += 1; flags["save_path"] = argv[i] if i < len(argv) else ""
         elif a in ("--check", "--dry-run"):
             flags["dry_run"] = True
+        elif a == "--site":
+            i += 1; flags["site"] = argv[i].strip().lower() if i < len(argv) else ""
+        elif a == "--torrent-id":
+            i += 1; flags["torrent_id"] = argv[i].strip() if i < len(argv) else ""
         elif a.startswith("http"):
             urls.append(a)
         else:
@@ -343,18 +360,88 @@ def _parse_args(argv: list[str]) -> dict:
     return flags
 
 
+def _download_by_site_id(site_id: str, torrent_id: str, save_path: str = None,
+                         category: str = None, tags: list[str] = None,
+                         dry_run: bool = False) -> dict:
+    """Download a torrent by site_id + torrent_id (no URL needed)."""
+    site_cfg = SITES.get(site_id)
+    if not site_cfg:
+        return {"error": f"Unknown site: {site_id}. Available: {', '.join(sorted(SITES.keys()))}"}
+
+    log.info("direct mode site=%s torrent_id=%s", site_id, torrent_id)
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "site_id": site_id,
+            "site_name": site_cfg["name"],
+            "torrent_id": torrent_id,
+            "download_url": f"{site_cfg['url']}/download.php?id={torrent_id}"
+            if site_cfg.get("parser") != "mteam_api" else "(API genDlToken)",
+        }
+
+    download_url = _build_download_url(site_id, site_cfg, torrent_id)
+    if not download_url:
+        return {"error": f"Failed to build download URL for {site_id}/{torrent_id}"}
+
+    try:
+        torrent_data = _fetch_torrent_binary(download_url, site_id, site_cfg)
+    except Exception as e:
+        log.error("fetch .torrent failed site=%s id=%s error=%s", site_id, torrent_id, e)
+        return {"error": str(e)}
+
+    upload_result = _upload_to_qb(
+        torrent_data, torrent_id, site_id,
+        save_path=save_path, category=category, tags=tags if tags is not None else [site_id],
+    )
+    if "error" in upload_result:
+        return upload_result
+
+    return {
+        "success": True,
+        "site_id": site_id,
+        "site_name": site_cfg["name"],
+        "torrent_id": torrent_id,
+        "download_url": download_url,
+        "torrent_size_bytes": len(torrent_data),
+        "tags": tags if tags is not None else [site_id],
+    }
+
+
 def main():
     parsed = _parse_args(sys.argv[1:])
     urls = parsed.get("urls", [])
+    site_id = parsed.get("site")
+    torrent_id = parsed.get("torrent_id")
 
-    if not urls:
-        print(json.dumps({"error": "No URLs provided. Usage: pt_download.py <detail_url> [--tags t1,t2] [--category cat] [--save-path path] [--check]"}))
+    # Validate --site/--torrent-id: both or neither
+    has_site = bool(site_id)
+    has_tid = bool(torrent_id)
+    if has_site != has_tid:
+        print(json.dumps({"error": "--site and --torrent-id must be used together"}))
+        sys.exit(1)
+
+    if not urls and not has_site:
+        print(json.dumps({"error": "No URLs provided. Usage: pt_download.py <detail_url> [--site SITE --torrent-id ID] [--tags t1,t2] [--category cat] [--save-path path] [--check]"}))
         sys.exit(1)
 
     results = []
+
+    # Process URLs first
     for url in urls:
         result = download_from_url(
             url,
+            save_path=parsed.get("save_path"),
+            category=parsed.get("category"),
+            tags=parsed.get("tags"),
+            dry_run=parsed.get("dry_run", False),
+        )
+        results.append(result)
+
+    # Then process --site/--torrent-id
+    if has_site and has_tid:
+        result = _download_by_site_id(
+            site_id, torrent_id,
             save_path=parsed.get("save_path"),
             category=parsed.get("category"),
             tags=parsed.get("tags"),

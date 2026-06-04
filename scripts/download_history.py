@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Download history tracker — add, check, complete, list, cross-seed entries in pt_downloaded.json.
+Download history tracker — add, check, complete, list, ignore, unignore, cross-seed entries in pt_downloaded.json.
 
 Usage:
     python3 download_history.py add --code MIMK-267 --title "xxx" --source sukebei
@@ -10,6 +10,9 @@ Usage:
     python3 download_history.py complete-by-hash --hash abc123 --name "ROYD-318"  # match by hash/name
     python3 download_history.py filter --stdin                  # reads codes from stdin, prints only new ones
     python3 download_history.py list                            # list all entries
+    python3 download_history.py ignore --code FWAY-071 [--reason "不喜欢"] [--title ""]
+                                                               # add entry with status=ignored (dedup will skip it)
+    python3 download_history.py unignore --code FWAY-071       # remove ignored entry (allows re-download)
     python3 download_history.py cross-seed --code MIMK-267 --title "xxx" --source pttime --original-source mteam
 """
 
@@ -155,6 +158,43 @@ def cmd_filter() -> None:
     log.info("filter total_known=%d passed=%d", len(known), passed)
 
 
+def cmd_ignore(code: str, title: str = "", reason: str = "") -> None:
+    """Add a code to history with status=ignored so dedup skips it."""
+    data = _load()
+    existing, idx = _find_item(data, code)
+    if existing is not None:
+        log.info("ignore skipped code=%s reason=already_exists", code)
+        print(json.dumps({"status": "skipped", "reason": f"{code} already in history"}))
+        return
+    item = {
+        "code": code,
+        "title": title,
+        "added_at": datetime.now(timezone.utc).isoformat(),
+        "source": "manual",
+        "status": "ignored",
+    }
+    if reason:
+        item["reason"] = reason
+    data["items"].append(item)
+    _save(data)
+    log.info("ignored code=%s reason=%s", code, reason)
+    print(json.dumps({"status": "ignored", "code": code}))
+
+
+def cmd_unignore(code: str) -> None:
+    """Remove an ignored entry so it can be found by searches again."""
+    data = _load()
+    item, idx = _find_item(data, code)
+    if item is None:
+        log.info("unignore skipped code=%s reason=not_found", code)
+        print(json.dumps({"status": "not_found", "code": code}))
+        return
+    data["items"].pop(idx)
+    _save(data)
+    log.info("unignored code=%s", code)
+    print(json.dumps({"status": "unignored", "code": code}))
+
+
 def cmd_list() -> None:
     """List all entries."""
     data = _load()
@@ -162,8 +202,11 @@ def cmd_list() -> None:
         status = item.get("status", "downloaded")
         completed = item.get("completed_at", "")
         comp_str = f" ✓{completed[:16]}" if completed else ""
+        reason_str = f" ({item['reason']})" if status == "ignored" and item.get("reason") else ""
         if status == "cross_seeded":
             status = f"cross_seeded from {item.get('source_site', '?')}"
+        elif status == "ignored":
+            status = f"✗ ignored{reason_str}"
         print(f"{item['code']:15s} | {item['added_at'][:19]} | {item['source']:10s} | {item['title'][:50]:50s} | {status}{comp_str}")
 
 
@@ -199,6 +242,14 @@ def main():
     p_cross.add_argument("--source", required=True)
     p_cross.add_argument("--original-source", required=True)
 
+    p_ignore = sub.add_parser("ignore")
+    p_ignore.add_argument("--code", required=True)
+    p_ignore.add_argument("--title", default="")
+    p_ignore.add_argument("--reason", default="")
+
+    p_unignore = sub.add_parser("unignore")
+    p_unignore.add_argument("--code", required=True)
+
     args = parser.parse_args()
 
     if args.cmd == "add":
@@ -213,6 +264,10 @@ def main():
         cmd_filter()
     elif args.cmd == "list":
         cmd_list()
+    elif args.cmd == "ignore":
+        cmd_ignore(args.code, args.title, args.reason)
+    elif args.cmd == "unignore":
+        cmd_unignore(args.code)
     elif args.cmd == "cross-seed":
         data = _load()
         existing = {i["code"] for i in data["items"] if "code" in i}

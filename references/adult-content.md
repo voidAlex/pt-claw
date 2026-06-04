@@ -30,6 +30,8 @@ docker compose -f ~/javbus-api/docker-compose.yml up -d
 
 **演员列表 `movies[].id` 字段即为番号**（如 `SNOS-237`），无需逐个请求详情页拿 code。标题含番号的也用此字段取。
 
+**⚠️ 分页陷阱**：`/api/movies?filterType=star` 的 `pagination` 对象**不一定含 `totalPages`**（有时返回 `?`）。此时应检查 `hasNextPage`（bool）和 `pages`（数组如 `[1, 2, 3, 4]`）来判断是否还有下一页。不要依赖 `totalPages` 单一字段。
+
 ### Star ID 发现
 
 javbus-api 无独立演员搜索端点（`/api/stars/search` 返回 404）。获取 star ID 方法：

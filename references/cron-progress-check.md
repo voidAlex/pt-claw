@@ -49,6 +49,23 @@
 - **后续提醒**：距 `last_notified` 超过 `dead_interval_hours`（默认 6h）且 `notify_count < dead_max_reminders`（默认 20）时再次提醒
 - **自动清理**：死种恢复下载或被删除后，记录自动移除
 
+## Cron 输出截断预防（致命级）
+
+**现象**：Cron 运行报错 `RuntimeError: Response truncated due to output length limit`，用户收不到通知。
+
+**根因**：cron job 用 `skills=["pt-claw"]` 会把整份 SKILL.md（~20KB）内联到每次运行的上下文。光 skill 文本就占 ~25KB 输出。之前没事是因为脚本返回 silent（agent 只回 `[SILENT]` 刚好在限制内），一旦有实际通知要格式化，总响应超出上限被截断。
+
+**修复（两件套，同时执行）**：
+1. **Cron job 不要用 `skills=["pt-claw"]`**。改用自包含 prompt（workdir 已指向 skill 目录，脚本直接可用）：`prompt="工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。运行 \`python3 scripts/_cron_check.py\`..."`，`skills=[]`
+2. **拉满输出上限**：`hermes config set model.max_tokens 32768`（代码硬上限，见下方说明）
+
+Hermes max_tokens 机制（便于排查同类问题）：
+- 来源：`config.yaml` → `model.max_tokens` → `agent.max_tokens`（`agent/agent_init.py:1264`）
+- 默认值：None（provider 默认），截断重试时以 4096 为基准
+- 截断重试：response finish_reason="length" 时，agent 最多重试 3 次，每次 boost = base × (重试次数+1)（第1次 2×，第2次 3×），**上限 min(boost, 32768)**
+- 3 次重试后仍截断 → 返回 `"error": "Response truncated due to output length limit"`
+- 生效位置：`chat_completions.py:286-301`，优先级 ephemeral > max_tokens；DeepSeek 等非 OpenAI provider 映射为 `{"max_tokens": N}` 参数
+
 ## 关键约束
 
 - **不能手写 `curl` 访问 qB**：tirith 会拦截所有含原始 IP / HTTP / 私有网络的 curl 命令
