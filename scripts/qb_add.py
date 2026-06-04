@@ -20,7 +20,7 @@ Public magnet file selection (two-step):
     python3 qb_add.py --select-files <hash> --keep 0,3,5
 """
 
-import json, os, re, sys, time, urllib.request, urllib.parse
+import json, os, re, sys, time, uuid, urllib.request, urllib.parse
 
 from _common import _env
 from _logger import get_logger
@@ -407,7 +407,7 @@ def main():
             sys.exit(1)
 
         opener = _get_opener()
-        boundary = "----QbAddFileUpload"
+        boundary = "----QbAdd%s" % uuid.uuid4().hex[:16]
         filename = os.path.basename(file_path)
         if not filename.endswith(".torrent"):
             filename += ".torrent"

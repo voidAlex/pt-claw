@@ -78,7 +78,7 @@
 ## 致谢
 
 本技能在 PT 站适配过程中参考了以下优秀项目：
-- [PT-depiler](https://github.com/) - NexusPHP 站点解析参考
+- [PT-depiler](https://github.com/tongl123/PT-depiler) - NexusPHP 站点解析参考
 - [MoviePilot](https://github.com/jxxghp/MoviePilot) - 部分功能设计灵感
 
 ## 许可

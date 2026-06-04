@@ -102,7 +102,7 @@ cronjob(action='create',
     name="PT自动追剧",
     schedule="0 10 * * *",
     repeat="forever",
-    prompt="""加载 pt-claw skill，自动追剧检查（只搜索展示，不自动下载）。skill 目录下已有 secrets.env、user-preferences.md、pt_wishlist.json、pt_downloaded.json。
+    prompt="""工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。自动追剧检查（只搜索展示，不自动下载）。目录下已有 user-preferences.md、pt_wishlist.json、pt_downloaded.json。
 
 1. 读 pt_wishlist.json + pt_downloaded.json
 2. 搜资源 → 三重去重（历史>JF>时间戳）
@@ -112,7 +112,7 @@ cronjob(action='create',
 6. 无新资源则「今日无新资源」
 
 脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
-    skills=["pt-claw"],
+    skills=[],
     deliver="origin",
     workdir="<skill-dir>",
 )
@@ -124,7 +124,7 @@ cronjob(action='create',
     name="CookieCloud定时同步",
     schedule="0 */4 * * *",
     repeat="forever",
-    prompt="""加载 pt-claw skill。工作目录已设为 skill 目录，禁止全盘搜索文件，直接用相对路径执行。
+    prompt="""工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。禁止全盘搜索文件，直接用相对路径执行。
 
 1. 检查 secrets.env 中是否有 COOKIE_CLOUD_HOST
 2. 有 → 运行 `python3 scripts/cookie_sync.py`，然后 `python3 scripts/connectivity_check.py --quick`
@@ -136,7 +136,7 @@ cronjob(action='create',
 连接检查有异常 → 一句话报哪个站挂了
 
 禁止生成诊断报告、文件列表、初始化建议。""",
-    skills=["pt-claw"],
+    skills=[],
     deliver="origin",
     workdir="<skill-dir>",
 )
@@ -147,11 +147,11 @@ cronjob(action='create',
     name="PT站点Cookie保活",
     schedule="0 6 * * *",
     repeat="forever",
-    prompt="""加载 pt-claw skill。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
+    prompt="""工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。检查 secrets.env 中是否有 COOKIE_CLOUD_HOST 配置。
 如果有则 [SILENT] 跳过（CookieCloud 已覆盖 cookie 刷新）。
 如果没有，运行 `python3 scripts/connectivity_check.py --keepalive`，只报告失败的站点。全部成功则 [SILENT]。
 脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
-    skills=["pt-claw"],
+    skills=[],
     deliver="origin",
     workdir="<skill-dir>",
 )

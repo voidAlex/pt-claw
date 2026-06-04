@@ -182,12 +182,20 @@ def cmd_ignore(code: str, title: str = "", reason: str = "") -> None:
 
 
 def cmd_unignore(code: str) -> None:
-    """Remove an ignored entry so it can be found by searches again."""
+    """Remove an ignored entry so it can be found by searches again.
+    
+    Only removes entries with status='ignored'. Active history entries
+    (downloaded/completed/cross_seeded) are protected from accidental deletion.
+    """
     data = _load()
     item, idx = _find_item(data, code)
     if item is None:
         log.info("unignore skipped code=%s reason=not_found", code)
         print(json.dumps({"status": "not_found", "code": code}))
+        return
+    if item.get("status") != "ignored":
+        log.info("unignore skipped code=%s reason=not_ignored status=%s", code, item.get("status"))
+        print(json.dumps({"status": "skipped", "reason": f"{code} is not ignored (status={item.get('status')})", "code": code}))
         return
     data["items"].pop(idx)
     _save(data)

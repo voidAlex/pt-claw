@@ -78,30 +78,34 @@ def _extract_ratio(html):
 def _extract_table_cells(html):
     """Parse HTML into a list of (label_text, value_cell_dict) pairs from table rows.
 
-    For each <tr>, find all <td> cells. Pairs are formed:
-    - If a cell contains label-like text (short, non-empty), the NEXT cell is its value
-    - This mimics CSS selector: td.rowhead:contains('label') + td
-
+    Uses depth tracking via tokenized HTML to skip rows inside nested tables.
+    Only processes top-level <tr> elements (depth == 1).
     Each value_cell_dict has keys: 'text' (stripped text) and 'html' (raw inner HTML).
-
-    Returns list of (label, value_dict) tuples.
     """
     pairs = []
-    for tr_match in re.finditer(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL | re.IGNORECASE):
-        row_html = tr_match.group(1)
-        # Skip rows that are inside nested tables — simplified check
-        if row_html.count('<tr') > 0:
-            continue
-        cells = []
-        for td_match in re.finditer(r'<td[^>]*>(.*?)</td>', row_html, re.DOTALL | re.IGNORECASE):
-            cell_html = td_match.group(1)
-            cell_text = re.sub(r'<[^>]+>', '', cell_html).strip()
-            cells.append({'text': cell_text, 'html': cell_html})
+    depth = 0
+    parts = re.split(r'(<(?:table|/table|tr|/tr)\b[^>]*>)', html, flags=re.IGNORECASE)
+    current_row_cells = None
 
-        for i in range(len(cells) - 1):
-            text = cells[i]['text']
-            if text and len(text) < 50:
-                pairs.append((text, cells[i + 1]))
+    for part in parts:
+        tag_lc = part.lower().strip()
+        if tag_lc.startswith('<table'):
+            depth += 1
+        elif tag_lc.startswith('</table'):
+            depth = max(0, depth - 1)
+        elif tag_lc.startswith('<tr') and depth == 1:
+            current_row_cells = []
+        elif tag_lc.startswith('</tr') and depth == 1 and current_row_cells is not None:
+            for i in range(len(current_row_cells) - 1):
+                text = current_row_cells[i]['text']
+                if text and len(text) < 50:
+                    pairs.append((text, current_row_cells[i + 1]))
+            current_row_cells = None
+        elif current_row_cells is not None and depth == 1:
+            for td_match in re.finditer(r'<td[^>]*>(.*?)</td>', part, re.DOTALL | re.IGNORECASE):
+                cell_html = td_match.group(1)
+                cell_text = re.sub(r'<[^>]+>', '', cell_html).strip()
+                current_row_cells.append({'text': cell_text, 'html': cell_html})
 
     return pairs
 

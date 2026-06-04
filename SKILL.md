@@ -56,7 +56,7 @@ metadata:
 | 「下SSIS-448」「搜SONE-833」 | → 番号 → 成人区搜索 + 公开源回退 |
 | 「查下载进度」「qb怎么样了」 | → 先查最新 cron 报告（种子可能已被自动清理，qB 里没了但 cron 输出有记录），然后 `qb_monitor.py` |
 | 「删掉那个死种」「暂停xxx」 | → qB API 操作 |
-| 「关注诺兰」「收藏SSIS-xxx」 | → 写入 `pt_wishlist.json` |
+| 「关注诺兰」「收藏SSIS-xxx」 | → `wishlist_manager.py add` → `pt_wishlist.json` |
 | 「恢复」「qb种子丢了」 | → [references/qb-operations.md](references/qb-operations.md) |
 | 「首次配置」「初始化」 | → [references/first-time-setup.md](references/first-time-setup.md) |
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
@@ -302,6 +302,20 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 
 管理：「暂停XX任务」「恢复XX任务」「列出定时任务」
 
+### 愿望单管理
+
+```bash
+python3 scripts/wishlist_manager.py add actor "三上悠亜" --exclude-multi --exclude-prefixes "VR,3D"
+python3 scripts/wishlist_manager.py add movie "流浪地球2"
+python3 scripts/wishlist_manager.py add fanhao "SSIS-448"
+python3 scripts/wishlist_manager.py remove actor "三上悠亜"
+python3 scripts/wishlist_manager.py list
+```
+
+- `--exclude-multi`：排除多人共演作品
+- `--exclude-prefixes "VR,3D"`：排除指定厂牌/标签前缀
+- 追剧 cron 每日自动遍历 wishlist 搜索新资源
+
 ## PT 刷流（可选）
 
 详见 [references/pt-boost.md](references/pt-boost.md)：配置 schema（`pt_boost.json`）、每日执行逻辑（清理→新增）、cron 创建。
@@ -373,6 +387,6 @@ Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 ## 致谢
 
 本技能在 PT 站适配过程中参考了以下优秀项目：
-- [PT-depiler](https://github.com/) - NexusPHP 站点解析参考
+- [PT-depiler](https://github.com/tongl123/PT-depiler) - NexusPHP 站点解析参考
 - [MoviePilot](https://github.com/jxxghp/MoviePilot) - 部分功能设计灵感
 
