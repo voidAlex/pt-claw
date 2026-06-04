@@ -140,4 +140,4 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **51. qB API `torrents/info` 批量列表不返回完整 hash，禁止截取使用**：`/api/v2/torrents/info?sort=added_on&reverse=true&limit=N` 返回的条目中 `hash` 字段是完整的 40 字符 SHA1。但 **Agent 用 `terminal()` 执行 Python 脚本列出时，输出可能被截断**（如只显示前 12 字符 `ddee9cb7a9e4`）。如果拿截断的 hash 去调 `--retag`、`setCategory`、`setLocation` 等 API，会静默失败（hash 不匹配，qB 返回空响应不报错）。**正确做法**：推送新种子后，用 `qb_monitor.py --full` 查看完整状态（含完整 hash），或用 `torrents/info?hashes=<full_hash>` 精确查询。必须验证 hash 长度 = 40 字符再用于任何 API 调用。从批量列表获取 hash 时，用 `len(hash)` 验证 40 字符，不满足就重新精确查询。
 
-**50. NexusPHP 站用户信息解析不完整（v3.3.0+ 支持 `--debug` 诊断）**：`site_profile.py` 用正则从 HTML 提取字段，不同站 HTML 结构差异大导致解析不全。`--debug` 模式输出原始 HTML 片段（`info_html_excerpt`、`matched_labels`、`page_title`）辅助逐站适配。已知影响：1PTBar / CarPT / 织梦 / BTSchool / HDFans / PTTime / SoulVoice 共 7 站。仅 M-Team（走 API）数据完整。
+**50. NexusPHP 站用户信息解析（v3.3.0 重写表格解析器）**：`site_profile.py` 已重写为表格行解析（`<tr>/<td>` label-value 配对），模拟 PT-Depiler 的 `td.rowhead:contains('label') + td` 和 MoviePilot 的 XPath `following-sibling::td[1]`。4 级回退链：表格单元格 → 单独标签 → 旧正则 → MoviePilot 正则。`--debug` 输出解析诊断信息。如仍有站点解析不全，用 `--debug --site <站>` 查看表格配对结果。
