@@ -5,7 +5,7 @@
   ],
   "actors": [
     {"name": "Christopher Nolan", "type": "director"},
-    {"name": "浅野こころ", "type": "adult_actress", "exclude_prefixes": ["FNS"]}
+    {"name": "浅野こころ", "type": "adult_actress", "exclude_prefixes": ["FNS"], "exclude_multi": true}
   ],
   "fanhao": [
     {"code": "SSIS-448", "actress": null}

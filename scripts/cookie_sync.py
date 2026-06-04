@@ -15,7 +15,7 @@ Requires CookieCloud env vars in secrets.env:
 CookieCloud browser extension syncs cookies from browser to server.
 This script pulls, decrypts, extracts PT site cookies, and writes to secrets.env.
 """
-import base64, hashlib, json, os, re, sys
+import base64, fcntl, hashlib, json, os, re, sys
 
 _skill_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -122,9 +122,15 @@ def _update_secrets_env(updates, dry_run=False):
         return
 
     tmp = ENV_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-    os.replace(tmp, ENV_FILE)
+    lock_path = ENV_FILE + ".lock"
+    with open(lock_path, "w") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+            os.replace(tmp, ENV_FILE)
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
     print(f"  ✅ Updated {len(updates)} cookie(s) in secrets.env")
 
 

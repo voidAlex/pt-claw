@@ -155,7 +155,7 @@ def _is_spam(title):
     for kw in AD_KEYWORDS:
         kwl = kw.lower()
         if kw in short_kw:
-            if re.search(rf'\b{re.escape(kwl)}\b', t):
+            if re.search(rf'(?<![a-zA-Z0-9]){re.escape(kwl)}(?![a-zA-Z0-9])', t):
                 return True
         elif kwl in t:
             return True

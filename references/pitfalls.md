@@ -118,26 +118,26 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 - 模糊指令（如「全部正常则 [SILENT]」）不够——agent 会在「不正常」时自由发挥整页报告。每条分支都要写死输出格式。
 - 所有 cron job prompt 遵循此规则。典型反例：CookieCloud 同步 prompt 没有显式禁止全盘搜索，agent 无视 workdir + skill 脚本，直接 `/home/alex` 全局搜然后报「未安装」。
 
-**41. 演员名歧义——同姓不同人**：Sukebei/JavBus 等公开源对演员名做子串匹配，搜「東雲」会同时返回 東雲みれい 和 東雲つばき 的作品。VEC-771 是東雲つばき的，不是東雲みれい的。输出结果时必须核实：①用番号反查 `/api/movies/{CODE}` 确认演员列表 ②看完整标题是否含全名而非仅姓氏 ③不同演员的作品分组标注「注意：XXX 是另一位演员」。不要看到同姓就归给一个演员。
+**40. 演员名歧义——同姓不同人**：Sukebei/JavBus 等公开源对演员名做子串匹配，搜「東雲」会同时返回 東雲みれい 和 東雲つばき 的作品。VEC-771 是東雲つばき的，不是東雲みれい的。输出结果时必须核实：①用番号反查 `/api/movies/{CODE}` 确认演员列表 ②看完整标题是否含全名而非仅姓氏 ③不同演员的作品分组标注「注意：XXX 是另一位演员」。不要看到同姓就归给一个演员。
 
-**42. JavBus 全线 521 时的回退链**：JavBus 返回 521（Cloudflare origin down）时，javbus-api 完全不可用。此时演员信息获取的回退顺序：① Sukebei 搜演员名 → 提取番号列表 ② Sukebei 搜番号 → 读标题获取演员+剧情 ③ JF 实例搜索。注意 Sukebei 的上传日期 ≠ 发行日期，排序仅作参考。javbus-api 恢复后优先用 API 核实。
+**41. JavBus 全线 521 时的回退链**：JavBus 返回 521（Cloudflare origin down）时，javbus-api 完全不可用。此时演员信息获取的回退顺序：① Sukebei 搜演员名 → 提取番号列表 ② Sukebei 搜番号 → 读标题获取演员+剧情 ③ JF 实例搜索。注意 Sukebei 的上传日期 ≠ 发行日期，排序仅作参考。javbus-api 恢复后优先用 API 核实。
 
-**43. M-Team 签名下载 URL 时效短 + curl 代理返回 HTML**：`/api/rss/dlv2?sign=...&t=<timestamp>` 的 `t` 参数是时间戳，过期极快（可能几分钟内）。搜索返回的下载 URL 不可久存，推送前必须重新调用 `python3 scripts/mteam_api.py download <torrent_id>` 获取新鲜 URL。更隐蔽的是：`curl -x <proxy> <download_url>` 有时返回 Google HTML 而非 .torrent 文件（代理层面的问题），但 Python `urllib.request` + ProxyHandler 走同一代理则正常下载。下载 .torrent 时优先用 Python urllib 而非 curl。
+**42. M-Team 签名下载 URL 时效短 + curl 代理返回 HTML**：`/api/rss/dlv2?sign=...&t=<timestamp>` 的 `t` 参数是时间戳，过期极快（可能几分钟内）。搜索返回的下载 URL 不可久存，推送前必须重新调用 `python3 scripts/mteam_api.py download <torrent_id>` 获取新鲜 URL。更隐蔽的是：`curl -x <proxy> <download_url>` 有时返回 Google HTML 而非 .torrent 文件（代理层面的问题），但 Python `urllib.request` + ProxyHandler 走同一代理则正常下载。下载 .torrent 时优先用 Python urllib 而非 curl。
 
-**44. `qb_monitor.py --full` 下载中种子无 hash 字段**：`--full` 输出的 `downloading` 列表中每个条目只有 `name/progress/size/dlspeed/tags/state`，**不包含 `hash` 字段**。这意味着种子正在下载时无法通过 hash 精确匹配来验证标签。补标签时只能用 `name` 子串匹配定位，或用 `qb_add.py` 推送时返回的 `info_hash`。一旦种子完成（移入 `completed_recent`），hash 字段恢复。
+**43. `qb_monitor.py --full` 下载中种子无 hash 字段**：`--full` 输出的 `downloading` 列表中每个条目只有 `name/progress/size/dlspeed/tags/state`，**不包含 `hash` 字段**。这意味着种子正在下载时无法通过 hash 精确匹配来验证标签。补标签时只能用 `name` 子串匹配定位，或用 `qb_add.py` 推送时返回的 `info_hash`。一旦种子完成（移入 `completed_recent`），hash 字段恢复。
 
-**45. `qb_add.py --file` 静默假成功（v3.3.0 已修复）**：`qb_add.py` 现已支持 `--file` 模式，通过 multipart form upload 正确上传本地 .torrent 文件。旧版 `--file` 被静默吞掉导致假成功的问题已修复。用法：`python3 qb_add.py --file /tmp/xxx.torrent --category 9kg --tags mteam`。上传前会验证文件存在且以 `d`（bencode dict 标记）开头。
+**44. `qb_add.py --file` 静默假成功（v3.3.0 已修复）**：`qb_add.py` 现已支持 `--file` 模式，通过 multipart form upload 正确上传本地 .torrent 文件。旧版 `--file` 被静默吞掉导致假成功的问题已修复。用法：`python3 qb_add.py --file /tmp/xxx.torrent --category 9kg --tags mteam`。上传前会验证文件存在且以 `d`（bencode dict 标记）开头。
 
-**46. `qb_add.py --retag` 补标签功能（v3.1.0+）**：`python3 qb_add.py --retag <hash> --tags mteam` 给已有种子打标签。此功能不在 `--help` 输出中但已实现。注意 hash 参数格式：`--retag abc123` 或 `--hash=abc123`。与 pitfall #38（`--tag` 不保证生效）配合使用——推送后标签缺失时用此补打。
+**45. `qb_add.py --retag` 补标签功能（v3.1.0+）**：`python3 qb_add.py --retag <hash> --tags mteam` 给已有种子打标签。此功能不在 `--help` 输出中但已实现。注意 hash 参数格式：`--retag abc123` 或 `--hash=abc123`。与 pitfall #38（`--tag` 不保证生效）配合使用——推送后标签缺失时用此补打。
 
-**47. 愿望单管理（v3.3.0+ 支持脚本命令）**：`wishlist_manager.py` 提供 `add-actor`/`remove-actor`/`add-movie`/`remove-movie`/`add-fanhao`/`remove-fanhao`/`list`/`json` 命令，支持 `exclude_multi`、`exclude_prefixes` 字段。cron 追剧搜到演员作品列表后，agent 应过滤掉标题含「共演」「×」「&」「ハーレム」等多演员标记的作品（当该演员设了 `exclude_multi: true`）。
+**46. 愿望单管理（v3.3.0+ 支持脚本命令）**：`wishlist_manager.py` 提供 `add-actor`/`remove-actor`/`add-movie`/`remove-movie`/`add-fanhao`/`remove-fanhao`/`list`/`json` 命令，支持 `exclude_multi`、`exclude_prefixes` 字段。cron 追剧搜到演员作品列表后，agent 应过滤掉标题含「共演」「×」「&」「ハーレム」等多演员标记的作品（当该演员设了 `exclude_multi: true`）。
 
-**48. `qb_add.py --recat` 补分类功能（v3.3.0+）**：`python3 qb_add.py --recat <hash> --category "电影"` 给已有种子设置分类。与 `--retag`（补标签）对称使用。hash 参数格式：`--recat abc123` 或 `--hash=abc123`。
+**47. `qb_add.py --recat` 补分类功能（v3.3.0+）**：`python3 qb_add.py --recat <hash> --category "电影"` 给已有种子设置分类。与 `--retag`（补标签）对称使用。hash 参数格式：`--recat abc123` 或 `--hash=abc123`。
 
-**40. 番号忽略名单（v3.3.0+ 支持脚本命令）**：`download_history.py ignore --code FWAY-071 --reason "不喜欢"` 将番号标记为 ignored，`check`/`filter` 自动跳过。取消忽略用 `unignore --code FWAY-071`。也可手动写入 `pt_downloaded.json`（status 设 `"ignored"`，source 设 `"manual"`）。
+**48. 番号忽略名单（v3.3.0+ 支持脚本命令）**：`download_history.py ignore --code FWAY-071 --reason "不喜欢"` 将番号标记为 ignored，`check`/`filter` 自动跳过。取消忽略用 `unignore --code FWAY-071`。也可手动写入 `pt_downloaded.json`（status 设 `"ignored"`，source 设 `"manual"`）。
 
 **49. `site_profile.py` 无 `--site` 时自动过滤已配置站点（v3.3.0 已修复）**：默认只查询有 Cookie 或 MTEAM_API_KEY 的站点，不再遍历全部 115 站。`--all` 恢复原行为。`--debug` 输出 HTML 片段辅助 NexusPHP 解析诊断。
 
-**51. qB API `torrents/info` 批量列表不返回完整 hash，禁止截取使用**：`/api/v2/torrents/info?sort=added_on&reverse=true&limit=N` 返回的条目中 `hash` 字段是完整的 40 字符 SHA1。但 **Agent 用 `terminal()` 执行 Python 脚本列出时，输出可能被截断**（如只显示前 12 字符 `ddee9cb7a9e4`）。如果拿截断的 hash 去调 `--retag`、`setCategory`、`setLocation` 等 API，会静默失败（hash 不匹配，qB 返回空响应不报错）。**正确做法**：推送新种子后，用 `qb_monitor.py --full` 查看完整状态（含完整 hash），或用 `torrents/info?hashes=<full_hash>` 精确查询。必须验证 hash 长度 = 40 字符再用于任何 API 调用。从批量列表获取 hash 时，用 `len(hash)` 验证 40 字符，不满足就重新精确查询。
+**50. qB API `torrents/info` 批量列表不返回完整 hash，禁止截取使用**：`/api/v2/torrents/info?sort=added_on&reverse=true&limit=N` 返回的条目中 `hash` 字段是完整的 40 字符 SHA1。但 **Agent 用 `terminal()` 执行 Python 脚本列出时，输出可能被截断**（如只显示前 12 字符 `ddee9cb7a9e4`）。如果拿截断的 hash 去调 `--retag`、`setCategory`、`setLocation` 等 API，会静默失败（hash 不匹配，qB 返回空响应不报错）。**正确做法**：推送新种子后，用 `qb_monitor.py --full` 查看完整状态（含完整 hash），或用 `torrents/info?hashes=<full_hash>` 精确查询。必须验证 hash 长度 = 40 字符再用于任何 API 调用。从批量列表获取 hash 时，用 `len(hash)` 验证 40 字符，不满足就重新精确查询。
 
-**50. NexusPHP 站用户信息解析（v3.3.0 重写表格解析器）**：`site_profile.py` 已重写为表格行解析（`<tr>/<td>` label-value 配对），模拟 PT-Depiler 的 `td.rowhead:contains('label') + td` 和 MoviePilot 的 XPath `following-sibling::td[1]`。4 级回退链：表格单元格 → 单独标签 → 旧正则 → MoviePilot 正则。`--debug` 输出解析诊断信息。如仍有站点解析不全，用 `--debug --site <站>` 查看表格配对结果。
+**51. NexusPHP 站用户信息解析（v3.3.0 重写表格解析器）**：`site_profile.py` 已重写为表格行解析（`<tr>/<td>` label-value 配对），模拟 PT-Depiler 的 `td.rowhead:contains('label') + td` 和 MoviePilot 的 XPath `following-sibling::td[1]`。4 级回退链：表格单元格 → 单独标签 → 旧正则 → MoviePilot 正则。`--debug` 输出解析诊断信息。如仍有站点解析不全，用 `--debug --site <站>` 查看表格配对结果。

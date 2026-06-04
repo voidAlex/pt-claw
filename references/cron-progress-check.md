@@ -53,10 +53,10 @@
 
 **现象**：Cron 运行报错 `RuntimeError: Response truncated due to output length limit`，用户收不到通知。
 
-**根因**：cron job 用 `skills=["pt-claw"]` 会把整份 SKILL.md（~20KB）内联到每次运行的上下文。光 skill 文本就占 ~25KB 输出。之前没事是因为脚本返回 silent（agent 只回 `[SILENT]` 刚好在限制内），一旦有实际通知要格式化，总响应超出上限被截断。
+**根因**：cron job 用 `skills=["pt-claw.skill"]` 会把整份 SKILL.md（~20KB）内联到每次运行的上下文。光 skill 文本就占 ~25KB 输出。之前没事是因为脚本返回 silent（agent 只回 `[SILENT]` 刚好在限制内），一旦有实际通知要格式化，总响应超出上限被截断。
 
 **修复（两件套，同时执行）**：
-1. **Cron job 不要用 `skills=["pt-claw"]`**。改用自包含 prompt（workdir 已指向 skill 目录，脚本直接可用）：`prompt="工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。运行 \`python3 scripts/_cron_check.py\`..."`，`skills=[]`
+1. **Cron job 不要用 `skills=["pt-claw.skill"]`**。改用自包含 prompt（workdir 已指向 skill 目录，脚本直接可用）：`prompt="工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。运行 \`python3 scripts/_cron_check.py\`..."`，`skills=[]`
 2. **拉满输出上限**：`hermes config set model.max_tokens 32768`（代码硬上限，见下方说明）
 
 Hermes max_tokens 机制（便于排查同类问题）：

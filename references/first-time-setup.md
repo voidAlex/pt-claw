@@ -72,7 +72,7 @@ python3 scripts/connectivity_check.py --quick
 
 ```python
 # 下载进度检查（静默模式：没事件不通知）
-# ⚠️ 致命坑：千万不要在 cron job 中用 skills=["pt-claw"]！
+# ⚠️ 致命坑：千万不要在 cron job 中用 skills=["pt-claw.skill"]！
 # 整份 pt-claw SKILL.md（~20KB）会内联到每次运行的上下文里，
 # 即使只是 [SILENT] 也占 ~25KB。一旦有实际通知要输出，总响应
 # 超出 max_tokens 上限导致 "Response truncated due to output length limit" 截断。

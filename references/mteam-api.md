@@ -196,7 +196,7 @@ Body: {"keyword": "", "page": 1, "size": 25, "mode": "adult"}
 
 | 项目 | 成人搜索方式 | 参数位置 |
 |------|------------|---------|
-| **pt-claw** | 未实现 | — |
+| **pt-claw.skill** | `mode: "adult"` in body（已实现） | `req_body["mode"]` |
 | **PT-depiler** | `mode: "adult"` in body，`searchEntry.area_adult` 预设（默认禁用） | `requestConfig.data.mode` |
 | **MoviePilot** | `visible: 1` in search body（但这仅过滤活种，非成人区切换） | search params |
 

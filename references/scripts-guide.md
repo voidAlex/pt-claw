@@ -2,9 +2,9 @@
 
 ## Scripts
 
-所有脚本位于 `scripts/` 目录，配置文件路径见脚注¹。
+所有脚本位于 `scripts/` 目录。
 
-**目录**：[pt_search](#pt_searchpy--多站搜索115-站含馒头-api) · [pt_download](#pt_downloadpy--详情页直接下载推送通用所有-pt-站) · [qb_add](#qb_addpy--添加到-qbittorrent含站点标签--文件选择) · [_cron_check](#_cron_checkpy--cron-进度检查合并完成通知--死种频率控制--公开种清理) · [download_history](#download_historypy--下载历史追踪) · [qb_monitor](#qb_monitorpy--qbittorrent-全功能查询) · [qb_public_cleanup](#qb_public_cleanuppy--公开磁链手动清理) · [javbus_star](#javbus_starpy--演员片单交叉对比) · [qb_snapshot](#qb_snapshotpy--删种备份与恢复) · [jf_query](#jf_querypy--jellyfin-查询) · [javbus_magnet](#javbus_magnetpy--javbus-磁链获取) · [sukebei_search](#sukebei_searchpy--sukebei-nyaa-rss-搜索) · [mteam_api](#mteam_apypy--m-team-api-客户端) · [connectivity_check](#connectivity_checkpy--全服务连接测试) · [cookie_sync](#cookie_syncpy--cookiecloud-cookie-同步可选) · [site_profile](#site_profilepy--多站用户信息查询) · [cross_seed](#cross_seedpy--多站辅种验证与推送) · [pt_ratio_boost](#pt_ratio_boostpy--freeleech-自动辅种刷流保号) · [env_check.sh](#env_checksh--环境变量完整性检查)
+**目录**：[pt_search](#pt_searchpy--多站搜索115-站含馒头-api) · [pt_download](#pt_downloadpy--详情页直接下载推送通用所有-pt-站) · [qb_add](#qb_addpy--添加到-qbittorrent含站点标签--文件选择) · [_cron_check](#_cron_checkpy--cron-进度检查合并完成通知--死种频率控制--公开种清理) · [download_history](#download_historypy--下载历史追踪) · [qb_monitor](#qb_monitorpy--qbittorrent-全功能查询) · [qb_public_cleanup](#qb_public_cleanuppy--公开磁链手动清理) · [javbus_star](#javbus_starpy--演员片单交叉对比) · [qb_snapshot](#qb_snapshotpy--删种备份与恢复) · [jf_query](#jf_querypy--jellyfin-查询) · [javbus_magnet](#javbus_magnetpy--javbus-磁链获取) · [sukebei_search](#sukebei_searchpy--sukebei-nyaa-rss-搜索) · [mteam_api](#mteam_apipy--m-team-api-客户端) · [connectivity_check](#connectivity_checkpy--全服务连接测试) · [cookie_sync](#cookie_syncpy--cookiecloud-cookie-同步可选) · [site_profile](#site_profilepy--多站用户信息查询) · [cross_seed](#cross_seedpy--多站辅种验证与推送) · [pt_ratio_boost](#pt_ratio_boostpy--freeleech-自动辅种刷流保号) · [wishlist_manager](#wishlist_managerpy--愿望单管理) · [env_check.sh](#env_checksh--环境变量完整性检查)
 
 ### pt_search.py — 多站搜索（115 站，含馒头 API）
 

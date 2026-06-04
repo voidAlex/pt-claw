@@ -46,6 +46,11 @@ metadata:
 | 番号/成人 | 番号、车牌、jav、JAV、成人、sukebei、javbus、nyaa |
 | 定时任务 | 定时任务、cron、追剧、刷流、下载通知 |
 | 关注/收藏 | 关注、取消关注、关注列表、wishlist |
+| 用户信息 | 分享率、用户信息、上传量、下载量、做种积分、站点数据 |
+| 刷流保号 | 刷流、保号、freeleech、促销种、ratio boost |
+| Cookie 同步 | cookie同步、CookieCloud、同步cookie、更新cookie |
+| 下载历史 | 下载历史、下过什么、历史记录、忽略名单 |
+| 连接测试 | 连接测试、通不通、站点可达、环境检查 |
 | Jellyfin | jf、JF、jellyfin、片库、去重、已存在 |
 
 ### 场景速查
@@ -62,6 +67,12 @@ metadata:
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
 | 「辅种」「哪些站能辅」「cross seed」 | → `cross_seed.py` — 多站辅种验证与推送 |
 | 「这个链接下载」「详情页推送」 | → `pt_download.py` — 详情页 URL 直接下载推送 qB |
+| 「查各站用户信息」「我的分享率」 | → `site_profile.py` — 多站用户信息查询（默认只查已配置站） |
+| 「刷流保号」「freeleech 辅种」 | → `pt_ratio_boost.py` — Freeleech 自动辅种刷流保号 |
+| 「同步 Cookie」「CookieCloud」 | → `cookie_sync.py` — CookieCloud Cookie 同步 |
+| 「环境检查」「配置对不对」 | → `env_check.sh` — 环境变量完整性检查 |
+| 「下载历史」「下过什么」 | → `download_history.py` — 下载历史追踪（check/list/filter） |
+| 「连接测试」「各站通不通」 | → `connectivity_check.py` — 全服务连接测试 |
 
 ## 脚本清单
 
@@ -305,10 +316,10 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 ### 愿望单管理
 
 ```bash
-python3 scripts/wishlist_manager.py add actor "三上悠亜" --exclude-multi --exclude-prefixes "VR,3D"
-python3 scripts/wishlist_manager.py add movie "流浪地球2"
-python3 scripts/wishlist_manager.py add fanhao "SSIS-448"
-python3 scripts/wishlist_manager.py remove actor "三上悠亜"
+python3 scripts/wishlist_manager.py add-actor --name "三上悠亜" --type adult_actress --exclude-multi --exclude-prefixes "VR,3D"
+python3 scripts/wishlist_manager.py add-movie --title "流浪地球2"
+python3 scripts/wishlist_manager.py add-fanhao --code SSIS-448
+python3 scripts/wishlist_manager.py remove-actor --name "三上悠亜"
 python3 scripts/wishlist_manager.py list
 ```
 
@@ -344,7 +355,7 @@ python3 scripts/wishlist_manager.py list
 
 致命级 8 条 + 严重级 7 条 + 注意级 19 条（含子条目）+ 脚本纪律 17 条，共 51 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
-> **#51 (新增) Cron job 禁止附加 pt-claw skill**：不要用 `skills=["pt-claw"]` 创建 cron 任务——整份 ~20KB SKILL.md 会被内联到每次运行的上下文，叠加通知输出后超出 `max_tokens` 上限导致截断。用自包含 prompt + `skills=[]` 替代。同时执行 `hermes config set model.max_tokens 32768` 拉满输出上限。详见 [references/cron-progress-check.md](references/cron-progress-check.md) "Cron 输出截断预防" 章节。
+> **#51 (新增) Cron job 禁止附加 pt-claw skill**：不要用 `skills=["pt-claw.skill"]` 创建 cron 任务——整份 ~20KB SKILL.md 会被内联到每次运行的上下文，叠加通知输出后超出 `max_tokens` 上限导致截断。用自包含 prompt + `skills=[]` 替代。同时执行 `hermes config set model.max_tokens 32768` 拉满输出上限。详见 [references/cron-progress-check.md](references/cron-progress-check.md) "Cron 输出截断预防" 章节。
 
 Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 
@@ -377,7 +388,7 @@ Agent 每次执行下载/删种前必须回顾致命级 1-7 条。
 
 ## 环境变量
 
-完整清单见 [references/env-reference.md](references/env-reference.md)。模板见 `templates/secrets.env.example`。
+完整清单见 [references/env-reference.md](references/env-reference.md)。模板见 `templates/secrets.example.env`。
 
 关键规则：
 - 禁止在**系统环境**设 `HTTP_PROXY`（会影响所有脚本的正常网络请求）— 需要代理时用 `PT_PROXY`。Docker 容器（如 javbus-api）内部可单独设置 `HTTP_PROXY`。

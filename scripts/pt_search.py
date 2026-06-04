@@ -1509,6 +1509,9 @@ def main():
     target_sites = {}
     if "site" in flags:
         site_id = flags["site"]
+        if not isinstance(site_id, str) or not site_id:
+            print(json.dumps({"error": "--site requires a site ID (e.g. --site mteam)"}))
+            sys.exit(1)
         if site_id in SITES:
             target_sites[site_id] = SITES[site_id]
         else:

@@ -311,8 +311,11 @@ def _fetch_and_parse(item: dict) -> dict | None:
 def _load_tasks() -> dict:
     if not os.path.exists(TASKS_FILE):
         return {}
-    with open(TASKS_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(TASKS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return {}
 
 
 def _save_tasks(tasks: dict):
