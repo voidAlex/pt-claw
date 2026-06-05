@@ -3,7 +3,8 @@
 Lightweight multi-PT-site search — zero services, direct HTTP.
 
 Usage:
-    python3 pt_search.py "流浪地球2"              # search all configured sites
+    python3 pt_search.py "流浪地球2"              # search configured sites only (have cookie/api-key)
+    python3 pt_search.py "流浪地球2" --all         # search all 115 sites (including unconfigured)
     python3 pt_search.py "流浪地球2" --site 1ptba  # single site
     python3 pt_search.py "流浪地球2" --limit 10    # per-site limit
     python3 pt_search.py "流浪地球2" --no-cache    # bypass result cache
@@ -1532,8 +1533,21 @@ def main():
         else:
             print(json.dumps({"error": f"Unknown site: {site_id}"}))
             sys.exit(1)
-    else:
+    elif "all" in flags:
         target_sites = {k: v for k, v in SITES.items()}
+    else:
+        cookies = load_cookies()
+        api_key = _env("MTEAM_API_KEY", "")
+        for sid, scfg in SITES.items():
+            if sid == "mteam" and api_key:
+                target_sites[sid] = scfg
+            elif cookies.get(sid):
+                target_sites[sid] = scfg
+        if not target_sites:
+            print(json.dumps({"error": "No configured sites found. Set cookies or MTEAM_API_KEY, or use --all"}))
+            sys.exit(1)
+        log.info("filtered to %d configured sites (use --all for all %d)",
+                 len(target_sites), len(SITES))
 
     # Limit
     try:

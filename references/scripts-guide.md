@@ -12,8 +12,11 @@
 # 单站
 python3 scripts/pt_search.py "流浪地球2" --site pttime --limit 5
 
-# 全站（需代理的站自动走 PT_PROXY，无需手动包装）
+# 默认：只搜已配置站点（有 Cookie 或 API Key 的）
 python3 scripts/pt_search.py "流浪地球2" --limit 5
+
+# 全部 115 站（含未配置的，无 Cookie 会跳过）
+python3 scripts/pt_search.py "流浪地球2" --all --limit 5
 
 # PTTime 成人区（按番号/关键词）
 python3 scripts/pt_search.py "SONE-833" --site pttime --adult --limit 10

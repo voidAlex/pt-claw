@@ -75,7 +75,7 @@ python3 pt_search.py "饼干姐姐" --site pttime --adult             # PTTime �
 
 | 用户说 | 路由 |
 |--------|------|
-| 「搜流浪地球2」「找个4K沙丘」 | → Step 1 识别类型 → Step 2 全站搜索 |
+| 「搜流浪地球2」「找个4K沙丘」 | → Step 1 识别类型 → Step 2 搜已配置站点（`--all` 搜全站） |
 | 「下SSIS-448」「搜SONE-833」 | → 番号 → 成人区搜索 + 公开源回退 |
 | 「查下载进度」「qb怎么样了」 | → 先查最新 cron 报告（种子可能已被自动清理，qB 里没了但 cron 输出有记录），然后 `qb_monitor.py` |
 | 「删掉那个死种」「暂停xxx」 | → qB API 操作 |
@@ -235,13 +235,19 @@ grep "ERROR" logs/pt-claw.log | tail -20       # 最近错误
 ### Step 2：执行搜索
 
 ```bash
-# 常规搜索（脚本根据 SITES 字典自动决定是否走代理）
-python3 scripts/pt_search.py "关键词" --limit 10
+# 默认只搜已配置站点（有 Cookie 或 API Key 的站）
+cd /home/alex/.hermes/skills/media/pt-claw && python3 scripts/pt_search.py "关键词" --limit 10
+
+# 明确搜全部 115 站（含未配置的，会跳过无 Cookie 的站）
+cd /home/alex/.hermes/skills/media/pt-claw && python3 scripts/pt_search.py "关键词" --all --limit 10
 
 # 成人区搜索（仅 PTTime 和 M-Team）
-python3 scripts/pt_search.py "SONE-833" --site pttime --adult --limit 10
-python3 scripts/pt_search.py "" --site pttime --adult --actor "浅野心" --limit 10
+cd /home/alex/.hermes/skills/media/pt-claw && python3 scripts/pt_search.py "SONE-833" --site pttime --adult --limit 10
 ```
+
+**⚠️ javbus-api 502 处理**：javbus_star.py 返回 502 时，先用 `sudo docker restart javbus-api && sleep 4` 重启容器，再用 `execute_code` + `urllib` 直接调 javbus-api 获取片单（比 javbus_star.py 更稳定）。详见 pitfalls.md #52-#53。
+
+**⚠️ PTTime adult --actor 限制**：`--actor` 参数不能搭配空 search query，会报 "No search query provided"。改用具体番号搜索。详见 pitfalls.md #54。
 
 ### Step 3：展示结果 & 排序
 
@@ -376,7 +382,7 @@ python3 scripts/wishlist_manager.py list
 
 ## Common Pitfalls
 
-致命级 8 条 + 严重级 7 条 + 注意级 19 条（含子条目）+ 脚本纪律 17 条，共 51 条。详见 [references/pitfalls.md](references/pitfalls.md)。
+致命级 10 条 + 严重级 8 条 + 注意级 21 条（含子条目）+ 脚本纪律 17 条，共 57 条。详见 [references/pitfalls.md](references/pitfalls.md)。
 
 > **Cron job 禁止附加 pt-claw.skill**：不要用 `skills=["pt-claw.skill"]` 创建 cron 任务——整份 ~20KB SKILL.md 会被内联到每次运行的上下文，叠加通知输出后超出 `max_tokens` 上限导致截断。用自包含 prompt + `skills=[]` 替代（详见 #39 Cron prompt 设计铁律）。同时执行 `hermes config set model.max_tokens 32768` 拉满输出上限。完整排查步骤见 [references/cron-progress-check.md](references/cron-progress-check.md) "Cron 输出截断预防" 章节。
 
