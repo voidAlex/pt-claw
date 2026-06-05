@@ -53,6 +53,24 @@ metadata:
 | 连接测试 | 连接测试、通不通、站点可达、环境检查 |
 | Jellyfin | jf、JF、jellyfin、片库、去重、已存在 |
 
+### ⚠️ 成人区搜索 — 必须加 `--adult` 标志
+
+`pt_search.py` 默认搜索**普通区**，不包含成人/9kg 区。搜索成人内容（番号、国产创作者如饼干姐姐、JAV）时**必须**加 `--adult`：
+
+```bash
+python3 pt_search.py "饼干姐姐" --adult                          # 全站成人区搜索
+python3 pt_search.py "饼干姐姐" --site mteam --adult              # 单站成人区
+python3 pt_search.py "饼干姐姐" --site pttime --adult             # PTTime 成人区走 /adults.php
+```
+
+不加 `--adult` 时，M-Team 走普通搜索（不含 adult mode），PTTime 走普通种子列表，结果大概率是 0 条。
+
+**站点差异**：
+- **M-Team 成人区**：通过 API 的 `mode: "adult"` 参数，分类 410-440。注意部分国产创作者在馒头用的是英文名（如「饼干姐姐」→「FortuneCutie」），中文关键词搜不到时尝试英文名
+- **PTTime 成人区**：通过 `/adults.php` 路径，搜索参数 `search_area=1`
+- **Sukebei（公开源）**：`sukebei_search.py` 是公开 tracker，无需 cookie，PT 站搜不到时作为回退
+| Jellyfin | jf、JF、jellyfin、片库、去重、已存在 |
+
 ### 场景速查
 
 | 用户说 | 路由 |
@@ -66,13 +84,15 @@ metadata:
 | 「首次配置」「初始化」 | → [references/first-time-setup.md](references/first-time-setup.md) |
 | 「新增一个PT站」 | → [references/new-site-adaptation.md](references/new-site-adaptation.md) |
 | 「辅种」「哪些站能辅」「cross seed」 | → `cross_seed.py` — 多站辅种验证与推送 |
-| 「这个链接下载」「详情页推送」 | → `pt_download.py` — 详情页 URL 直接下载推送 qB |
+|| 「这个链接下载」「详情页推送」 | → `pt_download.py` — 详情页 URL 直接下载推送 qB |
+|| 「这是什么种子」「magnet链接识别」 | → [references/magnet-identify.md](references/magnet-identify.md) — 通过 info hash 识别种子内容 |
 | 「查各站用户信息」「我的分享率」 | → `site_profile.py` — 多站用户信息查询（默认只查已配置站） |
 | 「刷流保号」「freeleech 辅种」 | → `pt_ratio_boost.py` — Freeleech 自动辅种刷流保号 |
 | 「同步 Cookie」「CookieCloud」 | → `cookie_sync.py` — CookieCloud Cookie 同步 |
 | 「环境检查」「配置对不对」 | → `env_check.sh` — 环境变量完整性检查 |
 | 「下载历史」「下过什么」 | → `download_history.py` — 下载历史追踪（check/list/filter） |
 | 「连接测试」「各站通不通」 | → `connectivity_check.py` — 全服务连接测试 |
+| 「这个磁力是什么」「仅检查不下载」 | → [references/magnet-inspection.md](references/magnet-inspection.md) — 磁力链接 info hash 反查内容 |
 
 ## 脚本清单
 
@@ -141,6 +161,7 @@ grep "ERROR" logs/pt-claw.log | tail -20       # 最近错误
 | [references/media-maintenance.md](references/media-maintenance.md) | 媒体库重复检测 + 磁盘孤儿扫描 | 清理重复下载或手动恢复 |
 | [references/privacy-audit-checklist.md](references/privacy-audit-checklist.md) | 隐私审计检查清单 | 推送前自查 |
 | [references/pitfalls.md](references/pitfalls.md) | 常见陷阱（致命/严重/注意/脚本纪律） | 执行下载/删种前回顾 |
+| [references/magnet-inspection.md](references/magnet-inspection.md) | 磁力链接 info hash 反查：不下载识别内容 | 用户提供 magnet link 想知道里面是什么 |
 | [references/qb-session-auth.md](references/qb-session-auth.md) | qB Web API v5+ CSRF 认证（禁止 Basic Auth） | 手动 curl 调 qB API 或 403 时 |
 | [references/site-tags.md](references/site-tags.md) | 115 站完整标签映射 | 推送下载时查找标签 |
 | [references/extended-sites.md](references/extended-sites.md) | 扩展 100 站完整列表（URL/代理/分类） | 查看扩展站详情或配置 Cookie |
@@ -300,6 +321,8 @@ python3 scripts/download_history.py add --code <番号> --title "<标题>" --sou
 ```
 
 **分类映射**：首次初始化时从 qBittorrent API 读取分类列表，自动写入 `user-preferences.md`。后续直接从 `user-preferences.md` 读取。不硬编码分类名。
+
+⚠️ **成人内容路径歧义**：qB 可能有多个人相关分类（如"9kg"→JAV、"其他"→国产/creative）。推送前用 `python3 scripts/qb_monitor.py --list categories` 列出全部分类，让用户选择路径。禁止自作主张全推到一个路径。详见 pitfalls.md #52。
 
 ### Step 6：后台定时任务
 

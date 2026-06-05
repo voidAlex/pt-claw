@@ -1142,11 +1142,19 @@ def _parse_nexusphp_classic(html: str, site: dict, site_id: str,
 
         promo = _detect_promo(title_html + stats_html)
 
+        # Category: try <span title="..."> or category link
+        cat = re.search(r'<span[^>]*title="([^"]*)"', title_html)
+        category = cat.group(1) if cat else ""
+        if not category:
+            cat_link = re.search(r'href="browse\.php\?[^"]*cat[^"]*"[^>]*>(.*?)</a>', title_html)
+            if cat_link:
+                category = re.sub(r'<[^>]+>', '', cat_link.group(1)).strip()
+
         results.append({
             "title": title.strip(),
             "size": size_str, "size_bytes": _parse_size(size_str),
             "seeders": seeds, "leechers": leech,
-            "category": "", "promo": promo,
+            "category": category, "promo": promo,
             "download_url": site["url"] + "/" + dl_url,
             "site": site["name"], "site_id": site_id,
             "source": site_id,
@@ -1449,13 +1457,20 @@ def _parse_ttg(html, site, site_id, limit):
                       row_html, re.IGNORECASE):
             promo = (promo + " Excl").strip() if promo else "Excl"
 
+        cat = re.search(r'<span[^>]*title="([^"]*)"', row_html)
+        category = cat.group(1) if cat else ""
+        if not category and len(tds) > 0:
+            cat_link = re.search(r'href="[^"]*cat[^"]*"[^>]*>(.*?)</a>', tds[0])
+            if cat_link:
+                category = re.sub(r'<[^>]+>', '', cat_link.group(1)).strip()
+
         result = {
             "title": title.strip(),
             "size": size_str,
             "size_bytes": 0,
             "seeders": seeders,
             "leechers": leechers,
-            "category": "",
+            "category": category,
             "promo": promo,
             "download_url": dl_url,
             "site": site["name"],

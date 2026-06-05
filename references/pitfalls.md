@@ -124,7 +124,14 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 
 **42. M-Team 签名下载 URL 时效短 + curl 代理返回 HTML**：`/api/rss/dlv2?sign=...&t=<timestamp>` 的 `t` 参数是时间戳，过期极快（可能几分钟内）。搜索返回的下载 URL 不可久存，推送前必须重新调用 `python3 scripts/mteam_api.py download <torrent_id>` 获取新鲜 URL。更隐蔽的是：`curl -x <proxy> <download_url>` 有时返回 Google HTML 而非 .torrent 文件（代理层面的问题），但 Python `urllib.request` + ProxyHandler 走同一代理则正常下载。下载 .torrent 时优先用 Python urllib 而非 curl。
 
-**43. `qb_monitor.py --full` 下载中种子无 hash 字段**：`--full` 输出的 `downloading` 列表中每个条目只有 `name/progress/size/dlspeed/tags/state`，**不包含 `hash` 字段**。这意味着种子正在下载时无法通过 hash 精确匹配来验证标签。补标签时只能用 `name` 子串匹配定位，或用 `qb_add.py` 推送时返回的 `info_hash`。一旦种子完成（移入 `completed_recent`），hash 字段恢复。
+**43. `qb_monitor.py --full` 下载中种子输出字段不全**：`--full` 输出的 `downloading` 列表中每个条目只有 `name/progress/size/dlspeed/tags/state` 六个字段。**缺失 `hash`、`category`、`save_path`**。这意味着：
+- 种子下载中无法通过 hash 精确匹配来验证标签和分类
+- 推送后用 `--full` 回查看不到 category/save_path，**无法确认分类和路径是否正确设上**
+- 补标签/补分类时只能用 `name` 子串匹配定位，或用 `qb_add.py` 推送时返回的 `info_hash`
+- 验证分类/路径的唯一方式是直接 curl qB API（违反脚本纪律 #29）
+- 对比：默认模式（completions）的 `completed` 段有 `category` 和 `save_path`，但 `--full` 模式漏写了
+- 一旦种子完成（移入 `completed_recent`），这些字段可能恢复（视 qB API 返回而定）
+- **关联**：`pt_download.py` 接受 `--category`/`--save-path` 参数但输出不回显这两个字段，推送后也无法从脚本输出确认传参是否生效
 
 **44. `qb_add.py --file` 静默假成功（v3.3.0 已修复）**：`qb_add.py` 现已支持 `--file` 模式，通过 multipart form upload 正确上传本地 .torrent 文件。旧版 `--file` 被静默吞掉导致假成功的问题已修复。用法：`python3 qb_add.py --file /tmp/xxx.torrent --category 9kg --tags mteam`。上传前会验证文件存在且以 `d`（bencode dict 标记）开头。
 
@@ -139,5 +146,13 @@ curl -s "http://localhost:8922/api/magnets/$CODE?gid=$gid&uc=$uc"
 **49. `site_profile.py` 无 `--site` 时自动过滤已配置站点（v3.3.0 已修复）**：默认只查询有 Cookie 或 MTEAM_API_KEY 的站点，不再遍历全部 115 站。`--all` 恢复原行为。`--debug` 输出 HTML 片段辅助 NexusPHP 解析诊断。
 
 **50. qB API `torrents/info` 批量列表不返回完整 hash，禁止截取使用**：`/api/v2/torrents/info?sort=added_on&reverse=true&limit=N` 返回的条目中 `hash` 字段是完整的 40 字符 SHA1。但 **Agent 用 `terminal()` 执行 Python 脚本列出时，输出可能被截断**（如只显示前 12 字符 `ddee9cb7a9e4`）。如果拿截断的 hash 去调 `--retag`、`setCategory`、`setLocation` 等 API，会静默失败（hash 不匹配，qB 返回空响应不报错）。**正确做法**：推送新种子后，用 `qb_monitor.py --full` 查看完整状态（含完整 hash），或用 `torrents/info?hashes=<full_hash>` 精确查询。必须验证 hash 长度 = 40 字符再用于任何 API 调用。从批量列表获取 hash 时，用 `len(hash)` 验证 40 字符，不满足就重新精确查询。
+
+**52. 国产成人分类映射歧义 — 不全是"9kg"**：qB 中成人相关分类可能不止一个（如"9kg"→JAV、"其他"→国产/creative）。`user-preferences.md` 中的单条"成人 → 9kg"映射不够用。推送国产成人（非JAV番号、国产创作者、推特红人合集等）时**必须先列出 qB 所有分类让用户选路径**，禁止自作主张全塞到 javdb-top250。获取分类：`python3 scripts/qb_monitor.py --list categories`。用户说"从qb找一下"就是此信号——你推错路径了。
+
+**53. 冷门国产创作者名称搜索死胡同 — 3轮0结果就停**：国产成人创作者（非JAV番号系）在PT站点上收录有限，精确名称搜不到是常态。当某个名称全网0结果时：
+1. 试 1-2 个合理变体（英文名/拼音、增减字符），再回退 Sukebei + JavBus
+2. 搜全站首字（如「苏」）做最后确认——搜到了说明站点没问题，只是没这个具体人物
+3. 全部 0 结果 → **直接告知用户并询问链接或番号**，不要继续试无穷变体
+禁止「换一个写法说不定就有」心态下烧 token。用户知道在哪个平台看到的，给个链接/detail page URL 比猜名字高效得多。详情页链接可以直接走 `pt_download.py` 推送，绕开搜索环节。
 
 **51. NexusPHP 站用户信息解析（v3.3.0 重写表格解析器）**：`site_profile.py` 已重写为表格行解析（`<tr>/<td>` label-value 配对），模拟 PT-Depiler 的 `td.rowhead:contains('label') + td` 和 MoviePilot 的 XPath `following-sibling::td[1]`。4 级回退链：表格单元格 → 单独标签 → 旧正则 → MoviePilot 正则。`--debug` 输出解析诊断信息。如仍有站点解析不全，用 `--debug --site <站>` 查看表格配对结果。

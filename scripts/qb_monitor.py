@@ -210,12 +210,14 @@ def main():
                 "dlspeed": _fmt_speed(t['dlspeed']),
                 "tags": t.get('tags', ''),
                 "state": t['state'],
+                "category": t.get('category', ''),
+                "save_path": t.get('save_path', ''),
             })
 
         # Dead: 0% > 7 days
         for t in torrents:
             if t['progress'] == 0 and t['state'] in ('stalledDL',) and now.timestamp() - t['added_on'] > 7*86400:
-                result["dead"].append({"name": t['name'], "added_days": int((now.timestamp() - t['added_on']) / 86400)})
+                result["dead"].append({"name": t['name'], "added_days": int((now.timestamp() - t['added_on']) / 86400), "category": t.get('category', ''), "save_path": t.get('save_path', '')})
 
         # Completed in 7 days
         for t in torrents:
@@ -226,6 +228,8 @@ def main():
                         "size": _fmt_size(t['total_size']),
                         "completed_hours_ago": round((now.timestamp() - t['completion_on']) / 3600, 1),
                         "tags": t.get('tags', ''),
+                        "category": t.get('category', ''),
+                        "save_path": t.get('save_path', ''),
                     })
 
         print(json.dumps(result, ensure_ascii=False, indent=2))
