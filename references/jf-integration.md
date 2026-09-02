@@ -57,6 +57,18 @@ Cron 定义见 [first-time-setup.md](first-time-setup.md)。以下是追剧流�
 2. 展示格式同确认闸门（站点、大小、做种、路径、元数据）
 3. 用户确认后逐部推送
 
+## 下载完成 → 自动刷新媒体库
+
+`_cron_check.py`（下载进度检查 cron，每小时）检测到「新完成种子」时，自动对所有已配置的 JF 实例触发全库刷新（`POST {url}/Library/Refresh?api_key={key}` → 204），JF 扫描到新文件后自动抓取元数据（海报/简介/演员标签），无需手动刷新。
+
+**内置保护（脚本已实现，见 `_cron_check.py` 的 `_jellyfin_refresh()`）**：
+- **双实例遍历**：按序号检查 `JELLYFIN{N}_URL`/`JELLYFIN{N}_API_KEY`（N=1,2,…，取不到即停），配置了才刷；单实例失败仅 log.warning，不阻断其他实例和主流程。实例分工（JF1=成人、JF2=影视等）记录在 `user-preferences.md`「Jellyfin 集成」节——**用户配置与 skill 机制分开放**
+- **限频**：最多每 30 分钟触发一轮（`JF_REFRESH_MIN_INTERVAL_MINUTES` 可用环境变量覆盖，默认 30），时间戳存独立状态文件 `pt_jf_refresh_state.json`（原子写 .tmp+os.replace，损坏按无状态处理）；两个实例共享一个限频窗口；只要发起过一轮刷新（≥1 实例）就写时间戳，失败的下一轮再试，避免半小时内反复重试打爆服务器
+- **刷流目录跳过**：`save_path` **包含** `downloads`（大小写不敏感，如 `/downloads`、`/mnt/Downloads/zz` 均命中）或 tags 含 PUBLIC_TAGS（sukebei/javbus）的新完成种子不触发；可用 `JF_REFRESH_SKIP_PATHS` 环境变量覆盖逗号分隔路径列表；新完成种子全部被过滤 → 完全不刷新、不消耗限频窗口
+- **总开关**：环境变量 `JF_REFRESH_ENABLED=0` 可整体禁用（默认启用）
+- **内网直连**：`ProxyHandler({})` 空 opener——即使环境误带全局代理变量，JF 请求也绝不走代理（JF 是内网服务）
+- **失败静默**：刷新结果并入脚本 JSON 输出的 `jf_refresh` 字段（triggered/skipped/servers 各状态码），失败只写 log（排障 `grep "jf refresh" logs/pt-claw.log`），不影响完成/死种通知
+
 ## 演员片库统计
 
 回答「片库有哪些明星」「谁的最多」类问题。

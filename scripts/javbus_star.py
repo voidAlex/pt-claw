@@ -21,7 +21,13 @@ log = get_logger("javbus_star")
 JAVBUS_API = (_env("JAVBUS_API_URL") or "http://localhost:8922").rstrip("/")
 
 def javbus_get(path):
-    proxy = _env("PT_PROXY") or None
+    # javbus-api 是本地服务（默认 localhost:8922），禁止套 PT_PROXY——
+    # 代理会把 localhost 解析成代理机自身 → 必然 502（2026-08-24 追剧静默故障根因）。
+    # 仅当 JAVBUS_API_URL 配置为远程地址时才走代理。
+    proxy = None
+    host = urllib.parse.urlparse(JAVBUS_API).hostname or "localhost"
+    if host not in ("localhost", "127.0.0.1", "::1"):
+        proxy = _env("PT_PROXY") or None
     data, elapsed = fetch_json(f"{JAVBUS_API}{path}", proxy=proxy)
     return data
 

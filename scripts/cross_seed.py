@@ -190,7 +190,16 @@ def _download_mteam(download_url: str) -> bytes:
 
     status, raw, elapsed = fetch_raw(
         download_url,
-        headers={"User-Agent": "Mozilla/5.0"},
+        headers={
+            # Full browser UA + www Referer required to pass M-Team dlv2
+            # anti-bot; a bare "Mozilla/5.0" (or kp.* Referer) gets 302'd
+            # to google.com instead of the real CDN (fr1.halomt.com).
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/126.0.0.0 Safari/537.36",
+            "Referer": "https://www.m-team.cc/",
+            "Accept": "application/x-bittorrent, */*",
+        },
         proxy=proxy, warmup=True, timeout=30,
     )
     return raw

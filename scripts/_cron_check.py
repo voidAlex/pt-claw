@@ -19,6 +19,10 @@ _skill_root = os.path.join(_skill_dir, "..")
 
 STATE_FILE = os.path.join(_skill_root, "pt_notify_state.json")
 TRACKER_FILE = os.path.join(_skill_root, "pt_completed_last.txt")
+JF_REFRESH_STATE_FILE = os.path.join(_skill_root, "pt_jf_refresh_state.json")
+
+JF_REFRESH_MIN_INTERVAL_MINUTES = 30
+JF_REFRESH_SKIP_PATHS = "/downloads"
 
 
 def _default_state():
@@ -67,6 +71,118 @@ def _save_state(state):
         pass
 
 
+def _load_jf_refresh_state():
+    """Return last refresh time from pt_jf_refresh_state.json, or None (missing/corrupt)."""
+    try:
+        with open(JF_REFRESH_STATE_FILE, encoding="utf-8") as f:
+            last = datetime.fromisoformat(json.load(f)["last_refresh"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return last
+
+
+def _save_jf_refresh_state(dt):
+    try:
+        tmp = JF_REFRESH_STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"last_refresh": dt.isoformat()}, f)
+        os.replace(tmp, JF_REFRESH_STATE_FILE)
+    except OSError as e:
+        log.warning("failed to write %s: %s", JF_REFRESH_STATE_FILE, e)
+        return False
+    return True
+
+
+def _jellyfin_refresh(now, completions):
+    """POST /Library/Refresh on every Jellyfin instance for new completions.
+
+    Completions under JF_REFRESH_SKIP_PATHS prefixes (default /downloads)
+    or with public tags are excluded; all instances share a single rate
+    limit (JF_REFRESH_MIN_INTERVAL_MINUTES, default 30) recorded in
+    pt_jf_refresh_state.json. Failures only log a warning and never affect
+    the notification flow. Returns the jf_refresh output dict.
+    """
+    result = {"triggered": False, "skipped": None, "servers": []}
+    # Master switch: only "0" disables; unset or any other value stays enabled.
+    if _env("JF_REFRESH_ENABLED") == "0":
+        return {"triggered": False, "skipped": "disabled", "servers": []}
+    skip_raw = _env("JF_REFRESH_SKIP_PATHS") or JF_REFRESH_SKIP_PATHS
+    skip_paths = [p.strip() for p in skip_raw.split(",") if p.strip()]
+    candidates = [
+        c for c in completions
+        if not (set(tag.strip() for tag in c.get("tags", "").split(",") if tag.strip()) & PUBLIC_TAGS)
+        and not any(p.lower() in c.get("save_path", "").lower() for p in skip_paths)
+    ]
+    excluded = len(completions) - len(candidates)
+    if excluded:
+        log.info("jf refresh excluded %d/%d completions (downloads path or public tags)", excluded, len(completions))
+    if not candidates:
+        result["skipped"] = "filtered"
+        return result
+
+    try:
+        interval = timedelta(minutes=int(_env("JF_REFRESH_MIN_INTERVAL_MINUTES") or JF_REFRESH_MIN_INTERVAL_MINUTES))
+    except ValueError:
+        log.warning("jf refresh invalid JF_REFRESH_MIN_INTERVAL_MINUTES, using default %d", JF_REFRESH_MIN_INTERVAL_MINUTES)
+        interval = timedelta(minutes=JF_REFRESH_MIN_INTERVAL_MINUTES)
+    last = _load_jf_refresh_state()
+    if last is not None and now - last < interval:
+        result["skipped"] = "rate_limited"
+        result["last_refresh"] = last.isoformat()
+        log.info("jf refresh rate-limited, last refresh at %s", last.isoformat())
+        return result
+
+    instances = []
+    n = 1
+    while True:
+        url = _env(f"JELLYFIN{n}_URL")
+        if not url:
+            break
+        key = _env(f"JELLYFIN{n}_API_KEY")
+        if key:
+            instances.append((n, url.rstrip("/"), key))
+        else:
+            log.warning("jf refresh: JELLYFIN%d URL set but no API key, skipped", n)
+        n += 1
+    if not instances:
+        result["skipped"] = "no_servers"
+        log.warning("jf refresh: no JELLYFIN{N}_URL/_API_KEY configured")
+        return result
+
+    # JF instances are intranet (10.10.1.x): direct connection, never via PT_PROXY
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    ok = 0
+    for n, url, key in instances:
+        name = f"JELLYFIN{n}"
+        try:
+            req = urllib.request.Request(
+                f"{url}/Library/Refresh?api_key={urllib.parse.quote(key, safe='')}",
+                data=b"",
+                method="POST",
+            )
+            with opener.open(req, timeout=10) as r:
+                status = r.status
+        except urllib.error.HTTPError as e:
+            status = e.code
+        except (urllib.error.URLError, OSError) as e:
+            status = f"error: {e}"
+        result["servers"].append({"server": name, "status": status})
+        if isinstance(status, int) and 200 <= status < 300:
+            ok += 1
+            log.info("jf refresh ok %s status=%s", name, status)
+        else:
+            log.warning("jf refresh failed %s status=%s", name, status)
+
+    result["triggered"] = True
+    # window is consumed once a round was attempted (>=1 instance), even if all failed
+    if _save_jf_refresh_state(now):
+        result["last_refresh"] = now.isoformat()
+    log.info("jf refresh triggered completions=%d ok=%d total=%d", len(candidates), ok, len(instances))
+    return result
+
+
 def main():
     log.info("cron check started")
     try:
@@ -101,6 +217,7 @@ def main():
     dead_all = []
     dead_to_notify = []
     completed_public = []
+    jf_refresh = None
 
     for t in torrents:
         h = t["hash"].lower()
@@ -117,6 +234,7 @@ def main():
             "name": t["name"],
             "size_gb": size_gb,
             "tags": tags_str,
+            "save_path": t.get("save_path", ""),
         }
 
         if progress >= 1.0 and h not in known_hashes:
@@ -188,6 +306,7 @@ def main():
                 cmd_complete_by_hash(c["hash"], c["name"])
             except Exception as e:
                 log.error("complete_by_hash failed hash=%s error=%s", c["hash"][:12], e)
+    jf_refresh = _jellyfin_refresh(now, unique_completions)
 
     auto_cleaned = []
     if completed_public:
@@ -285,6 +404,7 @@ def main():
         result = {
             "notifications": notifications,
             "silenced": {"dead": silenced_dead},
+            "jf_refresh": jf_refresh,
             "stats": {
                 "total": len(torrents),
                 "downloading": downloading,

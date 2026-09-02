@@ -98,20 +98,40 @@ cronjob(action='create',
 )
 
 # 自动追剧（只搜索展示，不自动下载）
+# 提示词必须自包含——禁止 skills=["pt-claw.skill"]（~20KB 内联浪费 token）
 cronjob(action='create',
     name="PT自动追剧",
     schedule="0 10 * * *",
     repeat="forever",
-    prompt="""工作目录已设为 pt-claw 项目根目录，secrets.env 和 scripts/ 均可用。自动追剧检查（只搜索展示，不自动下载）。目录下已有 user-preferences.md、pt_wishlist.json、pt_downloaded.json。
+    prompt="""自动追剧检查（只搜索展示，不自动下载）。
 
-1. 读 pt_wishlist.json + pt_downloaded.json
-2. 搜资源 → 三重去重（历史>JF>时间戳）
-3. 检查 exclude_prefixes 排除封禁厂牌
-4. 展示结果：每部列出站点、大小、做种数、下载路径、元数据（日期/导演/主演/简介）
-5. **绝对不推送下载**——等用户说「下」确认
-6. 无新资源则「今日无新资源」
+工作目录: <skill-dir>
+所有脚本和配置文件（secrets.env, pt_wishlist.json, pt_downloaded.json, user-preferences.md）均在此目录下。
 
-脚本内部通过 `_load_env_file()` 自动读取 secrets.env，无需手动 source。""",
+## 追剧流程
+
+1. 读取 pt_wishlist.json 获取关注列表
+2. 对每个关注演员：
+   a. **javbus-api 金丝雀测试**：先查一个已知演员验证 API 可用性。全部 0 → 走 PT 直搜回退
+   b. 成人演员 → `python3 scripts/javbus_star.py --name "演员日文名"` 拿片单（type=normal，不是 star）
+   c. PT 搜索：`python3 scripts/pt_search.py "演员名" --adult --limit 10`（成人区必须 --adult）
+   d. **两阶段 JF 去重**：① 演员名搜索初筛 ② 每个番号逐码 `python3 scripts/jf_query.py --search "CODE"` 验证
+   e. download_history.py filter 过滤已下载
+3. 检查 wishlist 中的 exclude_prefixes（VR, 3D 等），跳过排除厂牌
+4. 展示新资源（站点/大小/做种/标签/路径/简介/发行日期/主演），结尾「回复「下 XXXX」确认」
+5. **绝对不自动推送**，等用户确认
+6. 无新资源 → 简要报告原因（全收录/PT无种/未发布）
+
+## 关键约束
+
+- 禁止检查文件是否存在——文件必定存在，直接执行
+- 搜索成人区必须加 --adult 标志
+- M-Team 走 API（x-api-key），禁止用 Cookie
+- JF 是权威来源，pt_downloaded.json 只是辅助
+- Cron 环境下禁止管道接 python3 -c，用 > 文件 + read_file 替代
+- javbus-api 不可用(502/404/空返回) → PT 直搜回退，不重试
+- 国产创作者在馒头可能用英文名（如 饼干姐姐→FortuneCutie），中文搜不到改英文
+- 排除 VR 资源""",
     skills=[],
     deliver="origin",
     workdir="<skill-dir>",
@@ -159,3 +179,15 @@ cronjob(action='create',
 
 > ⚠️ 定时任务创建后告知用户：「已创建 3 个定时任务——下载进度(15m，含公开种自动清理)、自动追剧(10:00)、CookieCloud同步或Cookie保活(视配置而定)。随时可以说『暂停XX任务』来停止。」
 > CookieCloud 同步和 Cookie 保活互斥：配置了 `COOKIE_CLOUD_HOST` 则只创建同步任务（每4h），未配置则只创建保活任务（每天06:00）。Agent 创建时应检查 `secrets.env` 中是否有 `COOKIE_CLOUD_HOST` 来决定创建哪个。实际同时运行的定时任务始终为 3 个。
+
+### 升级审计：检查已有 cron 是否内联了 skill
+
+如果 pt-claw 是从旧版升级上来的，已有 cron job 可能仍配置了 `skills: ["pt-claw"]`，导致每次运行内联 ~20KB 的完整 SKILL.md。检查方法：
+
+```
+hermes cron list   # 查看已有任务的 skills 字段
+```
+
+**症状**：cron 输出文件大小异常大（CookieCloud 同步 >30KB、追剧 >35KB）— 大部分是内联的 SKILL.md。
+
+**修复**：`cronjob(action='update', job_id='...', skills=[], prompt='...')` 改为自包含 prompt。改后输出文件应缩减至 <5KB。已验证效果：CookieCloud 同步 36KB→1.3KB（-96%），追剧 40KB→4.3KB（-89%）。

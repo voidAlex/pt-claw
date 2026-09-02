@@ -69,6 +69,9 @@ python3 scripts/qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --list-
 # 用户确认后，选择要下载的文件
 python3 scripts/qb_add.py --select-files <HASH> --keep=0,3,5
 
+> ⚠️ `--keep` **必须用 `=` 连接**（`--keep=0,3,5`）。空格形式 `--keep 0` 会报错 `--keep= required (e.g. --keep=0,3,5)` 并退出（exit 1）。2026-08-29 实测。
+> ⚠️ Sukebei/JavBus 成人种子常夹带 20-30 个广告/论坛文宣文件（手游推广图、.url/.html 宣传页），`--list-files` 后 `--keep=<正片索引>` 只保留视频文件（如 34 个文件只留 index 0），再推送。
+
 # 公开磁链 — 自动选最大视频 + 番号匹配文件（兜底）
 python3 scripts/qb_add.py "magnet:?xt=urn:btih:ABCDEF..." --tags sukebei --max-video --code MIDE-990
 
@@ -104,15 +107,16 @@ Agent 应优先用 `--list-files` 让用户确认，`--max-video` 仅批量场�
 python3 scripts/_cron_check.py
 ```
 
-Cron 定时任务的核心脚本，合并了三个功能：
+Cron 定时任务的核心脚本，合并了四个功能：
 
 1. **完成通知**：检测新完成的下载（对比 `pt_completed_last.txt`），去重后输出
 2. **死种告警**：7天+ 0% stalledDL 的种子，首次立即通知，之后每 6h 提醒一次，最多 20 次（状态存储在 `pt_notify_state.json`）
 3. **公开种自动清理**：sukebei/javbus 标签且已完成的种子，自动备份后移除（文件保留）。安全防线：公开种占比超 20% 时跳过清理
+4. **JF 媒体库自动刷新**：有新完成种子（非刷流）时对所有已配置 JF 实例发 `POST /Library/Refresh`。30 分钟限频（`pt_jf_refresh_state.json`）；`save_path` 含 downloads 或公开标签的种子跳过；`JF_REFRESH_ENABLED=0` 可禁用。详见 [jf-integration.md](jf-integration.md)
 
 输出结构化 JSON：
 - `{"silent": true}` — 无事件
-- `{"notifications": [...], "silenced": {"dead": N}, "stats": {...}}` — 含 completion/dead_reminder/auto_cleaned 三种通知类型
+- `{"notifications": [...], "silenced": {"dead": N}, "jf_refresh": {...}, "stats": {...}}` — 含 completion/dead_reminder/auto_cleaned 三种通知类型 + JF 刷新结果（triggered/skipped/servers）
 
 > 此脚本替代了旧的 `qb_public_cleanup.py --check` cron 调用。`qb_public_cleanup.py` 仍可手动使用。
 

@@ -96,6 +96,9 @@ def _save_state(state): ... # fcntl 锁写入
 # progress == 0 + stalledDL + 7天+ → dead（频率控制：6h间隔，最多20次）
 # 公开磁链(sukebei/javbus)已完成 → 自动备份+移除（占比>20%跳过）
 # 去重：strip [prefix] 后取前40字符比较
+# 新完成种子 → _jellyfin_refresh()：save_path=/downloads 跳过 →
+#   30分钟限频(state["jf_refresh_last"]) → POST {JELLYFIN1,2}/Library/Refresh（204=成功，
+#   ProxyHandler({}) 强制直连）→ 任一成功才写时间戳
 # 写回：append 新 hash 到 pt_completed_last.txt，更新 pt_notify_state.json
 # 输出 JSON: {"notifications": [...], "silenced": {"dead": N}, "stats": {...}} 或 {"silent": true}
 ```

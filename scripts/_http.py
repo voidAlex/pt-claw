@@ -27,6 +27,7 @@ import time
 import urllib.parse
 
 import urllib3
+from urllib3.util.retry import Retry
 
 from _logger import get_logger
 
@@ -42,6 +43,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 _pool: urllib3.PoolManager | None = None
 _proxy_pool: dict[str, urllib3.ProxyManager] = {}
 
+# Retry policy shared by both pools. We handle transient network errors
+# ourselves (see the retry loop in fetch()/fetch_raw()), so connect/read/status
+# retries are 0 — but redirects MUST stay enabled: urllib3 couples redirect
+# following to the `retries` knob, and `retries=False` silently disables it
+# (Retry(total=False) -> redirect=0 -> urlopen returns the 3xx response as-is
+# instead of following it, e.g. M-Team dlv2 302 -> CDN was returned un-followed).
+_RETRY_POLICY = Retry(total=5, connect=0, read=0, status=0, redirect=5)
+
 
 def _get_pool(proxy: str | None = None) -> urllib3.PoolManager:
     """Return the global PoolManager (direct) or a ProxyManager (proxied)."""
@@ -52,7 +61,7 @@ def _get_pool(proxy: str | None = None) -> urllib3.PoolManager:
                 proxy,
                 cert_reqs="CERT_NONE",
                 timeout=urllib3.Timeout(connect=15, read=30),
-                retries=False,  # we handle retries ourselves
+                retries=_RETRY_POLICY,
                 maxsize=5,
             )
         return _proxy_pool[proxy]
@@ -60,7 +69,7 @@ def _get_pool(proxy: str | None = None) -> urllib3.PoolManager:
         _pool = urllib3.PoolManager(
             cert_reqs="CERT_NONE",
             timeout=urllib3.Timeout(connect=15, read=30),
-            retries=False,
+            retries=_RETRY_POLICY,
             maxsize=5,
         )
     return _pool

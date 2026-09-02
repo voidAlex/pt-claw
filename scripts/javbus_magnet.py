@@ -162,7 +162,12 @@ def search_scrape(code: str) -> dict:
 
 # ── Helpers ───────────────────────────────────────────────────
 def _get_json(url: str) -> dict | list | None:
-    proxy = _env("PT_PROXY") or None
+    # 本地 javbus-api 不走代理（同 javbus_star.py 的坑：代理把 localhost
+    # 解析成代理机自身 → 502）。仅远程 host 才带 PT_PROXY。
+    proxy = None
+    host = urllib.parse.urlparse(url).hostname or "localhost"
+    if host not in ("localhost", "127.0.0.1", "::1"):
+        proxy = _env("PT_PROXY") or None
     try:
         data, elapsed = fetch_json(url, proxy=proxy)
         return data

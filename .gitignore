@@ -26,6 +26,7 @@ Thumbs.db
 *.local.json
 *.lock
 pt_notify_state.json
+pt_jf_refresh_state.json
 user-preferences.md
 pt_wishlist.json
 pt_downloaded.json

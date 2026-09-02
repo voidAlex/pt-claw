@@ -98,6 +98,34 @@ Body: {"keyword": "Wandering", "page": 1, "size": 25}
 - `status.leechers` → 下载数（字符串）
 - `status.discount` → 促销: PERCENT_50 / FREE / TWOUP / PERCENT_30
 
+### ✅ POST /torrent/detail — 获取种子详情（发行日期/演员/导演/片商/mediainfo）
+
+**用途**：追剧 cron 发现 M-Team 预发布（javbus 未收录的新番号，如 SNOS-360）时，用 detail 端点取发行日期 + DMM 元数据（演员/导演/片商/标签/是否中字），补齐报告的「发行日期/主演/导演/简介」字段。
+
+**⚠️ 参数陷阱（已验证 2026-08-22）**：与 genDlToken 一样，`id` 必须走 **query string + 空 body（不设 Content-Type）**。发 `Content-Type: application/json` + body `{"id": "1234177"}` 会返回 `{"code": 1, "message": "參數錯誤"}`。
+
+```python
+POST https://api.m-team.cc/api/torrent/detail?id=<torrent_id>
+Headers: x-api-key, Accept: application/json, Origin: https://www.m-team.cc
+Body: 空（不设 Content-Type）
+```
+
+响应关键字段（`data` 下）：
+- `createdDate` / `lastModifiedDate` → 上架/修改时间（预发布的「发行日期」取 createdDate）
+- `dmmCode` → `https://video.dmm.co.jp/av/content/?id=snos00360`（DMM 商品号小写无连字符）
+- `category` → 分类 ID（410=AV有码 HD）
+- `size` → 字节数
+- `status.seeders` / `status.leechers` / `status.discount` → 做种/下载/促销（同 search）
+- `hasChineseSubtitle` → bool 是否中字
+- `dmmInfo.actressList` → 主演列表（**判断単体/多人共演的权威来源**，比标题更可靠）
+- `dmmInfo.director` → 导演
+- `dmmInfo.maker` / `dmmInfo.label` → 片商/厂牌（如 エスワン ナンバーワンスタイル / S1 NO.1 STYLE）
+- `dmmInfo.keywordList` → DMM 标签（フェラ/単体作品/独占配信/4K 等；⚠️ 4K 是 DMM 标签，不代表实际 4K，以 mediainfo 为准）
+- `mediainfo` → 完整 MediaInfo 文本（判真实分辨率/编码/FPS/时长；如 avc1+7061kb/s+59.94fps+7.02GiB+2h22min = 1080p60 非 4K）
+- `originFileName` → 原文件名（如 `SNOS-360.mp4.torrent`）
+
+**实现**：`mteam_api.py` 目前只封装了 search + genDlToken，无 detail 函数。临时用 `_http.fetch` + `_common._env` 内联调用即可（追剧 cron 一次性场景）。
+
 ### ✅ POST /api/member/profile — 获取用户信息
 
 需要参数 `{"userId": <USER_ID>}`。
@@ -140,6 +168,18 @@ Body: 空（不设 Content-Type）
 返回的 URL 可直接用于 qBittorrent 添加下载。qBittorrent 发送 HTTP 请求时会自动带 `Accept: application/x-bittorrent`，服务器返回 `.torrent` 文件。
 
 **注意**: genDlToken 返回的 URL 有时效性（sign 与 t 时间戳绑定），生成后尽快使用。
+
+**⚠️ RSS dlv2 下载 URL 不能走代理**：genDlToken 返回的下载 URL（`/api/rss/dlv2?sign=...`）对代理敏感——通过 `-x $PT_PROXY` 下载会触发 302 重定向到 Google HTML 页面（~138 bytes），而非 .torrent 文件。而搜索 API 和 genDlToken 端点本身通过代理正常工作。**仅 dlv2 下载端点需要直连**。
+
+```bash
+# ❌ 走代理 — 返回 HTML
+curl -sL -o /tmp/x.torrent -x $PT_PROXY "https://api.m-team.cc/api/rss/dlv2?sign=..."
+
+# ✅ 直连 — 返回 .torrent（~80KB+）
+curl -sL -o /tmp/x.torrent "https://api.m-team.cc/api/rss/dlv2?sign=..."
+```
+
+与 API 故障模式 ③（genDlToken 和 dlv2 同时降级）不同：本场景 genDlToken 正常返回 URL，仅 dlv2 下载时对代理敏感。诊断：`mteam_api.py download` 返回有效 URL → 换直连 `curl -sL` 下载即可。
 
 ### 三方项目 genDlToken 对比
 
