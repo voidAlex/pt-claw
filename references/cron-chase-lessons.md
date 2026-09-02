@@ -307,9 +307,11 @@ M-Team 有时比 JavBus 更早收录新片。已验证案例（2026-07-21）：
 - **javbus 分页计数 ≠ 唯一片单数**：分页求和可能比去重后多（2026-08-27 fuua 三页 30+30+11=71，去重后唯一 70，跨页重复 1 条；2026-08-28 三页 30+30+12=72 → 去重 70，跨页重复 2 条）。chase_extract.py 的 `seen` 集合已去重，跨日对比片单数量一律用去重后集合，别被分页计数吓到以为多了新番号
 - **跨日对比看 CANDIDATES 不看 TOTAL（2026-08-28）**：chase_extract 输出 `TOTAL=211 CANDIDATES=157 FILTERED={'nonstd': 52, 'exclude_multi': 2}`，昨日为 `TOTAL=210 CANDIDATES=157 FILTERED={'nonstd': 51, ...}`——TOTAL 会随 nonstd 记录增减而漂移（多/少一条写真或 VR 记录就 ±1），但 CANDIDATES 稳定。判定「片单有没有变」只看 CANDIDATES 数与 FILTERED 分布，TOTAL ±1 是噪音，别当新番号报告，也别写进验证摘要造成误读
 
-## _cron_javbus_check.py 超时问题
+## _cron_javbus_check.py 超时问题（⚠️ 该脚本已于 2026-09-02 删除）
 
-`_cron_javbus_check.py` 设计为单次调用完成所有演员的 javbus-api 查询 + JF 去重 + 下载历史过滤，但在 cron 环境实测中频繁超时（120s 无输出退出）。原因可能包括：
+> 早期原型脚本（根目录游离副本，只查 JF1 不查 JF2，从未入 git），已被 `scripts/jf_batch_check.py` + `chase_extract.py`/`chase_crosscheck.py` 流水线取代并删除。以下教训保留作历史参考。
+
+`_cron_javbus_check.py` 曾设计为单次调用完成所有演员的 javbus-api 查询 + JF 去重 + 下载历史过滤，但在 cron 环境实测中频繁超时（120s 无输出退出）。原因可能包括：
 - javbus-api 容器对多演员连续查询的响应延迟累积
 - 脚本内部 JF 逐码验证逻辑阻塞
 

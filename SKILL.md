@@ -121,7 +121,6 @@ python3 pt_search.py "饼干姐姐" --site pttime --adult             # PTTime �
 | `javbus_magnet.py` | JavBus 磁链爬取 |
 | `javbus_star.py` | 演员片单交叉对比 |
 | `verify_javbus_proxy.py` | 本地服务代理门回归探针：javbus_star/javbus_magnet 对 localhost 不带代理、对远程带 PT_PROXY（改 `_http.py` 或代理逻辑后必跑，exit 0=全过） |
-| `_cron_javbus_check.py` | Cron 批量检查（直连 javbus-api → JF/history 去重，无代理） |
 | `jf_query.py` | Jellyfin 查询 |
 | `jf_batch_check.py` | 批量 JF 逐码拥有检查（从 secrets.env 读 JF1/JF2 凭据，JF1 优先 JF2 兜底；追剧 cron 批量去重用，123 码 ~2s） |
 | `chase_crosscheck.py` | PT actor 搜索 vs javbus 片单交叉核对（找 M-Team 预发布/新上架；追剧 cron 流水线第 ⑥ 步） |

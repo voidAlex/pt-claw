@@ -139,7 +139,7 @@ curl -s -m 15 "http://localhost:8922/api/movies/search?keyword=ACTOR3&page=1" -o
 
 ## Consolidated javbus Bulk Check (Cron) ⚠️ 可能超时
 
-`_cron_javbus_check.py` 提供单次调用完成 javbus-api + JF + download_history 的全链路查询，**但在 cron 环境实测中频繁超时（120s 无输出）**。原因可能是 javbus-api 多演员连续查询的响应延迟累积或 JF 逐码验证逻辑阻塞。**推荐 fallback**：使用上方 "javbus-api Batch Fetch" 的手动顺序 curl 流程 + JF 两阶段去重，此模式在 2026-07-17 对 4 演员追剧中稳定完成（~3 分钟）。
+`_cron_javbus_check.py`（已于 2026-09-02 删除，教训保留）曾提供单次调用完成 javbus-api + JF + download_history 的全链路查询，**但在 cron 环境实测中频繁超时（120s 无输出）**。原因可能是 javbus-api 多演员连续查询的响应延迟累积或 JF 逐码验证逻辑阻塞。**推荐 fallback**：使用上方 "javbus-api Batch Fetch" 的手动顺序 curl 流程 + JF 两阶段去重，此模式在 2026-07-17 对 4 演员追剧中稳定完成（~3 分钟）。
 
 若仍要尝试 `_cron_javbus_check.py`，注意**不要 `source secrets.env`**（某些值如 `sl-session=...` 会导致 bash 报 `未找到命令`）。脚本内部自动通过 `_load_env_file()` 读取 `.env` 文件：
 
